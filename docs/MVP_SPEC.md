@@ -23,6 +23,25 @@ The architecture should remain generic enough to add **text-generation challenge
 
 ---
 
+## Dropbox Challenge Alignment
+
+PromptForward is submitted to the Dropbox track *"turn digital chaos into something useful"*.
+
+Storage split (already reflected throughout this document):
+
+```text
+Dropbox   → all image bytes: target images and generated images
+MongoDB   → everything else: rubrics, analysis metadata, attempts, games, scores
+```
+
+Nothing derived from an image is stored in Dropbox, and no image bytes are stored in MongoDB. MongoDB holds only Dropbox references (`dropboxFileId`, `dropboxPath`) plus the image hash and dimensions.
+
+The Challenge Analyzer is what connects this to the track: it turns an unlabeled image in a Dropbox folder into a structured, weighted description of what the image actually contains. A folder of unsorted images becomes a set of machine-readable rubrics without anyone tagging anything by hand.
+
+Demo framing: drop images into `DROPBOX_CHALLENGES_FOLDER`, run the seed script, and every new image becomes a playable, described challenge automatically.
+
+---
+
 ## Stack Decision (fill in before handoff)
 
 ```text
