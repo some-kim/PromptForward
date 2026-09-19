@@ -41,6 +41,7 @@ class DropboxConfig:
     app_key: str
     app_secret: str
     refresh_token: str
+    access_token: str
     challenges_folder: str
     generated_folder: str
 
@@ -72,7 +73,6 @@ REQUIRED_VARS = (
     "MONGODB_DB_NAME",
     "DROPBOX_APP_KEY",
     "DROPBOX_APP_SECRET",
-    "DROPBOX_REFRESH_TOKEN",
     "DROPBOX_CHALLENGES_FOLDER",
     "DROPBOX_GENERATED_FOLDER",
 )
@@ -84,6 +84,8 @@ def load_config(env: dict[str, str] | None = None) -> Config:
         env = dict(os.environ)
 
     missing = [name for name in REQUIRED_VARS if not (env.get(name) or "").strip()]
+    if not (env.get("DROPBOX_REFRESH_TOKEN") or env.get("DROPBOX_ACCESS_TOKEN") or "").strip():
+        missing.append("DROPBOX_REFRESH_TOKEN or DROPBOX_ACCESS_TOKEN")
     if missing:
         raise ConfigError(
             "Missing required environment variables: " + ", ".join(missing) + ". "
@@ -107,7 +109,8 @@ def load_config(env: dict[str, str] | None = None) -> Config:
         dropbox=DropboxConfig(
             app_key=env["DROPBOX_APP_KEY"],
             app_secret=env["DROPBOX_APP_SECRET"],
-            refresh_token=env["DROPBOX_REFRESH_TOKEN"],
+            refresh_token=env.get("DROPBOX_REFRESH_TOKEN", ""),
+            access_token=env.get("DROPBOX_ACCESS_TOKEN", ""),
             challenges_folder=env["DROPBOX_CHALLENGES_FOLDER"].rstrip("/"),
             generated_folder=env["DROPBOX_GENERATED_FOLDER"].rstrip("/"),
         ),

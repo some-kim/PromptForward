@@ -19,14 +19,13 @@ import httpx
 from app.config import get_config
 from app.models import GeneratedImage
 
+# Muse Image takes the ratio as a "WxH" size string; the generator picks the real resolution.
 SUPPORTED_ASPECT_RATIOS: dict[str, float] = {
-    "1:1": 1.0,
-    "3:2": 3 / 2,
-    "2:3": 2 / 3,
-    "4:3": 4 / 3,
-    "3:4": 3 / 4,
-    "16:9": 16 / 9,
-    "9:16": 9 / 16,
+    "1024x1024": 1.0,
+    "1536x1024": 3 / 2,
+    "1024x1536": 2 / 3,
+    "1792x1024": 16 / 9,
+    "1024x1792": 9 / 16,
 }
 
 
@@ -36,7 +35,7 @@ class ImageGenerationError(RuntimeError):
 
 def closest_aspect_ratio(width: int, height: int) -> str:
     if width <= 0 or height <= 0:
-        return "1:1"
+        return "1024x1024"
     target = width / height
     return min(
         SUPPORTED_ASPECT_RATIOS, key=lambda name: abs(SUPPORTED_ASPECT_RATIOS[name] - target)
@@ -49,8 +48,15 @@ async def generate_image(prompt: str, aspect_ratio: str) -> GeneratedImage:
         "model": config.meta.image_model,
         "prompt": prompt,
         "n": 1,
-        "aspect_ratio": aspect_ratio,
+        "size": aspect_ratio,
         "response_format": "b64_json",
+        "output_format": "png",
+        # A prompt should be judged on its own words, not on references the model searched for.
+        "tool_enablement": {
+            "enable_image_search": False,
+            "enable_web_search": False,
+            "enable_shell": False,
+        },
     }
 
     started = time.monotonic()
@@ -86,7 +92,10 @@ async def _extract_image(client: httpx.AsyncClient, body: dict[str, Any]) -> tup
         raise ImageGenerationError(f"Meta image generation returned no image: {body}")
 
     item = items[0]
-    mime_type = item.get("mime_type") or "image/png"
+    output_format = body.get("output_format") or "png"
+    mime_type = (
+        item.get("mime_type") or f"image/{'jpeg' if output_format == 'jpg' else output_format}"
+    )
 
     if item.get("b64_json"):
         return base64.b64decode(item["b64_json"]), mime_type

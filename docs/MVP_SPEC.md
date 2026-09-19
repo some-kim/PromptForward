@@ -127,7 +127,9 @@ MONGODB_DB_NAME=promptforward
 
 DROPBOX_APP_KEY=
 DROPBOX_APP_SECRET=
+# One of the two: a refresh token (preferred) or a short-lived access token for a demo.
 DROPBOX_REFRESH_TOKEN=
+DROPBOX_ACCESS_TOKEN=
 DROPBOX_CHALLENGES_FOLDER=/PromptForward/Challenges
 DROPBOX_GENERATED_FOLDER=/PromptForward/Generated
 
@@ -603,8 +605,9 @@ Use Meta Muse Image via the Meta Model API, configured through `META_API_BASE_UR
 Rules:
 
 - **Text-to-image only.** Never pass the target image (or any image) to the generator. Do not use edit/compose endpoints.
-- Disable any optional search grounding or tool use if the API exposes it, so results depend only on the prompt.
-- Request the supported aspect ratio closest to the target's (stored `width`/`height` on the challenge). This keeps composition comparisons fair.
+- Disable Muse Image's built-in image search, web search, and shell tools (`tool_enablement`), so a result depends only on the prompt rather than references the model found on the web.
+- Request the supported aspect ratio closest to the target's (stored `width`/`height` on the challenge), passed as Muse Image's `size` `"WxH"` string. This keeps composition comparisons fair.
+- Ask for `output_format: png`, since the stored bytes are served straight to the browser and re-read by the result evaluator.
 - 1 image per call.
 - Provider failures, timeouts, and safety refusals do **not** consume a generation. Return an error and release the reserved slot.
 - Prefer inline `b64_json` responses. A response that carries a URL instead is only fetched when it is `https` on the configured `META_API_BASE_URL` host, so a redirected or compromised endpoint cannot make the backend fetch internal addresses.

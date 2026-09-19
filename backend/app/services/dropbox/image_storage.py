@@ -1,6 +1,7 @@
 """Dropbox image storage. MongoDB keeps references; Dropbox keeps bytes.
 
-Refresh-token auth keeps the demo alive past the ~4 hour access token lifetime.
+Refresh-token auth keeps the demo alive past the ~4 hour access token lifetime; a bare
+access token is accepted as a fallback and simply stops working when it expires.
 """
 
 from __future__ import annotations
@@ -31,11 +32,13 @@ class ImageStorageError(RuntimeError):
 @functools.lru_cache(maxsize=1)
 def get_dropbox() -> dropbox.Dropbox:
     config = get_config()
-    return dropbox.Dropbox(
-        app_key=config.dropbox.app_key,
-        app_secret=config.dropbox.app_secret,
-        oauth2_refresh_token=config.dropbox.refresh_token,
-    )
+    if config.dropbox.refresh_token:
+        return dropbox.Dropbox(
+            app_key=config.dropbox.app_key,
+            app_secret=config.dropbox.app_secret,
+            oauth2_refresh_token=config.dropbox.refresh_token,
+        )
+    return dropbox.Dropbox(oauth2_access_token=config.dropbox.access_token)
 
 
 def extension_for(mime_type: str) -> str:
