@@ -11,6 +11,7 @@ import {
 import { GameMode } from "./components/GameMode";
 import { Home } from "./components/Home";
 import { LearningMode } from "./components/LearningMode";
+import { LogoMark } from "./components/LogoMark";
 import { pickRandom } from "./pick";
 import {
   getDifficulty,
@@ -149,20 +150,11 @@ export default function App() {
   return (
     <main>
       <header className="app-header">
-        <h1 className="logo" aria-label="PromptForward">
-          <span className="c1">P</span>
-          <span className="c2">r</span>
-          <span className="c3">o</span>
-          <span className="c4">m</span>
-          <span className="c1">p</span>
-          <span className="c2">t</span>
-          <span className="c3">F</span>
-          <span className="c4">o</span>
-          <span className="c1">r</span>
-          <span className="c2">w</span>
-          <span className="c3">a</span>
-          <span className="c4">r</span>
-          <span className="c1">d</span>
+        <h1 className="logo">
+          <LogoMark />
+          <span>
+            Prompt<span className="logo-accent">Forward</span>
+          </span>
         </h1>
         <p>Write better prompts with fewer wasted generations.</p>
       </header>
