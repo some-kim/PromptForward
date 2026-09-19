@@ -66,7 +66,6 @@ def attempt_view(attempt: dict[str, Any]) -> dict[str, Any]:
         "id": attempt_id,
         "challengeId": str(attempt["challengeId"]),
         "gameId": str(attempt["gameId"]) if attempt.get("gameId") else None,
-        "userId": attempt["userId"],
         "displayName": attempt.get("displayName"),
         "mode": attempt["mode"],
         "status": attempt["status"],
@@ -87,7 +86,6 @@ def opponent_view(attempt: dict[str, Any], *, reveal: bool) -> dict[str, Any]:
         return attempt_view(attempt)
     return {
         "id": str(attempt["_id"]),
-        "userId": attempt["userId"],
         "displayName": attempt.get("displayName"),
         "status": attempt["status"],
     }
@@ -102,22 +100,33 @@ def game_view(
         attempt = attempts_by_id.get(str(player["attemptId"]))
         if attempt is None:
             continue
-        reveal = completed or player["userId"] == viewer_id
+        is_you = player["userId"] == viewer_id
         players.append(
             {
-                "userId": player["userId"],
+                # A player's id is never published: it is the only thing standing between an
+                # onlooker and that player's prompt and image capability while the game runs.
+                "isYou": is_you,
                 "displayName": player["displayName"],
-                "attempt": opponent_view(attempt, reveal=reveal),
+                "attempt": opponent_view(attempt, reveal=completed or is_you),
             }
         )
 
+    winner_id = game.get("winnerUserId")
     return {
         "id": str(game["_id"]),
         "challengeId": str(game["challengeId"]),
         "status": game["status"],
-        "winnerUserId": game.get("winnerUserId"),
+        "winner": _winner_label(game, winner_id, viewer_id),
         "players": players,
     }
+
+
+def _winner_label(game: dict[str, Any], winner_id: str | None, viewer_id: str) -> str | None:
+    if game["status"] != "completed":
+        return None
+    if winner_id is None:
+        return "draw"
+    return "you" if winner_id == viewer_id else "opponent"
 
 
 def _generations_remaining(attempt: dict[str, Any]) -> int:

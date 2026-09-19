@@ -384,7 +384,7 @@ class TestGameMode:
         final = await client.get(f"/api/games/{game_id}", params={"userId": player_one})
         body = final.json()
         assert body["status"] == "completed"
-        assert body["winnerUserId"] in {player_one, player_two, None}
+        assert body["winner"] in {"you", "opponent", "draw"}
         for player in body["players"]:
             attempt = player["attempt"]
             assert attempt["scores"]["final"] is not None
@@ -419,7 +419,7 @@ class TestGameMode:
             f"/api/games/{game_id}/generate", json={"userId": "p1", "prompt": "a different prompt"}
         )
         assert retried.status_code == 200
-        mine = next(p for p in retried.json()["players"] if p["userId"] == "p1")
+        mine = next(p for p in retried.json()["players"] if p["isYou"])
         assert len(mine["attempt"]["generations"]) == 1
         assert mine["attempt"]["generations"][0]["prompt"] == STRONG_PROMPT
         assert mine["attempt"]["scores"]["promptQuality"] is not None
@@ -469,7 +469,7 @@ class TestGameMode:
         )
 
         as_opponent = await client.get(f"/api/games/{game_id}", params={"userId": "p2"})
-        opponent = next(p for p in as_opponent.json()["players"] if p["userId"] == "p1")
+        opponent = next(p for p in as_opponent.json()["players"] if not p["isYou"])
         assert "generations" not in opponent["attempt"]
         assert opponent["attempt"]["status"] == "submitted"
         assert STRONG_PROMPT not in as_opponent.text
@@ -482,7 +482,26 @@ class TestGameMode:
         assert peek.status_code == 403
 
         as_owner = await client.get(f"/api/games/{game_id}", params={"userId": "p1"})
-        mine = next(p for p in as_owner.json()["players"] if p["userId"] == "p1")
+        mine = next(p for p in as_owner.json()["players"] if p["isYou"])
         image = await client.get(mine["attempt"]["generations"][0]["imageUrl"])
         assert image.status_code == 200
         assert image.headers["content-type"] == "image/png"
+
+    async def test_player_ids_are_never_published(self, client):
+        challenge_id = await create_challenge(client)
+        game_id = (
+            await client.post(
+                "/api/games",
+                json={"userId": "secret-alice", "displayName": "Kris", "challengeId": challenge_id},
+            )
+        ).json()["id"]
+        await client.post(
+            f"/api/games/{game_id}/join", json={"userId": "secret-bob", "displayName": "Sam"}
+        )
+        await client.post(
+            f"/api/games/{game_id}/generate",
+            json={"userId": "secret-alice", "prompt": STRONG_PROMPT},
+        )
+
+        as_opponent = await client.get(f"/api/games/{game_id}", params={"userId": "secret-bob"})
+        assert "secret-alice" not in as_opponent.text

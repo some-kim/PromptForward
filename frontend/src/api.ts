@@ -38,7 +38,6 @@ export type Attempt = {
   id: string
   challengeId: string
   gameId: string | null
-  userId: string
   displayName: string | null
   mode: 'learning' | 'game'
   status: 'in_progress' | 'submitted'
@@ -54,8 +53,8 @@ export type Game = {
   id: string
   challengeId: string
   status: 'waiting' | 'active' | 'completed'
-  winnerUserId: string | null
-  players: { userId: string; displayName: string; attempt: Attempt }[]
+  winner: 'you' | 'opponent' | 'draw' | null
+  players: { isYou: boolean; displayName: string; attempt: Attempt }[]
 }
 
 export class ApiError extends Error {

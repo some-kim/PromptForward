@@ -30,16 +30,19 @@ export function GameMode({ game: initialGame, playerId, onExit }: Props) {
     return () => clearInterval(timer)
   }, [game.id, game.status, playerId])
 
-  const me = game.players.find((player) => player.userId === playerId)
-  const opponent = game.players.find((player) => player.userId !== playerId)
-  const hasGenerated = (me?.attempt.generations?.length ?? 0) > 0
+  const me = game.players.find((player) => player.isYou)
+  const opponent = game.players.find((player) => !player.isYou)
+  const myGeneration = me?.attempt.generations?.[0]
+  const hasGenerated = myGeneration !== undefined
+  // The image is made but scoring the prompt failed: the only action left is to score it again.
+  const needsScore = hasGenerated && myGeneration.promptQuality === null
   const joinUrl = `${location.origin}/#/game/${game.id}`
 
   async function generate() {
     setGenerating(true)
     setError(null)
     try {
-      setGame(await api.generateGameImage(game.id, playerId, prompt))
+      setGame(await api.generateGameImage(game.id, playerId, myGeneration?.prompt ?? prompt))
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : String(caught))
     } finally {
@@ -74,10 +77,12 @@ export function GameMode({ game: initialGame, playerId, onExit }: Props) {
           {game.players.map((player) => {
             const generation = player.attempt.generations?.[0]
             return (
-              <div key={player.userId} className="player-result">
+              <div key={player.displayName} className="player-result">
                 <h3>
                   {player.displayName}
-                  {game.winnerUserId === player.userId && <span className="winner"> — winner</span>}
+                  {game.winner === (player.isYou ? 'you' : 'opponent') && (
+                    <span className="winner"> — winner</span>
+                  )}
                 </h3>
                 {generation && <img src={generation.imageUrl} alt={`${player.displayName} result`} />}
                 <Scoreboard attempt={player.attempt} showFinal />
@@ -85,7 +90,7 @@ export function GameMode({ game: initialGame, playerId, onExit }: Props) {
               </div>
             )
           })}
-          {game.winnerUserId === null && <p className="winner">Draw</p>}
+          {game.winner === 'draw' && <p className="winner">Draw</p>}
         </div>
       ) : (
         <div className="prompt-panel">
@@ -105,15 +110,31 @@ export function GameMode({ game: initialGame, playerId, onExit }: Props) {
           <div className="actions">
             <button
               onClick={generate}
-              disabled={!prompt.trim() || generating || hasGenerated || game.status !== 'active'}
+              disabled={
+                generating ||
+                game.status !== 'active' ||
+                (needsScore ? false : !prompt.trim() || hasGenerated)
+              }
             >
-              {generating ? 'Generating… this takes a while' : 'Generate'}
+              {generating
+                ? 'Working… this takes a while'
+                : needsScore
+                  ? 'Score my prompt again'
+                  : 'Generate'}
             </button>
           </div>
-          {hasGenerated && (
+          {needsScore ? (
             <p className="hint">
-              Your prompt scored {round(me?.attempt.scores?.promptQuality)}. Waiting for your opponent.
+              Your image is safe, but scoring your prompt failed. Retry scoring — it will not use a
+              second generation.
             </p>
+          ) : (
+            hasGenerated && (
+              <p className="hint">
+                Your prompt scored {round(me?.attempt.scores?.promptQuality)}. Waiting for your
+                opponent.
+              </p>
+            )
           )}
         </div>
       )}
