@@ -152,6 +152,7 @@ button.link {
   font-weight: 600;
   font-size: 1.05rem;
   padding: 0.2rem 0;
+  text-align: right;
 }
 
 .avatar {

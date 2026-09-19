@@ -51,20 +51,20 @@ export function Home({
   return (
     <section className="home">
       <div className="top-bar">
+        <span className="target-count">
+          {challenges === null ? "…" : `${challenges.length} targets`}
+        </span>
         <div className="player-chip">
-          <span className="avatar">
-            {(name || "P").slice(0, 1).toUpperCase()}
-          </span>
           <input
             value={name}
             placeholder="Player"
             aria-label="Display name"
             onChange={(event) => onNameChange(event.target.value)}
           />
+          <span className="avatar">
+            {(name || "P").slice(0, 1).toUpperCase()}
+          </span>
         </div>
-        <span className="target-count">
-          {challenges === null ? "…" : `${challenges.length} targets`}
-        </span>
       </div>
 
       <div className="difficulty-bar">
