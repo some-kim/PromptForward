@@ -67,15 +67,15 @@ export function Home({
           <figure className="example">
             <img
               src={`/examples/${difficulty}.jpg`}
-              alt={`Example of a ${difficulty} target`}
+              alt={`Example of a ${difficulty} image`}
             />
-            <figcaption>Example {difficulty} target</figcaption>
+            <figcaption>Example {difficulty} image</figcaption>
           </figure>
         ) : (
           <p className="arena-empty">
             {challenges === null
-              ? "Loading targets…"
-              : `No ${difficulty} targets yet — seed some images at this difficulty.`}
+              ? "Loading images…"
+              : `No ${difficulty} images yet — seed some at this difficulty.`}
           </p>
         )}
       </div>
