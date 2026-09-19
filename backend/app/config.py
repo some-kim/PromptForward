@@ -17,6 +17,7 @@ class ConfigError(RuntimeError):
 @dataclass(frozen=True)
 class OpenAIConfig:
     api_key: str
+    base_url: str
     challenge_analyzer_model: str
     prompt_evaluator_model: str
     result_evaluator_model: str
@@ -84,7 +85,9 @@ def load_config(env: dict[str, str] | None = None) -> Config:
         env = dict(os.environ)
 
     missing = [name for name in REQUIRED_VARS if not (env.get(name) or "").strip()]
-    if not (env.get("DROPBOX_REFRESH_TOKEN") or env.get("DROPBOX_ACCESS_TOKEN") or "").strip():
+    if not any(
+        (env.get(name) or "").strip() for name in ("DROPBOX_REFRESH_TOKEN", "DROPBOX_ACCESS_TOKEN")
+    ):
         missing.append("DROPBOX_REFRESH_TOKEN or DROPBOX_ACCESS_TOKEN")
     if missing:
         raise ConfigError(
@@ -95,6 +98,7 @@ def load_config(env: dict[str, str] | None = None) -> Config:
     return Config(
         openai=OpenAIConfig(
             api_key=env["OPENAI_API_KEY"],
+            base_url=(env.get("OPENAI_BASE_URL") or "").rstrip("/"),
             challenge_analyzer_model=env["OPENAI_CHALLENGE_ANALYZER_MODEL"],
             prompt_evaluator_model=env["OPENAI_PROMPT_EVALUATOR_MODEL"],
             result_evaluator_model=env["OPENAI_RESULT_EVALUATOR_MODEL"],

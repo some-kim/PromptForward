@@ -22,7 +22,10 @@ class LLMResponseError(RuntimeError):
 
 @functools.lru_cache(maxsize=1)
 def get_client() -> AsyncOpenAI:
-    return AsyncOpenAI(api_key=get_config().openai.api_key)
+    config = get_config().openai
+    # Any OpenAI-compatible endpoint works here, so the evaluators can run on another
+    # provider's models without touching the evaluator code.
+    return AsyncOpenAI(api_key=config.api_key, base_url=config.base_url or None)
 
 
 def image_data_url(image_bytes: bytes, mime_type: str) -> str:

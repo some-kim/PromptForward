@@ -94,6 +94,8 @@ Create a `.env` file in the backend.
 # ============================================
 
 OPENAI_API_KEY=
+# Optional: any OpenAI-compatible endpoint. Empty means OpenAI itself.
+OPENAI_BASE_URL=
 
 # Model names are read only from env.
 # The app must fail fast at startup if any are empty.
@@ -183,6 +185,7 @@ Do not scatter model names throughout the code.
 - Send images to OpenAI as base64 data URLs read from Dropbox by the backend. Do not pass Dropbox paths.
 - Validate every response in backend code (see each service). On invalid output, retry **once**. If it fails again, return an error to the client. A failed evaluation never consumes a generation.
 - The LLM never computes final or weighted scores. It returns per-criterion judgments; backend code does all math.
+- The evaluators talk to an OpenAI-compatible endpoint: `OPENAI_BASE_URL` (empty = OpenAI) plus the three model names. Any vision model with JSON-schema structured output can stand in — the demo currently runs them on Meta `muse-spark-1.3` while the OpenAI account is out of credits, and reverts by clearing `OPENAI_BASE_URL` and restoring the `gpt-4o` model names.
 
 ---
 
