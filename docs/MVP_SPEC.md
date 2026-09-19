@@ -1109,18 +1109,18 @@ A game-style lobby, not a grid of every challenge. The player sets a difficulty 
 │     Difficulty  [Easy][Med][Hard]   │
 │                                     │
 │        ┌───────────────────┐        │
-│        │   random target   │        │
-│        │      preview      │        │
+│        │         ?         │        │
+│        │  hidden until you │        │
+│        │       start       │        │
 │        └───────────────────┘        │
-│              [ Shuffle ]            │
 │                                     │
 │   [  Learning  ]     [  Battle  ]   │
 └─────────────────────────────────────┘
 ```
 
 - Difficulty is a player setting stored in the browser; it defaults to `easy`.
-- The preview is a random challenge of that difficulty, re-rolled by **Shuffle** and whenever the difficulty changes.
-- **Learning** starts a solo attempt on a random target of that difficulty (the previewed one).
+- The target is never shown on the lobby: the card is a placeholder until a mode starts, so nobody can pre-read the image and pre-write a prompt. Inside Learning and Battle the target is visible as the reference to describe.
+- **Learning** starts a solo attempt on a random target of that difficulty.
 - **Battle** creates a game and lets the server pick the random target for that difficulty, then shows the invite link.
 - If a difficulty has no targets yet, both buttons are disabled with a "no targets at this difficulty" note.
 

@@ -7,17 +7,10 @@ const BLURB: Record<Difficulty, string> = {
   hard: "Many subjects, unusual style, precise composition.",
 };
 
-function pickRandom(
-  challenges: Challenge[],
-  avoid?: Challenge,
-): Challenge | null {
-  const pool =
-    challenges.length > 1
-      ? challenges.filter((c) => c.id !== avoid?.id)
-      : challenges;
-  return pool.length === 0
+function pickRandom(challenges: Challenge[]): Challenge | null {
+  return challenges.length === 0
     ? null
-    : pool[Math.floor(Math.random() * pool.length)];
+    : challenges[Math.floor(Math.random() * challenges.length)];
 }
 
 type HomeProps = {
@@ -42,7 +35,6 @@ export function Home({
   onError,
 }: HomeProps) {
   const [challenges, setChallenges] = useState<Challenge[] | null>(null);
-  const [preview, setPreview] = useState<Challenge | null>(null);
 
   // Remounted per difficulty (keyed by the parent), so this only ever runs one fetch.
   useEffect(() => {
@@ -52,7 +44,6 @@ export function Home({
       .then((found) => {
         if (!current) return;
         setChallenges(found);
-        setPreview(pickRandom(found));
       })
       .catch((caught) => current && onError(String(caught)));
     return () => {
@@ -60,7 +51,7 @@ export function Home({
     };
   }, [difficulty, onError]);
 
-  const empty = challenges !== null && challenges.length === 0;
+  const ready = challenges !== null && challenges.length > 0;
 
   return (
     <section className="home">
@@ -98,16 +89,14 @@ export function Home({
       </div>
 
       <div className="arena">
-        {preview ? (
+        {ready ? (
           <>
-            <img src={preview.imageUrl} alt="Random target" />
-            <button
-              className="link shuffle"
-              onClick={() => setPreview(pickRandom(challenges ?? [], preview))}
-              disabled={busy || (challenges?.length ?? 0) < 2}
-            >
-              ⟳ Shuffle target
-            </button>
+            <div className="hidden-target" aria-hidden="true">
+              ?
+            </div>
+            <p className="arena-empty">
+              Your target stays hidden until you start.
+            </p>
           </>
         ) : (
           <p className="arena-empty">
@@ -121,15 +110,18 @@ export function Home({
       <div className="big-buttons">
         <button
           className="big learning"
-          disabled={busy || empty || !preview}
-          onClick={() => preview && onLearn(preview)}
+          disabled={busy || !ready}
+          onClick={() => {
+            const target = pickRandom(challenges ?? []);
+            if (target) onLearn(target);
+          }}
         >
           Learning
           <small>Practice, 3 tries</small>
         </button>
         <button
           className="big battle"
-          disabled={busy || empty}
+          disabled={busy || !ready}
           onClick={onBattle}
         >
           Battle
