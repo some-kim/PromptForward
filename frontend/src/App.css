@@ -316,8 +316,10 @@ button.big {
   display: grid;
   gap: 0.25rem;
   padding: 1.1rem 1rem;
-  border-radius: 18px;
-  font-size: 1.25rem;
+  border-radius: 20px;
+  border: 3px solid var(--text);
+  font-family: Fredoka, Inter, system-ui, sans-serif;
+  font-size: 1.3rem;
   font-weight: 600;
 }
 
@@ -328,15 +330,13 @@ button.big small {
 }
 
 button.big.learning {
-  background: #fff;
-  color: var(--blue);
-  border: 2px solid var(--blue);
+  background: var(--blue);
+  color: #fff;
 }
 
 button.big.battle {
-  background: var(--blue);
-  border-color: var(--blue);
-  color: #fff;
+  background: var(--yellow);
+  color: var(--text);
 }
 
 .image-row img,
