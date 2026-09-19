@@ -44,9 +44,9 @@ export function Composer({
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === 'Enter' && !event.shiftKey) {
+          if (event.key === 'Enter' && !event.shiftKey && onSubmit) {
             event.preventDefault()
-            if (onSubmit && !submitDisabled) onSubmit()
+            if (!submitDisabled) onSubmit()
           }
         }}
       />

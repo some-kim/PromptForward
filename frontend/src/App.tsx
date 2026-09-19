@@ -13,6 +13,7 @@ import { Home } from "./components/Home";
 import { LearningMode } from "./components/LearningMode";
 import { LogoMark } from "./components/LogoMark";
 import { pickRandom } from "./pick";
+import { getProgress, recordAttempt } from "./progress";
 import {
   getDifficulty,
   getDisplayName,
@@ -39,6 +40,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [invitedGameId, setInvitedGameId] = useState(gameIdFromHash);
+  const [progress, setProgress] = useState(getProgress);
   const joining = useRef<string | null>(null);
 
   useEffect(() => {
@@ -70,6 +72,12 @@ export default function App() {
   }, [invitedGameId, name, playerId, view.name]);
 
   const showError = useCallback((message: string) => setError(message), []);
+
+  const scored = useCallback(
+    (score: number, generations: number) =>
+      setProgress(recordAttempt(score, generations)),
+    [],
+  );
 
   function changeName(next: string) {
     setName(next);
@@ -179,6 +187,7 @@ export default function App() {
           onLearn={startLearning}
           onBattle={startBattle}
           onError={showError}
+          progress={progress}
         />
       )}
 
@@ -188,13 +197,19 @@ export default function App() {
           challenge={view.challenge}
           attempt={view.attempt}
           busy={busy}
+          onScored={scored}
           onNext={() => nextLearning(view.challenge)}
           onExit={exit}
         />
       )}
 
       {view.name === "game" && (
-        <GameMode game={view.game} playerId={playerId} onExit={exit} />
+        <GameMode
+          game={view.game}
+          playerId={playerId}
+          onScored={scored}
+          onExit={exit}
+        />
       )}
 
       {error && <p className="error">{error}</p>}

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { DIFFICULTIES, api, type Challenge, type Difficulty } from "../api";
 import { pickRandom } from "../pick";
+import { StatStrip } from "./StatStrip";
+import type { ProgressSummary } from "../progress";
 
 const BLURB: Record<Difficulty, string> = {
   easy: "One clear subject.",
@@ -15,6 +17,7 @@ type HomeProps = {
   onLearn: (challenge: Challenge) => void;
   onBattle: () => void;
   onError: (message: string) => void;
+  progress: ProgressSummary;
 };
 
 export function Home({
@@ -24,6 +27,7 @@ export function Home({
   onLearn,
   onBattle,
   onError,
+  progress,
 }: HomeProps) {
   const [challenges, setChallenges] = useState<Challenge[] | null>(null);
 
@@ -46,6 +50,8 @@ export function Home({
 
   return (
     <section className="home">
+      <StatStrip progress={progress} />
+
       <div className="difficulty-bar">
         <span className="difficulty-label">Difficulty</span>
         <div className="difficulty-tabs">

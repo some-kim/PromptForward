@@ -14,6 +14,7 @@ type Props = {
   challenge: Challenge;
   attempt: Attempt;
   busy: boolean;
+  onScored: (score: number, generations: number) => void;
   onNext: () => void;
   onExit: () => void;
 };
@@ -22,6 +23,7 @@ export function LearningMode({
   challenge,
   attempt: initialAttempt,
   busy: switching,
+  onScored,
   onNext,
   onExit,
 }: Props) {
@@ -53,7 +55,14 @@ export function LearningMode({
     setBusy("generating");
     setError(null);
     try {
-      setAttempt(await api.generateLearningImage(attempt.id, prompt));
+      const scored = await api.generateLearningImage(attempt.id, prompt);
+      setAttempt(scored);
+      if (scored.status === "submitted") {
+        onScored(
+          scored.scores?.resultQuality ?? 0,
+          scored.usage?.generations ?? 1,
+        );
+      }
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : String(caught));
     } finally {

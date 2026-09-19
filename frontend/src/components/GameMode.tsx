@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ApiError, api, type Game } from '../api'
 import { Scoreboard } from './Scoreboard'
 import { Composer, SendButton } from './Composer'
@@ -8,10 +8,11 @@ const POLL_INTERVAL_MS = 2000
 type Props = {
   game: Game
   playerId: string
+  onScored: (score: number, generations: number) => void
   onExit: () => void
 }
 
-export function GameMode({ game: initialGame, playerId, onExit }: Props) {
+export function GameMode({ game: initialGame, playerId, onScored, onExit }: Props) {
   const [game, setGame] = useState(initialGame)
   const [prompt, setPrompt] = useState('')
   const [generating, setGenerating] = useState(false)
@@ -31,6 +32,7 @@ export function GameMode({ game: initialGame, playerId, onExit }: Props) {
   }, [game.id, game.status, playerId])
 
   const me = game.players.find((player) => player.isYou)
+  const recorded = useRef(false)
   const opponent = game.players.find((player) => !player.isYou)
   const myGeneration = me?.attempt.generations?.[0]
   const hasGenerated = myGeneration !== undefined
@@ -39,6 +41,13 @@ export function GameMode({ game: initialGame, playerId, onExit }: Props) {
   const joinUrl = `${location.origin}/#/game/${game.id}`
   const cannotGenerate =
     generating || game.status !== 'active' || !prompt.trim() || hasGenerated
+
+  useEffect(() => {
+    if (game.status !== 'completed' || recorded.current) return
+    recorded.current = true
+    const mine = game.players.find((player) => player.isYou)
+    onScored(mine?.attempt.scores?.final ?? 0, 1)
+  }, [game, onScored])
 
   async function generate() {
     setGenerating(true)

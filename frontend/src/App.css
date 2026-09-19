@@ -183,6 +183,43 @@ button.link {
   flex: none;
 }
 
+.stat-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 1rem;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  background: #fff;
+}
+
+.stat-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: none;
+}
+
+.stat.streak {
+  color: var(--yellow);
+}
+
+.stat.eco {
+  color: var(--green);
+}
+
+.stat.level {
+  color: var(--blue);
+}
+
 .difficulty-bar {
   display: grid;
   justify-items: center;
