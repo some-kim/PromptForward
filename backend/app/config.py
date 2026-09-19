@@ -98,7 +98,7 @@ def load_config(env: dict[str, str] | None = None) -> Config:
     return Config(
         openai=OpenAIConfig(
             api_key=env["OPENAI_API_KEY"],
-            base_url=(env.get("OPENAI_BASE_URL") or "").rstrip("/"),
+            base_url=(env.get("OPENAI_BASE_URL") or "").strip().rstrip("/"),
             challenge_analyzer_model=env["OPENAI_CHALLENGE_ANALYZER_MODEL"],
             prompt_evaluator_model=env["OPENAI_PROMPT_EVALUATOR_MODEL"],
             result_evaluator_model=env["OPENAI_RESULT_EVALUATOR_MODEL"],
