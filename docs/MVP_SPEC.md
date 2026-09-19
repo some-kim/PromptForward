@@ -1067,12 +1067,12 @@ POST /api/games/:id/join                      { userId, displayName }
 GET  /api/games/:id                           opponent details hidden until completed
 POST /api/games/:id/generate                  { userId, prompt } → one per player
 
-GET  /api/attempts/:id/generations/:n/image?userId=   generated image bytes
+GET  /api/attempts/:id/generations/:n/image?token=   generated image bytes
 ```
 
 **Never send the rubric to the client.** It is effectively the answer key.
 
-Generated images are as private as the attempt they belong to: the image route requires the owning player's `userId` unless the attempt's game is already `completed`, so knowing an opponent's attempt id is not enough to peek at their image.
+Generated images are as private as the attempt they belong to. Each attempt gets an unguessable `imageToken` when it is created; the image route requires it. The token reaches a client only inside a view it is allowed to see, so an opponent receives it once the game is `completed` and never before. This keeps the MVP loginless: no account is needed to view your own images, and a guessed attempt id or `userId` reveals nothing.
 
 Do not overbuild the API.
 

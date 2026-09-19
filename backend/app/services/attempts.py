@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import secrets
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -49,6 +50,9 @@ async def create_attempt(
         "displayName": display_name,
         "mode": mode,
         "status": "in_progress",
+        # Capability token for this attempt's generated images: only handed to clients that are
+        # already allowed to see them, which keeps image URLs private without a login.
+        "imageToken": secrets.token_urlsafe(24),
         "promptEvaluations": [],
         "generations": [],
         "reservedGenerations": 0,

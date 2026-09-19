@@ -32,16 +32,14 @@ def challenge_view(challenge: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def generation_view(attempt_id: str, owner_id: str, generation: dict[str, Any]) -> dict[str, Any]:
+def generation_view(attempt_id: str, token: str, generation: dict[str, Any]) -> dict[str, Any]:
     result_evaluation = generation.get("resultEvaluation") or {}
     prompt_evaluation = generation.get("promptEvaluation") or {}
     number = generation["number"]
     return {
         "number": number,
         "prompt": generation["prompt"],
-        "imageUrl": (
-            f"/api/attempts/{attempt_id}/generations/{number}/image?userId={quote(owner_id)}"
-        ),
+        "imageUrl": f"/api/attempts/{attempt_id}/generations/{number}/image?token={quote(token)}",
         "promptQuality": prompt_evaluation.get("promptQuality"),
         "resultQuality": result_evaluation.get("resultQuality"),
         "resultFeedback": result_evaluation.get("feedback"),
@@ -74,7 +72,7 @@ def attempt_view(attempt: dict[str, Any]) -> dict[str, Any]:
         "status": attempt["status"],
         "latestEvaluation": prompt_evaluation_view(evaluations[-1]) if evaluations else None,
         "generations": [
-            generation_view(attempt_id, attempt["userId"], g)
+            generation_view(attempt_id, attempt.get("imageToken", ""), g)
             for g in attempt.get("generations", [])
         ],
         "generationsRemaining": _generations_remaining(attempt),

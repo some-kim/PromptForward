@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from hmac import compare_digest
+
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response
 
@@ -13,14 +15,14 @@ router = APIRouter(prefix="/api/attempts", tags=["images"])
 
 
 @router.get("/{attempt_id}/generations/{number}/image")
-async def get_generated_image(attempt_id: str, number: int, userId: str = Query(...)) -> Response:
+async def get_generated_image(attempt_id: str, number: int, token: str = Query(...)) -> Response:
     identifier = object_id(attempt_id)
     attempt = await db.attempts().find_one({"_id": identifier}) if identifier else None
     if attempt is None:
         raise HTTPException(status_code=404, detail="Attempt not found")
 
-    if attempt["userId"] != userId and not await _game_completed(attempt):
-        raise HTTPException(status_code=403, detail="This image is not yours to see yet")
+    if not compare_digest(attempt.get("imageToken", ""), token):
+        raise HTTPException(status_code=403, detail="This image is not yours to see")
 
     generation = next((g for g in attempt["generations"] if g["number"] == number), None)
     if generation is None:
@@ -28,11 +30,3 @@ async def get_generated_image(attempt_id: str, number: int, userId: str = Query(
 
     image = await download_image(generation["output"]["dropboxPath"])
     return Response(content=image, media_type=generation["output"].get("mimeType", "image/png"))
-
-
-async def _game_completed(attempt: dict) -> bool:
-    """Opponent images stay private until the game is over."""
-    if not attempt.get("gameId"):
-        return False
-    game = await db.games().find_one({"_id": attempt["gameId"]}, {"status": 1})
-    return bool(game and game["status"] == "completed")

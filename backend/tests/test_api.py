@@ -425,8 +425,15 @@ class TestGameMode:
         assert opponent["attempt"]["status"] == "submitted"
         assert STRONG_PROMPT not in as_opponent.text
 
-        image = await client.get(
+        assert "imageUrl" not in as_opponent.text
+        peek = await client.get(
             f"/api/attempts/{opponent['attempt']['id']}/generations/1/image",
-            params={"userId": "p2"},
+            params={"token": "guessed"},
         )
-        assert image.status_code == 403
+        assert peek.status_code == 403
+
+        as_owner = await client.get(f"/api/games/{game_id}", params={"userId": "p1"})
+        mine = next(p for p in as_owner.json()["players"] if p["userId"] == "p1")
+        image = await client.get(mine["attempt"]["generations"][0]["imageUrl"])
+        assert image.status_code == 200
+        assert image.headers["content-type"] == "image/png"
