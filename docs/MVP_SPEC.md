@@ -779,6 +779,8 @@ db.attempts.createIndex({ gameId: 1 });
 
   "type": "image",
 
+  "difficulty": "medium",
+
   "target": {
     "dropboxFileId": "abc123",
     "dropboxPath": "/PromptForward/Challenges/SHA256_HASH_HERE.png",
@@ -806,6 +808,12 @@ db.attempts.createIndex({ gameId: 1 });
   "updatedAt": "TIMESTAMP"
 }
 ```
+
+### Difficulty
+
+Every challenge carries a `difficulty` of `easy`, `medium`, or `hard`, chosen by whoever adds the target image (the seed folder it came from, or the upload request). It is descriptive only: it never changes scoring, generation limits, or the rubric. It exists so a player can pick a target that matches their level — easy targets are a single clear subject, medium adds a setting and specific lighting, hard has multiple interacting subjects, an unusual style, or a precise composition.
+
+`GET /api/challenges` returns `difficulty` on every summary and accepts an optional `?difficulty=` filter. A random game picks from the requested difficulty when one is given.
 
 `analysis.version` is a constant in code (`ANALYSIS_VERSION`). Bump it when the analyzer prompt or schema changes; `createChallenge` re-analyzes any challenge with an older version and updates it in place.
 
@@ -927,7 +935,7 @@ Dropbox stores target images and generated images. MongoDB stores references.
 
 ```text
 Dropbox
-├── /PromptForward/Challenges/{imageHash}.{ext}
+├── /PromptForward/Challenges/{easy|medium|hard}/{imageHash}.{ext}
 └── /PromptForward/Generated/{attemptId}/{n}.png
 
 MongoDB
@@ -939,6 +947,8 @@ MongoDB
 └── Scores
 ```
 
+Target images live in a difficulty subfolder, which is what the seed script reads to label each challenge. Images sitting directly in the challenges folder are treated as `medium`.
+
 Naming target files by hash makes uploads idempotent (upload with overwrite off; if the file exists, reuse it).
 
 **Serving images to the browser**: Dropbox paths are not public URLs. The backend exposes image endpoints (see routes) that stream the file from Dropbox. Alternatively return Dropbox temporary links (valid ~4 hours), but never store them in MongoDB.
@@ -948,7 +958,7 @@ Naming target files by hash makes uploads idempotent (upload with overwrite off;
 ## Adding a Target Image
 
 ```text
-createChallenge(imageBytes)
+createChallenge(imageBytes, difficulty)
 
 1. Calculate SHA-256 hash
 2. Search MongoDB for target.imageHash

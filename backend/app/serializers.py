@@ -7,6 +7,7 @@ from urllib.parse import quote
 
 from bson import ObjectId
 
+from app.models import DEFAULT_DIFFICULTY
 from app.services.attempts import resource_usage
 
 
@@ -19,6 +20,7 @@ def challenge_summary(challenge: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": challenge_id,
         "type": challenge["type"],
+        "difficulty": challenge.get("difficulty", DEFAULT_DIFFICULTY),
         "imageUrl": f"/api/challenges/{challenge_id}/image",
     }
 

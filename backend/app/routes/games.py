@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app import db
-from app.models import PromptEvaluation
+from app.models import Difficulty, PromptEvaluation
 from app.serializers import game_view, object_id
 from app.services.attempts import (
     GAME_GENERATION_LIMIT,
@@ -37,6 +37,7 @@ class CreateGameRequest(BaseModel):
     userId: str
     displayName: str
     challengeId: str | None = None
+    difficulty: Difficulty | None = None
 
 
 class JoinGameRequest(BaseModel):
@@ -51,7 +52,7 @@ class GenerateRequest(BaseModel):
 
 @router.post("", status_code=201)
 async def create_game(body: CreateGameRequest) -> dict:
-    challenge = await _pick_challenge(body.challengeId)
+    challenge = await _pick_challenge(body.challengeId, body.difficulty)
 
     game_id = ObjectId()
     attempt = await create_attempt(
@@ -208,7 +209,9 @@ async def _finish_generation(
     return await _view(game["_id"], attempt["userId"])
 
 
-async def _pick_challenge(challenge_id: str | None) -> dict[str, Any]:
+async def _pick_challenge(
+    challenge_id: str | None, difficulty: Difficulty | None = None
+) -> dict[str, Any]:
     if challenge_id:
         identifier = object_id(challenge_id)
         challenge = await db.challenges().find_one({"_id": identifier}) if identifier else None
@@ -216,9 +219,17 @@ async def _pick_challenge(challenge_id: str | None) -> dict[str, Any]:
             raise HTTPException(status_code=404, detail="Challenge not found")
         return challenge
 
-    sampled = await db.challenges().aggregate([{"$sample": {"size": 1}}]).to_list(1)
+    pipeline: list[dict[str, Any]] = [{"$sample": {"size": 1}}]
+    if difficulty:
+        pipeline.insert(0, {"$match": {"difficulty": difficulty}})
+    sampled = await db.challenges().aggregate(pipeline).to_list(1)
     if not sampled:
-        raise HTTPException(status_code=409, detail="No challenges have been seeded yet")
+        detail = (
+            f"No {difficulty} challenges have been seeded yet"
+            if difficulty
+            else "No challenges have been seeded yet"
+        )
+        raise HTTPException(status_code=409, detail=detail)
     return sampled[0]
 
 

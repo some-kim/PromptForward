@@ -1,4 +1,6 @@
-"""Create a challenge for every image in the Dropbox challenges folder. Safe to re-run.
+"""Create a challenge for every image under the Dropbox challenges folder. Safe to re-run.
+
+The `easy/`, `medium/`, and `hard/` subfolder an image sits in becomes its difficulty.
 
 python -m scripts.seed_challenges
 """
@@ -15,17 +17,17 @@ from app.services.dropbox.image_storage import download_image, list_challenge_im
 
 async def seed() -> None:
     config = get_config()
-    paths = await list_challenge_images()
-    print(f"Found {len(paths)} image(s) in {config.dropbox.challenges_folder}")
+    images = await list_challenge_images()
+    print(f"Found {len(images)} image(s) in {config.dropbox.challenges_folder}")
 
     await ensure_indexes()
 
-    for path in paths:
+    for path, difficulty in images:
         try:
             image_bytes = await download_image(path)
-            challenge = await create_challenge(image_bytes)
+            challenge = await create_challenge(image_bytes, difficulty)
             criteria = len(challenge["rubric"]["criteria"])
-            print(f"  {path} -> challenge {challenge['_id']} ({criteria} criteria)")
+            print(f"  {path} -> {difficulty} challenge {challenge['_id']} ({criteria} criteria)")
         except Exception as error:  # noqa: BLE001 - one bad image must not stop the seed
             print(f"  {path} -> failed: {error}")
 

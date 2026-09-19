@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 
 from app import db
 from app.config import get_config
+from app.models import DEFAULT_DIFFICULTY, Difficulty
 from app.serializers import challenge_summary, challenge_view, object_id
 from app.services.challenges import create_challenge
 from app.services.dropbox.image_storage import download_image
@@ -17,8 +18,9 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 
 @router.get("")
-async def list_challenges() -> list[dict]:
-    cursor = db.challenges().find({}, {"target": 1, "type": 1})
+async def list_challenges(difficulty: Difficulty | None = Query(None)) -> list[dict]:
+    query = {"difficulty": difficulty} if difficulty else {}
+    cursor = db.challenges().find(query, {"target": 1, "type": 1, "difficulty": 1})
     return [challenge_summary(challenge) async for challenge in cursor]
 
 
@@ -35,7 +37,10 @@ async def get_challenge_image(challenge_id: str) -> Response:
 
 
 @router.post("", status_code=201)
-async def upload_challenge(image: UploadFile = File(...)) -> dict:
+async def upload_challenge(
+    image: UploadFile = File(...),
+    difficulty: Difficulty = Form(DEFAULT_DIFFICULTY),
+) -> dict:
     if get_config().is_production:
         raise HTTPException(status_code=404, detail="Not found")
 
@@ -43,7 +48,7 @@ async def upload_challenge(image: UploadFile = File(...)) -> dict:
     if len(image_bytes) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="Target images are limited to 10 MB")
 
-    return challenge_view(await create_challenge(image_bytes))
+    return challenge_view(await create_challenge(image_bytes, difficulty))
 
 
 async def _load(challenge_id: str) -> dict:

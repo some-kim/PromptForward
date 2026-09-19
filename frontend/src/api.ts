@@ -1,6 +1,11 @@
+export const DIFFICULTIES = ['easy', 'medium', 'hard'] as const
+
+export type Difficulty = (typeof DIFFICULTIES)[number]
+
 export type Challenge = {
   id: string
   type: string
+  difficulty: Difficulty
   imageUrl: string
   width?: number
   height?: number
@@ -79,7 +84,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  listChallenges: () => request<Challenge[]>('/api/challenges'),
+  listChallenges: (difficulty?: Difficulty) =>
+    request<Challenge[]>(
+      difficulty ? `/api/challenges?difficulty=${difficulty}` : '/api/challenges',
+    ),
 
   createLearningAttempt: (challengeId: string, userId: string, displayName: string) =>
     request<Attempt>('/api/learning/attempts', {
@@ -99,10 +107,15 @@ export const api = {
       body: JSON.stringify({ prompt }),
     }),
 
-  createGame: (userId: string, displayName: string, challengeId?: string) =>
+  createGame: (
+    userId: string,
+    displayName: string,
+    challengeId?: string,
+    difficulty?: Difficulty,
+  ) =>
     request<Game>('/api/games', {
       method: 'POST',
-      body: JSON.stringify({ userId, displayName, challengeId }),
+      body: JSON.stringify({ userId, displayName, challengeId, difficulty }),
     }),
 
   joinGame: (gameId: string, userId: string, displayName: string) =>

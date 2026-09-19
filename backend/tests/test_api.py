@@ -91,8 +91,11 @@ async def client(monkeypatch, database):
     async def fake_analyze(image_bytes: bytes, mime_type: str) -> Rubric:
         return RUBRIC
 
-    async def fake_store_target(image_bytes, image_hash, mime_type) -> StoredFile:
-        return StoredFile(id=f"id:{image_hash}", path=f"/PromptForward/Challenges/{image_hash}.png")
+    async def fake_store_target(image_bytes, image_hash, mime_type, difficulty) -> StoredFile:
+        return StoredFile(
+            id=f"id:{image_hash}",
+            path=f"/PromptForward/Challenges/{difficulty}/{image_hash}.png",
+        )
 
     async def fake_store_generated(attempt_id, number, image_bytes, mime_type) -> StoredFile:
         extension = extension_for(mime_type)
@@ -151,9 +154,13 @@ async def client(monkeypatch, database):
         yield async_client
 
 
-async def create_challenge(client: AsyncClient, color: str = "yellow") -> str:
+async def create_challenge(
+    client: AsyncClient, color: str = "yellow", difficulty: str | None = None
+) -> str:
     response = await client.post(
-        "/api/challenges", files={"image": ("target.png", png_bytes(color=color), "image/png")}
+        "/api/challenges",
+        files={"image": ("target.png", png_bytes(color=color), "image/png")},
+        data={"difficulty": difficulty} if difficulty else None,
     )
     assert response.status_code == 201, response.text
     return response.json()["id"]
@@ -181,6 +188,20 @@ class TestChallenges:
         assert "rubric" not in listed.text
         assert "rubric" not in detail.text
         assert "yellow umbrella" not in detail.text
+
+    async def test_challenges_can_be_listed_by_difficulty(self, client):
+        easy_id = await create_challenge(client, color="yellow", difficulty="easy")
+        await create_challenge(client, color="green", difficulty="hard")
+
+        easy = (await client.get("/api/challenges", params={"difficulty": "easy"})).json()
+        assert [challenge["id"] for challenge in easy] == [easy_id]
+        assert easy[0]["difficulty"] == "easy"
+        assert len((await client.get("/api/challenges")).json()) == 2
+
+    async def test_uploads_default_to_medium(self, client):
+        await create_challenge(client)
+        listed = (await client.get("/api/challenges")).json()
+        assert listed[0]["difficulty"] == "medium"
 
     async def test_target_image_is_served(self, client):
         challenge_id = await create_challenge(client)

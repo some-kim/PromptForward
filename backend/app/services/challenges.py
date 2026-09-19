@@ -10,7 +10,7 @@ from pymongo.errors import DuplicateKeyError
 
 from app import db
 from app.config import ANALYSIS_VERSION, get_config
-from app.models import Rubric
+from app.models import DEFAULT_DIFFICULTY, Difficulty, Rubric
 from app.services.dropbox.image_storage import read_image_meta, store_target_image
 from app.services.openai.challenge_analyzer import analyze_challenge
 
@@ -19,7 +19,9 @@ def sha256(image_bytes: bytes) -> str:
     return hashlib.sha256(image_bytes).hexdigest()
 
 
-async def create_challenge(image_bytes: bytes) -> dict[str, Any]:
+async def create_challenge(
+    image_bytes: bytes, difficulty: Difficulty = DEFAULT_DIFFICULTY
+) -> dict[str, Any]:
     """Idempotent: a byte-identical image with a current analysis is returned unchanged."""
     image_hash = sha256(image_bytes)
 
@@ -29,11 +31,12 @@ async def create_challenge(image_bytes: bytes) -> dict[str, Any]:
 
     meta = read_image_meta(image_bytes)
     rubric: Rubric = await analyze_challenge(image_bytes, meta.mimeType)
-    stored = await store_target_image(image_bytes, image_hash, meta.mimeType)
+    stored = await store_target_image(image_bytes, image_hash, meta.mimeType, difficulty)
 
     now = datetime.now(timezone.utc)
     doc: dict[str, Any] = {
         "type": "image",
+        "difficulty": difficulty,
         "target": {
             "dropboxFileId": stored.id,
             "dropboxPath": stored.path,

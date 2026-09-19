@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import './App.css'
-import { ApiError, api, type Attempt, type Challenge, type Game } from './api'
+import {
+  ApiError,
+  DIFFICULTIES,
+  api,
+  type Attempt,
+  type Challenge,
+  type Difficulty,
+  type Game,
+} from './api'
 import { GameMode } from './components/GameMode'
 import { LearningMode } from './components/LearningMode'
 import { getDisplayName, getPlayerId, setDisplayName } from './player'
@@ -19,6 +27,7 @@ export default function App() {
   const playerId = getPlayerId()
   const [name, setName] = useState(getDisplayName())
   const [challenges, setChallenges] = useState<Challenge[]>([])
+  const [difficulty, setDifficulty] = useState<Difficulty | null>(null)
   const [view, setView] = useState<View>({ name: 'challenges' })
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -32,8 +41,11 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    api.listChallenges().then(setChallenges).catch((caught) => setError(String(caught)))
-  }, [])
+    api
+      .listChallenges(difficulty ?? undefined)
+      .then(setChallenges)
+      .catch((caught) => setError(String(caught)))
+  }, [difficulty])
 
   useEffect(() => {
     // A ref, not state: StrictMode runs this effect twice and two joins race into a false 409.
@@ -69,7 +81,12 @@ export default function App() {
     setBusy(true)
     setError(null)
     try {
-      const game = await api.createGame(playerId, name || 'Player', challenge?.id)
+      const game = await api.createGame(
+        playerId,
+        name || 'Player',
+        challenge?.id,
+        challenge ? undefined : (difficulty ?? undefined),
+      )
       location.hash = `#/game/${game.id}`
       setView({ name: 'game', game })
     } catch (caught) {
@@ -111,11 +128,33 @@ export default function App() {
               Start a random game
             </button>
           </div>
-          {challenges.length === 0 && <p>No challenges yet. Run the seed script to add target images.</p>}
+          <div className="difficulty-filter">
+            <button
+              className={difficulty === null ? 'selected' : undefined}
+              onClick={() => setDifficulty(null)}
+            >
+              All
+            </button>
+            {DIFFICULTIES.map((level) => (
+              <button
+                key={level}
+                className={difficulty === level ? 'selected' : undefined}
+                onClick={() => setDifficulty(level)}
+              >
+                {level}
+              </button>
+            ))}
+          </div>
+          {challenges.length === 0 && (
+            <p>
+              No {difficulty ?? ''} challenges yet. Run the seed script to add target images.
+            </p>
+          )}
           <ul className="challenge-grid">
             {challenges.map((challenge) => (
               <li key={challenge.id}>
                 <img src={challenge.imageUrl} alt="Challenge target" />
+                <span className={`difficulty ${challenge.difficulty}`}>{challenge.difficulty}</span>
                 <div className="actions">
                   <button onClick={() => startLearning(challenge)} disabled={busy}>
                     Learn

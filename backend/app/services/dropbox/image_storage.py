@@ -16,7 +16,7 @@ from dropbox.files import FileMetadata, WriteMode
 from PIL import Image
 
 from app.config import get_config
-from app.models import ImageMeta, StoredFile
+from app.models import DEFAULT_DIFFICULTY, DIFFICULTIES, Difficulty, ImageMeta, StoredFile
 
 EXTENSION_BY_MIME: dict[str, str] = {
     "image/png": "png",
@@ -48,10 +48,16 @@ def extension_for(mime_type: str) -> str:
     return extension
 
 
-async def store_target_image(image_bytes: bytes, image_hash: str, mime_type: str) -> StoredFile:
+async def store_target_image(
+    image_bytes: bytes,
+    image_hash: str,
+    mime_type: str,
+    difficulty: Difficulty = DEFAULT_DIFFICULTY,
+) -> StoredFile:
     """Upload a target image named by its hash. Existing files are reused, so this is idempotent."""
     config = get_config()
-    path = f"{config.dropbox.challenges_folder}/{image_hash}.{extension_for(mime_type)}"
+    folder = f"{config.dropbox.challenges_folder}/{difficulty}"
+    path = f"{folder}/{image_hash}.{extension_for(mime_type)}"
 
     existing = await _get_metadata(path)
     if existing is not None:
@@ -82,23 +88,25 @@ async def download_image(path: str) -> bytes:
         raise ImageStorageError(f"Could not download {path}: {error}") from error
 
 
-async def list_challenge_images() -> list[str]:
-    """Paths of every image in the challenges folder."""
+async def list_challenge_images() -> list[tuple[str, Difficulty]]:
+    """Every image under the challenges folder with the difficulty its subfolder names."""
     config = get_config()
+    root = config.dropbox.challenges_folder
 
-    def _list() -> list[str]:
+    def _list() -> list[tuple[str, Difficulty]]:
         client = get_dropbox()
-        paths: list[str] = []
-        result = client.files_list_folder(config.dropbox.challenges_folder)
+        images: list[tuple[str, Difficulty]] = []
+        result = client.files_list_folder(root, recursive=True)
         while True:
-            paths.extend(
-                entry.path_lower
-                for entry in result.entries
-                if isinstance(entry, FileMetadata)
-                and entry.name.rsplit(".", 1)[-1].lower() in {"png", "jpg", "jpeg", "webp"}
-            )
+            for entry in result.entries:
+                if not isinstance(entry, FileMetadata):
+                    continue
+                if entry.name.rsplit(".", 1)[-1].lower() not in {"png", "jpg", "jpeg", "webp"}:
+                    continue
+                path = entry.path_lower or ""
+                images.append((path, _difficulty_of(path, root)))
             if not result.has_more:
-                return paths
+                return images
             result = client.files_list_folder_continue(result.cursor)
 
     try:
@@ -107,6 +115,15 @@ async def list_challenge_images() -> list[str]:
         raise ImageStorageError(
             f"Could not list {config.dropbox.challenges_folder}: {error}"
         ) from error
+
+
+def _difficulty_of(path: str, root: str) -> Difficulty:
+    relative = path[len(root) :].strip("/").split("/")
+    folder = relative[0].lower() if len(relative) > 1 else ""
+    for difficulty in DIFFICULTIES:
+        if folder == difficulty:
+            return difficulty
+    return DEFAULT_DIFFICULTY
 
 
 def read_image_meta(image_bytes: bytes) -> ImageMeta:

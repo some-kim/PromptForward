@@ -21,6 +21,11 @@ CriterionCategory = Literal[
 
 CoverageStatus = Literal["covered", "partial", "missing"]
 
+# Difficulty labels the target image, not the scoring: every challenge is scored the same way.
+Difficulty = Literal["easy", "medium", "hard"]
+DIFFICULTIES: tuple[Difficulty, ...] = ("easy", "medium", "hard")
+DEFAULT_DIFFICULTY: Difficulty = "medium"
+
 CATEGORY_HINTS: dict[str, str] = {
     "subject": "Describe the main subject",
     "action": "Describe what is happening",
