@@ -8,6 +8,8 @@ import {
 } from "../api";
 import { Scoreboard } from "./Scoreboard";
 import { Composer, SendButton } from "./Composer";
+import { EcoPrompt } from "./EcoPrompt";
+import { XraySlider } from "./XraySlider";
 import { round } from "../format";
 
 type Props = {
@@ -66,6 +68,8 @@ export function LearningMode({
       }
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : String(caught));
+      setEvaluation(null);
+      setEvaluatedPrompt(null);
     } finally {
       setBusy(null);
     }
@@ -90,18 +94,19 @@ export function LearningMode({
         </button>
       </header>
 
-      <div className="image-row">
-        <figure>
-          <figcaption>Target</figcaption>
-          <img src={challenge.imageUrl} alt="Target" />
-        </figure>
-        {selected && (
+      {selected ? (
+        <XraySlider
+          targetUrl={challenge.imageUrl}
+          resultUrl={selected.imageUrl}
+        />
+      ) : (
+        <div className="image-row">
           <figure>
-            <figcaption>Your result</figcaption>
-            <img src={selected.imageUrl} alt="Generated result" />
+            <figcaption>Target</figcaption>
+            <img src={challenge.imageUrl} alt="Target" />
           </figure>
-        )}
-      </div>
+        </div>
+      )}
 
       {attempt.status === "submitted" ? (
         <div className="results">
@@ -134,27 +139,34 @@ export function LearningMode({
         </div>
       ) : (
         <div className="prompt-panel">
-          <Composer
-            label="Write a prompt"
-            value={prompt}
-            placeholder="Describe the target image so an image model can recreate it."
-            onChange={setPrompt}
-            onSubmit={readyToGenerate ? generateImage : evaluatePrompt}
-            submitDisabled={!prompt.trim() || busy !== null}
-            actions={
-              <SendButton
-                busy={busy !== null}
-                tone={
-                  evaluated ? (evaluated.passed ? "pass" : "fail") : "neutral"
-                }
-                title={
-                  readyToGenerate ? "Generate image" : "Check this prompt"
-                }
-                disabled={!prompt.trim() || busy !== null}
-                onClick={readyToGenerate ? generateImage : evaluatePrompt}
-              />
-            }
-          />
+          <div className="composer-row">
+            <Composer
+              label="Write a prompt"
+              value={prompt}
+              placeholder="Describe the target image so an image model can recreate it."
+              onChange={setPrompt}
+              onSubmit={readyToGenerate ? generateImage : evaluatePrompt}
+              submitDisabled={!prompt.trim() || busy !== null}
+              actions={
+                <SendButton
+                  busy={busy !== null}
+                  tone={
+                    evaluated ? (evaluated.passed ? "pass" : "fail") : "neutral"
+                  }
+                  title={
+                    readyToGenerate ? "Generate image" : "Check this prompt"
+                  }
+                  disabled={!prompt.trim() || busy !== null}
+                  onClick={readyToGenerate ? generateImage : evaluatePrompt}
+                />
+              }
+            />
+            <EcoPrompt
+              prompt={prompt}
+              onChange={setPrompt}
+              disabled={busy !== null}
+            />
+          </div>
           {busy && (
             <p className="hint">
               {busy === "evaluating"

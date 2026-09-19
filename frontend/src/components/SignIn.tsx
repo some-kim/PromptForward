@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { ApiError, api, type Session } from "../api";
 
-export function SignIn({ onSignedIn }: { onSignedIn: (session: Session) => void }) {
+export function SignIn({
+  onSignedIn,
+}: {
+  onSignedIn: (session: Session) => void;
+}) {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -28,7 +32,6 @@ export function SignIn({ onSignedIn }: { onSignedIn: (session: Session) => void 
 
   return (
     <section className="panel sign-in">
-      <h2>{mode === "login" ? "Welcome back" : "Create your account"}</h2>
       <form
         className="sign-in-form"
         onSubmit={(event) => {
@@ -41,7 +44,7 @@ export function SignIn({ onSignedIn }: { onSignedIn: (session: Session) => void 
           <input
             value={username}
             autoComplete="username"
-            placeholder="kris"
+            placeholder="username"
             onChange={(event) => setUsername(event.target.value)}
           />
         </label>
@@ -50,8 +53,10 @@ export function SignIn({ onSignedIn }: { onSignedIn: (session: Session) => void 
           <input
             type="password"
             value={password}
-            autoComplete={mode === "login" ? "current-password" : "new-password"}
-            placeholder="at least 8 characters"
+            autoComplete={
+              mode === "login" ? "current-password" : "new-password"
+            }
+            placeholder={mode === "signup" ? "at least 8 characters" : ""}
             onChange={(event) => setPassword(event.target.value)}
           />
         </label>
