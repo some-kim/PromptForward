@@ -14,8 +14,14 @@
   --green: #34a853;
 }
 
+html {
+  font-size: 19px;
+}
+
 body {
   margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.6;
   background: var(--bg);
   color: var(--text);
   font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -40,11 +46,18 @@ h2 {
 }
 
 .app-header {
+  position: relative;
   display: grid;
   gap: 0.35rem;
   justify-items: center;
   text-align: center;
   margin-bottom: 2.5rem;
+}
+
+.app-header .player-chip {
+  position: absolute;
+  top: 0;
+  right: 0;
 }
 
 .logo {
@@ -130,15 +143,6 @@ button.link {
   gap: 1.75rem;
 }
 
-.top-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 0.9rem;
-}
-
 .player-chip {
   display: flex;
   align-items: center;
@@ -153,6 +157,7 @@ button.link {
   font-size: 1.05rem;
   padding: 0.2rem 0;
   text-align: right;
+  width: 7rem;
 }
 
 .avatar {
@@ -166,12 +171,6 @@ button.link {
   color: var(--text);
   font-weight: 600;
   flex: none;
-}
-
-.target-count {
-  color: var(--muted);
-  font-size: 0.9rem;
-  white-space: nowrap;
 }
 
 .difficulty-bar {

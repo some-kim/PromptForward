@@ -9,8 +9,6 @@ const BLURB: Record<Difficulty, string> = {
 };
 
 type HomeProps = {
-  name: string;
-  onNameChange: (name: string) => void;
   difficulty: Difficulty;
   onDifficultyChange: (difficulty: Difficulty) => void;
   busy: boolean;
@@ -20,8 +18,6 @@ type HomeProps = {
 };
 
 export function Home({
-  name,
-  onNameChange,
   difficulty,
   onDifficultyChange,
   busy,
@@ -50,23 +46,6 @@ export function Home({
 
   return (
     <section className="home">
-      <div className="top-bar">
-        <span className="target-count">
-          {challenges === null ? "…" : `${challenges.length} targets`}
-        </span>
-        <div className="player-chip">
-          <input
-            value={name}
-            placeholder="Player"
-            aria-label="Display name"
-            onChange={(event) => onNameChange(event.target.value)}
-          />
-          <span className="avatar">
-            {(name || "P").slice(0, 1).toUpperCase()}
-          </span>
-        </div>
-      </div>
-
       <div className="difficulty-bar">
         <span className="difficulty-label">Difficulty</span>
         <div className="difficulty-tabs">

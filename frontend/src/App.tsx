@@ -150,6 +150,17 @@ export default function App() {
   return (
     <main>
       <header className="app-header">
+        <div className="player-chip">
+          <input
+            value={name}
+            placeholder="Player"
+            aria-label="Display name"
+            onChange={(event) => changeName(event.target.value)}
+          />
+          <span className="avatar">
+            {(name || "P").slice(0, 1).toUpperCase()}
+          </span>
+        </div>
         <h1 className="logo">
           <LogoMark />
           <span>
@@ -162,8 +173,6 @@ export default function App() {
       {view.name === "home" && (
         <Home
           key={difficulty}
-          name={name}
-          onNameChange={changeName}
           difficulty={difficulty}
           onDifficultyChange={changeDifficulty}
           busy={busy}
