@@ -8,6 +8,10 @@
   --accent: #1f2024;
   --pass: #2e7d4f;
   --fail: #b3352b;
+  --blue: #1a73e8;
+  --red: #ea4335;
+  --yellow: #f9ab00;
+  --green: #34a853;
 }
 
 body {
@@ -179,9 +183,43 @@ button.link {
 }
 
 .difficulty-tabs .tab.selected {
-  background: var(--text);
   color: #fff;
   font-weight: 600;
+}
+
+.difficulty-tabs .tab.easy.selected {
+  background: var(--green);
+}
+
+.difficulty-tabs .tab.medium.selected {
+  background: var(--yellow);
+}
+
+.difficulty-tabs .tab.hard.selected {
+  background: var(--red);
+}
+
+.example {
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+  justify-items: center;
+}
+
+.example img {
+  width: min(320px, 100%);
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  display: block;
+}
+
+.example figcaption {
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-transform: capitalize;
+  letter-spacing: 0.02em;
 }
 
 .arena {
@@ -199,19 +237,6 @@ button.link {
   border: 1px solid var(--line);
   border-radius: 18px;
   background: #fff;
-}
-
-.hidden-target {
-  display: grid;
-  place-items: center;
-  width: min(420px, 100%);
-  aspect-ratio: 4 / 3;
-  border: 1px dashed var(--line);
-  border-radius: 18px;
-  background: #fff;
-  color: var(--line);
-  font-size: 4rem;
-  font-weight: 700;
 }
 
 .arena-empty {
@@ -277,12 +302,13 @@ button.big small {
 
 button.big.learning {
   background: #fff;
-  color: var(--text);
-  border: 1px solid var(--text);
+  color: var(--blue);
+  border: 2px solid var(--blue);
 }
 
 button.big.battle {
-  background: var(--text);
+  background: var(--blue);
+  border-color: var(--blue);
   color: #fff;
 }
 
@@ -300,7 +326,7 @@ button.big.battle {
 .difficulty {
   margin-left: 0.5rem;
   padding: 0.15rem 0.6rem;
-  border: 1px solid var(--line);
+  border: 1px solid currentcolor;
   border-radius: 999px;
   color: var(--muted);
   font-size: 0.75rem;
@@ -308,6 +334,18 @@ button.big.battle {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   vertical-align: middle;
+}
+
+.difficulty.easy {
+  color: var(--green);
+}
+
+.difficulty.medium {
+  color: var(--yellow);
+}
+
+.difficulty.hard {
+  color: var(--red);
 }
 
 .actions {

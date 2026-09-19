@@ -90,14 +90,13 @@ export function Home({
 
       <div className="arena">
         {ready ? (
-          <>
-            <div className="hidden-target" aria-hidden="true">
-              ?
-            </div>
-            <p className="arena-empty">
-              Your target stays hidden until you start.
-            </p>
-          </>
+          <figure className="example">
+            <img
+              src={`/examples/${difficulty}.jpg`}
+              alt={`Example of a ${difficulty} target`}
+            />
+            <figcaption>Example {difficulty} target</figcaption>
+          </figure>
         ) : (
           <p className="arena-empty">
             {challenges === null
