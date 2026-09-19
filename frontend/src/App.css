@@ -305,6 +305,18 @@ button.link {
   .logo-arrow {
     animation: none !important;
   }
+
+  .stat,
+  .logo-mark,
+  .example img {
+    transition: none;
+  }
+
+  .stat:hover,
+  .logo:hover .logo-mark,
+  .example:hover img {
+    transform: none;
+  }
 }
 
 .stat.streak {

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ApiError,
   api,
@@ -36,13 +36,26 @@ export function LearningMode({
   // An attempt allows several generations; progress is recorded once, when it is left behind.
   const finished = useRef<{ score: number; generations: number } | null>(null);
 
+  function flush() {
+    if (!finished.current) return;
+    onScored(finished.current.score, finished.current.generations);
+    finished.current = null;
+  }
+
   function leave(go: () => void) {
-    if (finished.current) {
-      onScored(finished.current.score, finished.current.generations);
-      finished.current = null;
-    }
+    flush();
     go();
   }
+
+  const flushRef = useRef(flush);
+  flushRef.current = flush;
+
+  // A refresh or closed tab would otherwise drop a finished attempt before it is recorded.
+  useEffect(() => {
+    const onHide = () => flushRef.current();
+    addEventListener("pagehide", onHide);
+    return () => removeEventListener("pagehide", onHide);
+  }, []);
 
   const readyToGenerate =
     evaluation?.passed === true && evaluatedPrompt === prompt;
