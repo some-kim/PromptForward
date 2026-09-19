@@ -1125,6 +1125,8 @@ A game-style lobby, not a grid of every challenge. The player sets a difficulty 
 - If a difficulty has no targets yet, both buttons are disabled with a "no targets at this difficulty" note.
 - Below the buttons, a "How it works" section explains the two modes and the three score parts (result quality, prompt quality, efficiency) so a first-time player needs no instructions.
 
+Battle result screen: while a game is active no scores are shown — after a player generates, the panel only confirms the image is in and says scores are revealed once the opponent finishes. When the game completes, both players' generated images are shown side by side in outlined cards with their score breakdown and prompt, and the winner's card is highlighted in green with a "winner" label (a draw is labelled below the cards).
+
 Visual style: minimal and flat on an eggshell-white background (`#f4f1ea`), dark text, thin borders, no gradients or shadows. The page content sits on an eggshell card outlined in dark, and the area around it tiles a light cartoon doodle pattern (`frontend/public/doodles.svg`: sparkles, stars, squiggles, picture frames) in Google's palette to signal creativity without competing with the text. Accents use Google's palette (blue `#1a73e8`, red `#ea4335`, yellow `#f9ab00`, green `#34a853`): a cartoon speech-bubble-and-spark logo mark, a two-tone "Prompt/Forward" wordmark in Fredoka, colored difficulty tabs, and solid mode buttons (blue Learning, yellow Battle) with the same dark outline as the logo. The player name and avatar sit in the top-right of the header. Body type is Inter from Google Fonts at a large base size, and corners are rounded, so the app reads at a glance for all ages.
 
 ---

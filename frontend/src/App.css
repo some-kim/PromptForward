@@ -18,6 +18,12 @@ html {
   font-size: 19px;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
   font-size: 1.05rem;
@@ -467,11 +473,31 @@ figcaption {
 }
 
 .game-results {
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  align-items: start;
+}
+
+.player-result {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.9rem;
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.player-result h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.player-result.won {
+  border-color: var(--green);
 }
 
 .winner {
   font-weight: 700;
+  color: var(--green);
 }
 
 .waiting code {

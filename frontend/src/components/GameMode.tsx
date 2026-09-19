@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ApiError, api, type Game } from '../api'
 import { Scoreboard } from './Scoreboard'
-import { round } from '../format'
 
 const POLL_INTERVAL_MS = 2000
 
@@ -76,13 +75,15 @@ export function GameMode({ game: initialGame, playerId, onExit }: Props) {
         <div className="results game-results">
           {game.players.map((player) => {
             const generation = player.attempt.generations?.[0]
+            const won = game.winner === (player.isYou ? 'you' : 'opponent')
             return (
-              <div key={player.displayName} className="player-result">
+              <div
+                key={player.displayName}
+                className={`player-result ${won ? 'won' : ''}`}
+              >
                 <h3>
                   {player.displayName}
-                  {game.winner === (player.isYou ? 'you' : 'opponent') && (
-                    <span className="winner"> — winner</span>
-                  )}
+                  {won && <span className="winner"> — winner</span>}
                 </h3>
                 {generation && <img src={generation.imageUrl} alt={`${player.displayName} result`} />}
                 <Scoreboard attempt={player.attempt} showFinal />
@@ -131,8 +132,7 @@ export function GameMode({ game: initialGame, playerId, onExit }: Props) {
           ) : (
             hasGenerated && (
               <p className="hint">
-                Your prompt scored {round(me?.attempt.scores?.promptQuality)}. Waiting for your
-                opponent.
+                Your image is in. Scores are revealed once your opponent finishes.
               </p>
             )
           )}
