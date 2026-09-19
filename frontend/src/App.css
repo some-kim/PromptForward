@@ -206,6 +206,105 @@ button.link {
   width: 1.15rem;
   height: 1.15rem;
   flex: none;
+  transform-origin: 50% 80%;
+}
+
+.stat {
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.stat:hover {
+  transform: translateY(-2px);
+}
+
+.stat.streak .stat-icon {
+  animation: flicker 1.6s ease-in-out infinite;
+}
+
+.stat.eco .stat-icon {
+  animation: sway 3s ease-in-out infinite;
+}
+
+.stat.level .stat-icon {
+  animation: shine 2.6s ease-in-out infinite;
+}
+
+@keyframes flicker {
+  0%,
+  100% {
+    transform: scale(1) rotate(-2deg);
+    opacity: 1;
+  }
+  35% {
+    transform: scale(1.15) rotate(3deg);
+    opacity: 0.85;
+  }
+  65% {
+    transform: scale(0.95) rotate(-3deg);
+  }
+}
+
+@keyframes sway {
+  0%,
+  100% {
+    transform: rotate(-8deg) translateY(0);
+  }
+  50% {
+    transform: rotate(8deg) translateY(-2px);
+  }
+}
+
+@keyframes shine {
+  0%,
+  70%,
+  100% {
+    transform: none;
+    filter: none;
+  }
+  80% {
+    transform: translateY(-3px) scale(1.1);
+    filter: drop-shadow(0 0 4px var(--yellow));
+  }
+}
+
+.logo-arrow {
+  animation: nudge 2.4s ease-in-out infinite;
+}
+
+.logo-mark {
+  transition: transform 0.2s ease;
+}
+
+.logo:hover .logo-mark {
+  transform: rotate(-6deg) scale(1.08);
+}
+
+.example img {
+  transition: transform 0.2s ease;
+}
+
+.example:hover img {
+  transform: scale(1.03);
+}
+
+@keyframes nudge {
+  0%,
+  60%,
+  100% {
+    transform: translateX(0);
+  }
+  75% {
+    transform: translateX(3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stat-icon,
+  .logo-arrow {
+    animation: none !important;
+  }
 }
 
 .stat.streak {

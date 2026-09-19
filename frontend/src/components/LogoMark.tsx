@@ -12,6 +12,7 @@ export function LogoMark() {
           fill="#1a73e8"
         />
         <path
+          className="logo-arrow"
           d="M17 22h17v-7l13 11-13 11v-7H17z"
           fill="#f9ab00"
         />
