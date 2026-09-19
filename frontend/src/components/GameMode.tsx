@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ApiError, api, type Game } from '../api'
 import { Scoreboard } from './Scoreboard'
+import { Composer, SendButton } from './Composer'
 
 const POLL_INTERVAL_MS = 2000
 
@@ -34,7 +35,7 @@ export function GameMode({ game: initialGame, playerId, onExit }: Props) {
   const myGeneration = me?.attempt.generations?.[0]
   const hasGenerated = myGeneration !== undefined
   // The image is made but scoring the prompt failed: the only action left is to score it again.
-  const needsScore = hasGenerated && myGeneration.promptQuality === null
+  const needsScore = hasGenerated && myGeneration.promptQuality === null && !generating
   const joinUrl = `${location.origin}/#/game/${game.id}`
 
   async function generate() {
@@ -101,29 +102,33 @@ export function GameMode({ game: initialGame, playerId, onExit }: Props) {
               ? ` Opponent: ${opponent.attempt.status === 'submitted' ? 'finished' : 'writing…'}`
               : ''}
           </p>
-          <textarea
-            rows={5}
-            value={prompt}
+          <Composer
+            value={hasGenerated ? (myGeneration?.prompt ?? prompt) : prompt}
             disabled={hasGenerated}
             placeholder="Describe the target image so an image model can recreate it."
-            onChange={(event) => setPrompt(event.target.value)}
+            onChange={setPrompt}
+            onSubmit={generate}
+            actions={
+              needsScore ? (
+                <button onClick={generate} disabled={generating}>
+                  Score my prompt again
+                </button>
+              ) : (
+                <SendButton
+                  busy={generating}
+                  title={generating ? 'Working…' : 'Generate image'}
+                  disabled={
+                    generating ||
+                    game.status !== 'active' ||
+                    !prompt.trim() ||
+                    hasGenerated
+                  }
+                  onClick={generate}
+                />
+              )
+            }
           />
-          <div className="actions">
-            <button
-              onClick={generate}
-              disabled={
-                generating ||
-                game.status !== 'active' ||
-                (needsScore ? false : !prompt.trim() || hasGenerated)
-              }
-            >
-              {generating
-                ? 'Working… this takes a while'
-                : needsScore
-                  ? 'Score my prompt again'
-                  : 'Generate'}
-            </button>
-          </div>
+          {generating && <p className="hint">Generating… this takes a while.</p>}
           {needsScore ? (
             <p className="hint">
               Your image is safe, but scoring your prompt failed. Retry scoring — it will not use a

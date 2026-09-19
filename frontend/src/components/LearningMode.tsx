@@ -7,6 +7,7 @@ import {
   type PromptEvaluation,
 } from "../api";
 import { Scoreboard } from "./Scoreboard";
+import { Composer, SendButton } from "./Composer";
 import { round } from "../format";
 
 type Props = {
@@ -123,31 +124,37 @@ export function LearningMode({
         </div>
       ) : (
         <div className="prompt-panel">
-          <label htmlFor="prompt">Write a prompt</label>
-          <textarea
-            id="prompt"
-            rows={5}
+          <Composer
+            label="Write a prompt"
             value={prompt}
             placeholder="Describe the target image so an image model can recreate it."
-            onChange={(event) => setPrompt(event.target.value)}
+            onChange={setPrompt}
+            onSubmit={readyToGenerate ? generateImage : evaluatePrompt}
+            actions={
+              <>
+                <button
+                  className="ghost"
+                  onClick={evaluatePrompt}
+                  disabled={!prompt.trim() || busy !== null}
+                >
+                  {busy === "evaluating" ? "Evaluating…" : "Evaluate"}
+                </button>
+                <SendButton
+                  busy={busy === "generating"}
+                  title={
+                    readyToGenerate
+                      ? "Generate image"
+                      : "Evaluate your prompt first"
+                  }
+                  disabled={!readyToGenerate || busy !== null}
+                  onClick={generateImage}
+                />
+              </>
+            }
           />
-
-          <div className="actions">
-            <button
-              onClick={evaluatePrompt}
-              disabled={!prompt.trim() || busy !== null}
-            >
-              {busy === "evaluating" ? "Evaluating…" : "Evaluate Prompt"}
-            </button>
-            <button
-              onClick={generateImage}
-              disabled={!readyToGenerate || busy !== null}
-            >
-              {busy === "generating"
-                ? "Generating… this takes a while"
-                : "Generate Image"}
-            </button>
-          </div>
+          {busy === "generating" && (
+            <p className="hint">Generating… this takes a while.</p>
+          )}
 
           {evaluation && (
             <div
