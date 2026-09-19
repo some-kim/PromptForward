@@ -32,10 +32,19 @@ def games() -> AsyncIOMotorCollection:
     return get_database()["games"]
 
 
+def users() -> AsyncIOMotorCollection:
+    return get_database()["users"]
+
+
+def sessions() -> AsyncIOMotorCollection:
+    return get_database()["sessions"]
+
+
 async def ensure_indexes() -> None:
     await challenges().create_index("target.imageHash", unique=True)
     await attempts().create_index("challengeId")
     await attempts().create_index("gameId")
+    await users().create_index("username", unique=True)
 
 
 async def close_client() -> None:

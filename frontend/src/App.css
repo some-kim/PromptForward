@@ -160,14 +160,80 @@ button.link {
   min-width: 0;
 }
 
-.player-chip input {
-  border: none;
-  background: none;
+.splash {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  z-index: 10;
+  cursor: pointer;
+}
+
+.splash-inner {
+  display: grid;
+  justify-items: center;
+  gap: 0.6rem;
+  text-align: center;
+  animation: splash-in 0.5s ease both;
+}
+
+.splash-inner svg {
+  width: 6rem;
+  height: 6rem;
+}
+
+.splash-inner .logo {
+  font-size: 2.6rem;
+}
+
+@keyframes splash-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.player-name {
   font-weight: 600;
   font-size: 1.05rem;
-  padding: 0.2rem 0;
-  text-align: right;
-  width: 7rem;
+}
+
+.sign-in {
+  max-width: 24rem;
+  margin: 0 auto;
+  display: grid;
+  gap: 0.9rem;
+  justify-items: center;
+  text-align: center;
+}
+
+.sign-in-form {
+  display: grid;
+  gap: 0.8rem;
+  width: 100%;
+  text-align: left;
+}
+
+.sign-in-form label {
+  display: grid;
+  gap: 0.3rem;
+  font-weight: 600;
+}
+
+.sign-in-form input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: #fff;
+  font: inherit;
+  font-weight: 400;
 }
 
 .avatar {
@@ -304,6 +370,10 @@ button.link {
   .stat-icon,
   .logo-arrow {
     animation: none !important;
+  }
+
+  .splash-inner {
+    animation: none;
   }
 
   .stat,

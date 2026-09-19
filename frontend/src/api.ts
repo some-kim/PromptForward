@@ -1,3 +1,5 @@
+import { getToken } from './session'
+
 export const DIFFICULTIES = ['easy', 'medium', 'hard'] as const
 
 export type Difficulty = (typeof DIFFICULTIES)[number]
@@ -62,6 +64,23 @@ export type Game = {
   players: { isYou: boolean; displayName: string; attempt: Attempt }[]
 }
 
+export type Progress = {
+  xp: number
+  attempts: number
+  generations: number
+  streak: number
+  lastPlayedDay: string | null
+}
+
+export type User = {
+  id: string
+  username: string
+  displayName: string
+  progress: Progress
+}
+
+export type Session = { token: string; user: User }
+
 export class ApiError extends Error {
   status: number
 
@@ -72,18 +91,48 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getToken()
   const response = await fetch(path, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init?.headers,
+    },
   })
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
     throw new ApiError(response.status, body.detail ?? response.statusText)
   }
+  if (response.status === 204) return undefined as T
   return response.json() as Promise<T>
 }
 
 export const api = {
+  signUp: (username: string, password: string, displayName: string) =>
+    request<Session>('/api/auth/signup', {
+      method: 'POST',
+      body: JSON.stringify({ username, password, displayName }),
+    }),
+
+  logIn: (username: string, password: string) =>
+    request<Session>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    }),
+
+  logOut: () => request<void>('/api/auth/logout', { method: 'POST' }),
+
+  me: () => request<User>('/api/auth/me'),
+
+  // keepalive: a finished attempt is also flushed while the page is unloading.
+  addProgress: (score: number, generations: number) =>
+    request<Progress>('/api/auth/progress', {
+      method: 'POST',
+      keepalive: true,
+      body: JSON.stringify({ score, generations }),
+    }),
+
   listChallenges: (difficulty?: Difficulty) =>
     request<Challenge[]>(
       difficulty ? `/api/challenges?difficulty=${difficulty}` : '/api/challenges',

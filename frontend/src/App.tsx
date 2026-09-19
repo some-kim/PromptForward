@@ -7,20 +7,19 @@ import {
   type Challenge,
   type Difficulty,
   type Game,
+  type Session,
+  type User,
 } from "./api";
 import { GameMode } from "./components/GameMode";
 import { Home } from "./components/Home";
 import { LearningMode } from "./components/LearningMode";
 import { LogoMark } from "./components/LogoMark";
+import { SignIn } from "./components/SignIn";
+import { Splash } from "./components/Splash";
 import { pickRandom } from "./pick";
-import { getProgress, recordAttempt } from "./progress";
-import {
-  getDifficulty,
-  getDisplayName,
-  getPlayerId,
-  setDifficulty,
-  setDisplayName,
-} from "./player";
+import { summarize } from "./progress";
+import { getDifficulty, setDifficulty } from "./player";
+import { getToken, setToken } from "./session";
 
 type View =
   | { name: "home" }
@@ -33,15 +32,37 @@ function gameIdFromHash(): string | null {
 }
 
 export default function App() {
-  const playerId = getPlayerId();
-  const [name, setName] = useState(getDisplayName());
+  const [user, setUser] = useState<User | null>(null);
+  const [loadingSession, setLoadingSession] = useState(() => getToken() !== null);
   const [difficulty, setLevel] = useState<Difficulty>(getDifficulty);
   const [view, setView] = useState<View>({ name: "home" });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [invitedGameId, setInvitedGameId] = useState(gameIdFromHash);
-  const [progress, setProgress] = useState(getProgress);
+  const [splashDone, setSplashDone] = useState(false);
   const joining = useRef<string | null>(null);
+
+  const playerId = user?.id ?? "";
+  const name = user?.displayName ?? "";
+  const progress = summarize(
+    user?.progress ?? {
+      xp: 0,
+      attempts: 0,
+      generations: 0,
+      streak: 0,
+      lastPlayedDay: null,
+    },
+  );
+
+  // A stored token outlives a reload, so the session is restored before anything renders.
+  useEffect(() => {
+    if (!getToken()) return;
+    api
+      .me()
+      .then(setUser)
+      .catch(() => setToken(null))
+      .finally(() => setLoadingSession(false));
+  }, []);
 
   useEffect(() => {
     const onHashChange = () => setInvitedGameId(gameIdFromHash());
@@ -52,6 +73,7 @@ export default function App() {
   useEffect(() => {
     // A ref, not state: StrictMode runs this effect twice and two joins race into a false 409.
     if (
+      !user ||
       !invitedGameId ||
       view.name === "game" ||
       joining.current === invitedGameId
@@ -69,19 +91,33 @@ export default function App() {
         joining.current = null;
         setError(caught instanceof ApiError ? caught.message : String(caught));
       });
-  }, [invitedGameId, name, playerId, view.name]);
+  }, [invitedGameId, name, playerId, user, view.name]);
 
   const showError = useCallback((message: string) => setError(message), []);
+  const endSplash = useCallback(() => setSplashDone(true), []);
 
-  const scored = useCallback(
-    (score: number, generations: number) =>
-      setProgress(recordAttempt(score, generations)),
-    [],
-  );
+  const scored = useCallback((score: number, generations: number) => {
+    api
+      .addProgress(score, generations)
+      .then((updated) =>
+        setUser((current) =>
+          current ? { ...current, progress: updated } : current,
+        ),
+      )
+      .catch(() => undefined);
+  }, []);
 
-  function changeName(next: string) {
-    setName(next);
-    setDisplayName(next);
+  function signedIn(session: Session) {
+    setToken(session.token);
+    setUser(session.user);
+    setLoadingSession(false);
+  }
+
+  function signOut() {
+    api.logOut().catch(() => undefined);
+    setToken(null);
+    setUser(null);
+    exit();
   }
 
   function changeDifficulty(next: Difficulty) {
@@ -155,20 +191,23 @@ export default function App() {
     setView({ name: "home" });
   }
 
+  // The splash holds the first paint, then the app or the login form takes over.
+  if (!splashDone || loadingSession) return <Splash onDone={endSplash} />;
+
   return (
     <main>
       <header className="app-header">
-        <div className="player-chip">
-          <input
-            value={name}
-            placeholder="Player"
-            aria-label="Display name"
-            onChange={(event) => changeName(event.target.value)}
-          />
-          <span className="avatar">
-            {(name || "P").slice(0, 1).toUpperCase()}
-          </span>
-        </div>
+        {user && (
+          <div className="player-chip">
+            <button className="link" onClick={signOut}>
+              Log out
+            </button>
+            <span className="player-name">{name}</span>
+            <span className="avatar">
+              {(name || "P").slice(0, 1).toUpperCase()}
+            </span>
+          </div>
+        )}
         <h1 className="logo">
           <LogoMark />
           <span>
@@ -178,7 +217,9 @@ export default function App() {
         <p>Write better prompts with fewer wasted generations.</p>
       </header>
 
-      {view.name === "home" && (
+      {!user && <SignIn onSignedIn={signedIn} />}
+
+      {user && view.name === "home" && (
         <Home
           key={difficulty}
           difficulty={difficulty}
@@ -191,7 +232,7 @@ export default function App() {
         />
       )}
 
-      {view.name === "learning" && (
+      {user && view.name === "learning" && (
         <LearningMode
           key={view.attempt.id}
           challenge={view.challenge}
@@ -203,7 +244,7 @@ export default function App() {
         />
       )}
 
-      {view.name === "game" && (
+      {user && view.name === "game" && (
         <GameMode
           game={view.game}
           playerId={playerId}

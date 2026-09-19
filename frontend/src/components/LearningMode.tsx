@@ -48,7 +48,9 @@ export function LearningMode({
   }
 
   const flushRef = useRef(flush);
-  flushRef.current = flush;
+  useEffect(() => {
+    flushRef.current = flush;
+  });
 
   // A refresh or closed tab would otherwise drop a finished attempt before it is recorded.
   useEffect(() => {

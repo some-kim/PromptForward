@@ -586,7 +586,7 @@ Result Score
 
 ### Game Lifecycle
 
-- **Identity**: no login in the MVP. The client generates a `playerId` (UUID) on first load, keeps it in `localStorage`, and sends it with every game request along with a display name.
+- **Identity**: every player signs in to an account (see Accounts), and the account id is the `userId` sent with every game request along with the account's display name.
 - **Create**: `POST /api/games` with optional `challengeId` (random challenge if omitted). Creator joins as player 1. `status = waiting`.
 - **Join**: `POST /api/games/:id/join`. Second player joins. `status = active`. A third join returns `409`.
 - **Generate**: allowed only while `status = active` and the player has not generated yet. Enforce this **atomically** in MongoDB (conditional update that reserves the slot) so double clicks cannot generate twice. The attempt is submitted automatically once its generation and evaluations finish. If image generation fails, release the slot so the player can try again. If the image succeeded but the parallel prompt evaluation failed, the slot stays used: calling generate again only re-scores the stored image's prompt, so a provider hiccup can never buy a second image. The UI surfaces this as a "Score my prompt again" action rather than a dead end.
@@ -1067,9 +1067,28 @@ Write unit tests for everything in `services/scoring/`, using the worked example
 
 ---
 
+## Accounts
+
+Each player has an account so stats are theirs rather than their browser's.
+
+- `users` collection: `{ _id, username (unique, lowercased), displayName, passwordHash, progress: { xp, attempts, generations, streak, lastPlayedDay }, createdAt }`.
+- Passwords are hashed with bcrypt; the plain password is never stored or logged. Usernames are 3-32 characters, passwords at least 8.
+- Sign-up and login return an opaque session token (`secrets.token_urlsafe`) stored in a `sessions` collection keyed by the token hash. The client keeps it in `localStorage` and sends `Authorization: Bearer <token>`; logout deletes the session.
+- The account id is the `userId` used by Learning attempts and Battle games, so a player's history is tied to the account rather than a generated UUID.
+- Progress lives on the user document and is updated server-side by `POST /api/auth/progress`, which applies the same rules as before (score → XP, streak on consecutive UTC days, generations counted) and returns the new totals. It stays cosmetic and never feeds scoring.
+- This is hackathon-grade auth: no email verification, password reset, or OAuth. Sessions do not expire.
+
+---
+
 ## API Routes
 
 ```http
+POST /api/auth/signup                         { username, password, displayName? } → token + user
+POST /api/auth/login                          { username, password } → token + user
+POST /api/auth/logout                         ends the session
+GET  /api/auth/me                             signed-in user + progress
+POST /api/auth/progress                       { score, generations } → updated progress
+
 GET  /api/challenges                          list challenges (id + image URL only)
 GET  /api/challenges/:id                      challenge WITHOUT rubric
 GET  /api/challenges/:id/image                target image bytes
@@ -1092,9 +1111,15 @@ GET  /api/attempts/:id/generations/:n/image?token=   generated image bytes
 
 Prompts are capped at 2000 characters (`422` beyond) so a single request cannot run up tokenizer, storage, and provider cost.
 
-Generated images are as private as the attempt they belong to. Each attempt gets an unguessable `imageToken` when it is created; the image route requires it. The token reaches a client only inside a view it is allowed to see, so an opponent receives it once the game is `completed` and never before. This keeps the MVP loginless: no account is needed to view your own images, and a guessed attempt id or `userId` reveals nothing.
+Generated images are as private as the attempt they belong to. Each attempt gets an unguessable `imageToken` when it is created; the image route requires it. The token reaches a client only inside a view it is allowed to see, so an opponent receives it once the game is `completed` and never before. Image access therefore rests on the token rather than the session, and a guessed attempt id or `userId` reveals nothing.
 
 Do not overbuild the API.
+
+---
+
+## Splash and Sign-In UI
+
+Every load opens on a full-screen splash: the logo mark, the wordmark, and the tagline on the eggshell background, fading in and clearing itself after ~1.6s (or on click). It also covers the session restore, so a returning player never sees a flash of the login form. Afterwards a signed-out player gets a centered sign-in card — username, password, one button, and a link that toggles between logging in and creating an account — and a signed-in player goes straight to the lobby, with their name, avatar, and a log-out link in the top-right of the header.
 
 ---
 
@@ -1125,7 +1150,7 @@ A game-style lobby, not a grid of every challenge. The player sets a difficulty 
 - If a difficulty has no targets yet, both buttons are disabled with a "no targets at this difficulty" note.
 - Below the buttons, a "How it works" section explains the two modes and the three score parts (result quality, prompt quality, efficiency) so a first-time player needs no instructions.
 
-Player progress strip: the lobby shows three outlined pills above the difficulty picker — a day streak, grams of CO2e saved, and an XP level with a title (Novice → Prompt Master). Progress is per-browser in `localStorage` (`promptforward.progress`): each finished attempt adds its score as XP, extends the streak when it is the next calendar day, and counts the generations used; the saving is the generations not spent against a three-per-target baseline at a rough 4.2 g CO2e per generation. It is a motivational display only and never feeds scoring. The pills lift on hover and their icons animate continuously (flame flickers, leaf sways, trophy shines), as does the logo arrow; all of it stops under `prefers-reduced-motion`.
+Player progress strip: the lobby shows three outlined pills above the difficulty picker — a day streak, grams of CO2e saved, and an XP level with a title (Novice → Prompt Master). Progress belongs to the signed-in account and lives on the user document in MongoDB: each finished attempt adds its score as XP, extends the streak when it is the next calendar day, and counts the generations used; the saving is the generations not spent against a three-per-target baseline at a rough 4.2 g CO2e per generation. The client posts finished attempts to `POST /api/auth/progress` and renders the returned totals, so stats follow the player to any browser. It is a motivational display only and never feeds scoring. The pills lift on hover and their icons animate continuously (flame flickers, leaf sways, trophy shines), as does the logo arrow; all of it stops under `prefers-reduced-motion`.
 
 Prompt composer: both modes write prompts in a ChatGPT-style composer — one rounded white container outlined in dark that holds an auto-growing borderless textarea with its action buttons inside on the bottom right (Learning: a ghost "Evaluate" button plus a circular blue send button that is enabled once the prompt passes; Battle: the send button alone). Enter submits, Shift+Enter adds a newline, and the send button shows a spinner while a generation is running. Interaction polish: hover/press feedback on buttons and difficulty tabs, and results fade up on reveal with the winner card popping once.
 

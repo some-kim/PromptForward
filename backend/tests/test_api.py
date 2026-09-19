@@ -526,3 +526,69 @@ class TestGameMode:
 
         as_opponent = await client.get(f"/api/games/{game_id}", params={"userId": "secret-bob"})
         assert "secret-alice" not in as_opponent.text
+
+
+class TestAccounts:
+    async def test_signup_login_and_progress(self, client):
+        signup = await client.post(
+            "/api/auth/signup",
+            json={"username": "Kris", "password": "hunter2hunter2", "displayName": "Kris"},
+        )
+        assert signup.status_code == 201
+        token = signup.json()["token"]
+        assert signup.json()["user"]["username"] == "kris"
+        assert signup.json()["user"]["progress"]["xp"] == 0
+
+        headers = {"Authorization": f"Bearer {token}"}
+        progress = await client.post(
+            "/api/auth/progress", json={"score": 91.4, "generations": 2}, headers=headers
+        )
+        assert progress.json() == {
+            "xp": 91,
+            "attempts": 1,
+            "generations": 2,
+            "streak": 1,
+            "lastPlayedDay": progress.json()["lastPlayedDay"],
+        }
+
+        # The stats belong to the account, so a fresh session sees them.
+        login = await client.post(
+            "/api/auth/login", json={"username": "kris", "password": "hunter2hunter2"}
+        )
+        assert login.status_code == 200
+        me = await client.get(
+            "/api/auth/me", headers={"Authorization": f"Bearer {login.json()['token']}"}
+        )
+        assert me.json()["progress"]["xp"] == 91
+
+    async def test_duplicate_username_and_wrong_password_are_rejected(self, client):
+        await client.post(
+            "/api/auth/signup", json={"username": "kris", "password": "hunter2hunter2"}
+        )
+        again = await client.post(
+            "/api/auth/signup", json={"username": "KRIS", "password": "otherpassword"}
+        )
+        assert again.status_code == 400
+
+        wrong = await client.post(
+            "/api/auth/login", json={"username": "kris", "password": "wrongpassword"}
+        )
+        assert wrong.status_code == 401
+
+    async def test_progress_requires_a_session(self, client):
+        anonymous = await client.post("/api/auth/progress", json={"score": 50, "generations": 1})
+        assert anonymous.status_code == 401
+
+        bogus = await client.get("/api/auth/me", headers={"Authorization": "Bearer nope"})
+        assert bogus.status_code == 401
+
+    async def test_logout_ends_the_session(self, client):
+        token = (
+            await client.post(
+                "/api/auth/signup", json={"username": "kris", "password": "hunter2hunter2"}
+            )
+        ).json()["token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        assert (await client.post("/api/auth/logout", headers=headers)).status_code == 204
+        assert (await client.get("/api/auth/me", headers=headers)).status_code == 401
