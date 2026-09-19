@@ -7,7 +7,8 @@ from dataclasses import dataclass
 
 from dotenv import load_dotenv
 
-ANALYSIS_VERSION = 1
+# 2: criteria carry a region locating them in the target image.
+ANALYSIS_VERSION = 2
 
 
 class ConfigError(RuntimeError):

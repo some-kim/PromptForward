@@ -18,6 +18,10 @@ Each criterion has:
 - description: a short, concrete, visually checkable phrase (e.g. "yellow umbrella near the center")
 - weight: a positive integer reflecting how much this matters relative to the other criteria
 - critical: true only for characteristics without which the recreation clearly fails
+- region: the part of the image this criterion refers to, as a box in fractions of the image \
+width and height (x and y are the top-left corner, all values between 0 and 1). Use a box that \
+tightly encloses the relevant area; for a whole-image characteristic such as style, lighting or \
+mood, use the full image.
 
 Mark between 1 and 4 criteria as critical. Do not describe incidental details, and do not
 produce ids.

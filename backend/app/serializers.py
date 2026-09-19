@@ -7,7 +7,7 @@ from urllib.parse import quote
 
 from bson import ObjectId
 
-from app.models import DEFAULT_DIFFICULTY
+from app.models import CATEGORY_HINTS, DEFAULT_DIFFICULTY, CoverageJudgment, Rubric
 from app.services.attempts import resource_usage
 
 
@@ -59,6 +59,27 @@ def prompt_evaluation_view(evaluation: dict[str, Any]) -> dict[str, Any]:
         "needsImprovement": evaluation["needsImprovement"],
         "promptTokens": evaluation.get("promptTokens"),
     }
+
+
+def attention_view(rubric: Rubric, judgments: list[CoverageJudgment]) -> list[dict[str, Any]]:
+    """Per-criterion regions of the target with how well the prompt covered them.
+
+    Only located criteria appear, and only the category hint travels to the client: the rubric
+    description is the answer key.
+    """
+    status_by_id = {judgment.id: judgment.status for judgment in judgments}
+    return [
+        {
+            "id": criterion.id,
+            "status": status_by_id[criterion.id],
+            "category": criterion.category,
+            "hint": CATEGORY_HINTS[criterion.category],
+            "weight": criterion.weight,
+            "region": criterion.region.model_dump(),
+        }
+        for criterion in rubric.criteria
+        if criterion.region is not None and criterion.id in status_by_id
+    ]
 
 
 def attempt_view(attempt: dict[str, Any]) -> dict[str, Any]:

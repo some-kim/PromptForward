@@ -1025,3 +1025,99 @@ button.big:hover:not(:disabled) {
 .error {
   color: var(--fail);
 }
+
+/* Attention heatmap: per-criterion boxes over the target image. */
+/* Inline-block so the frame is exactly the rendered image box and the boxes line up. */
+.heatmap-frame {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+}
+
+.heatmap-frame img {
+  width: auto;
+  max-width: 100%;
+  max-height: 360px;
+}
+
+.heatmap-box {
+  position: absolute;
+  padding: 0;
+  border-radius: 10px;
+  background: transparent;
+  cursor: help;
+}
+
+.heatmap-box.covered {
+  border: 2px solid var(--green);
+  box-shadow: inset 0 0 0 9999px rgb(52 168 83 / 12%);
+}
+
+.heatmap-box.partial {
+  border: 2px dashed var(--yellow);
+  box-shadow: inset 0 0 0 9999px rgb(249 171 0 / 12%);
+}
+
+.heatmap-box.missing {
+  border: 2px solid var(--red);
+  box-shadow: inset 0 0 0 9999px rgb(234 67 53 / 12%);
+  animation: blink 1.4s ease-in-out infinite;
+}
+
+.heatmap-box.active {
+  box-shadow:
+    inset 0 0 0 9999px rgb(255 255 255 / 18%),
+    0 0 0 3px currentcolor;
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.heatmap-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8rem;
+}
+
+.heatmap-legend li {
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.heatmap-legend li.covered {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.heatmap-legend li.partial {
+  border-color: var(--yellow);
+  color: #9a6c00;
+}
+
+.heatmap-legend li.missing {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.heatmap-legend li.active {
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heatmap-box.missing {
+    animation: none;
+  }
+}

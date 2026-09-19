@@ -132,6 +132,14 @@ what actually scores efficiency. **Trim filler** strips hype words that cost tok
 describing the target ("hyperrealistic", "8k", "masterpiece", "stunning", …) and reports the tokens
 saved, or says there is nothing to trim.
 
+### Attention heatmap
+
+Each rubric criterion carries a normalized box locating it in the target image, produced by the
+challenge analyzer at seed time. After an evaluation, the target is overlaid with one box per
+criterion: green covered, dashed yellow partial, pulsing red missing, plus a chip legend that
+highlights with its box on hover. Only the category hint travels to the client, never the rubric
+description. Editing the prompt clears the overlay along with the evaluation.
+
 ### Result view
 
 Once an image exists, the target and the generation share one frame with a drag handle (X-ray

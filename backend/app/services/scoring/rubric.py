@@ -42,6 +42,7 @@ def validate_and_normalize_rubric(analysis: ChallengeAnalysis) -> Rubric:
                 description=criterion.description,
                 weight=weight,
                 critical=criterion.critical,
+                region=criterion.region,
             )
             for index, (criterion, weight) in enumerate(zip(criteria, weights, strict=True))
         ]

@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from app import db
 from app.models import PromptEvaluation
-from app.serializers import attempt_view, object_id, prompt_evaluation_view
+from app.serializers import attempt_view, attention_view, object_id, prompt_evaluation_view
 from app.services.attempts import (
     LEARNING_GENERATION_LIMIT,
     GenerationFailed,
@@ -64,9 +64,10 @@ async def get_learning_attempt(attempt_id: str) -> dict:
 async def evaluate_learning_prompt(attempt_id: str, body: PromptRequest) -> dict:
     attempt = await _load(attempt_id)
     challenge = await db.challenges().find_one({"_id": attempt["challengeId"]})
+    rubric = rubric_of(challenge)
 
     try:
-        evaluation = await evaluate_prompt(rubric_of(challenge), body.prompt)
+        evaluation = await evaluate_prompt(rubric, body.prompt)
     except LLMResponseError as error:
         raise HTTPException(status_code=502, detail=str(error)) from error
 
@@ -75,6 +76,7 @@ async def evaluate_learning_prompt(attempt_id: str, body: PromptRequest) -> dict
         **prompt_evaluation_view(
             {**evaluation.model_dump(), "promptTokens": count_prompt_tokens(body.prompt)}
         ),
+        "attention": attention_view(rubric, evaluation.criteria),
         "generationsRemaining": max(
             0, LEARNING_GENERATION_LIMIT - attempt.get("reservedGenerations", 0)
         ),

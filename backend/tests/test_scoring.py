@@ -10,11 +10,13 @@ from app.models import (
     CoverageJudgment,
     Craftsmanship,
     PromptEvaluationResponse,
+    Region,
     ResultCriterionScore,
     ResultEvaluationResponse,
     Rubric,
     RubricCriterion,
 )
+from app.serializers import attention_view
 from app.services.meta.image_generator import _is_provider_url
 from app.services.scoring.efficiency_score import efficiency_score
 from app.services.scoring.final_score import PlayerOutcome, final_score, pick_winner
@@ -85,7 +87,11 @@ EXAMPLE_RUBRIC = Rubric(
 
 def analyzed(weight: int, critical: bool = False, category: str = "subject") -> AnalyzedCriterion:
     return AnalyzedCriterion(
-        category=category, description="something", weight=weight, critical=critical
+        category=category,
+        description="something",
+        weight=weight,
+        critical=critical,
+        region=Region(x=0.1, y=0.2, width=0.3, height=0.4),
     )
 
 
@@ -137,6 +143,60 @@ class TestRubricNormalization:
                     criteria=[analyzed(0, True), analyzed(10), analyzed(10), analyzed(10)]
                 )
             )
+
+    def test_regions_survive_normalization(self):
+        rubric = validate_and_normalize_rubric(
+            ChallengeAnalysis(
+                criteria=[analyzed(10, True), analyzed(10), analyzed(10), analyzed(10)]
+            )
+        )
+        assert all(c.region == Region(x=0.1, y=0.2, width=0.3, height=0.4) for c in rubric.criteria)
+
+
+class TestAttentionView:
+    def test_exposes_regions_and_hints_but_never_the_rubric_description(self):
+        rubric = validate_and_normalize_rubric(
+            ChallengeAnalysis(
+                criteria=[
+                    analyzed(10, True),
+                    analyzed(10, category="color"),
+                    analyzed(10),
+                    analyzed(10),
+                ]
+            )
+        )
+        judgments = [
+            CoverageJudgment(id="criterion_1", status="covered"),
+            CoverageJudgment(id="criterion_2", status="missing"),
+            CoverageJudgment(id="criterion_3", status="partial"),
+            CoverageJudgment(id="criterion_4", status="covered"),
+        ]
+
+        attention = attention_view(rubric, judgments)
+
+        assert [entry["status"] for entry in attention] == [
+            "covered",
+            "missing",
+            "partial",
+            "covered",
+        ]
+        assert attention[1]["hint"] == "Mention the colors that matter"
+        assert attention[0]["region"] == {"x": 0.1, "y": 0.2, "width": 0.3, "height": 0.4}
+        assert all("description" not in entry for entry in attention)
+
+    def test_skips_criteria_without_a_region(self):
+        rubric = Rubric(
+            criteria=[
+                RubricCriterion(
+                    id="criterion_1",
+                    category="subject",
+                    description="something",
+                    weight=100,
+                    critical=True,
+                )
+            ]
+        )
+        assert attention_view(rubric, [CoverageJudgment(id="criterion_1", status="covered")]) == []
 
 
 class TestPromptScore:

@@ -10,6 +10,7 @@ import { Scoreboard } from "./Scoreboard";
 import { Composer, SendButton } from "./Composer";
 import { EcoPrompt } from "./EcoPrompt";
 import { XraySlider } from "./XraySlider";
+import { AttentionHeatmap } from "./AttentionHeatmap";
 import { round } from "../format";
 
 type Props = {
@@ -38,6 +39,8 @@ export function LearningMode({
 
   const evaluated = evaluatedPrompt === prompt ? evaluation : null;
   const readyToGenerate = evaluated?.passed === true;
+  // Stale boxes would lie about the prompt in the box, so the overlay follows the live evaluation.
+  const attention = evaluated?.attention ?? [];
 
   async function evaluatePrompt() {
     setBusy("evaluating");
@@ -99,6 +102,8 @@ export function LearningMode({
           targetUrl={challenge.imageUrl}
           resultUrl={selected.imageUrl}
         />
+      ) : attention.length > 0 ? (
+        <AttentionHeatmap imageUrl={challenge.imageUrl} regions={attention} />
       ) : (
         <div className="image-row">
           <figure>

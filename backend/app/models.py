@@ -39,12 +39,23 @@ CATEGORY_HINTS: dict[str, str] = {
 }
 
 
+class Region(BaseModel):
+    """Where a criterion lives in the target image, as fractions of width and height."""
+
+    x: float = Field(ge=0, le=1)
+    y: float = Field(ge=0, le=1)
+    width: float = Field(gt=0, le=1)
+    height: float = Field(gt=0, le=1)
+
+
 class RubricCriterion(BaseModel):
     id: str
     category: CriterionCategory
     description: str
     weight: int
     critical: bool
+    # Absent on challenges seeded before the attention heatmap existed.
+    region: Region | None = None
 
 
 class Rubric(BaseModel):
@@ -58,6 +69,7 @@ class AnalyzedCriterion(BaseModel):
     description: str
     weight: int
     critical: bool
+    region: Region
 
 
 class ChallengeAnalysis(BaseModel):
