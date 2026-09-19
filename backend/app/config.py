@@ -53,6 +53,7 @@ class Config:
     dropbox: DropboxConfig
     app_env: str
     port: int
+    cors_allow_origins: tuple[str, ...]
 
     @property
     def is_production(self) -> bool:
@@ -112,6 +113,11 @@ def load_config(env: dict[str, str] | None = None) -> Config:
         ),
         app_env=env.get("APP_ENV") or "development",
         port=int(env.get("PORT") or 8000),
+        cors_allow_origins=tuple(
+            origin.strip()
+            for origin in (env.get("CORS_ALLOW_ORIGINS") or "http://localhost:5173").split(",")
+            if origin.strip() and origin.strip() != "*"
+        ),
     )
 
 

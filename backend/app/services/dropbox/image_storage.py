@@ -59,10 +59,11 @@ async def store_target_image(image_bytes: bytes, image_hash: str, mime_type: str
 
 
 async def store_generated_image(
-    attempt_id: str, generation_number: int, image_bytes: bytes
+    attempt_id: str, generation_number: int, image_bytes: bytes, mime_type: str
 ) -> StoredFile:
     config = get_config()
-    path = f"{config.dropbox.generated_folder}/{attempt_id}/{generation_number}.png"
+    extension = extension_for(mime_type)
+    path = f"{config.dropbox.generated_folder}/{attempt_id}/{generation_number}.{extension}"
     metadata = await _upload(path, image_bytes, WriteMode.overwrite)
     return StoredFile(id=metadata.id, path=metadata.path_lower or path)
 

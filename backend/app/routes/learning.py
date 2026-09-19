@@ -10,6 +10,7 @@ from app.models import PromptEvaluation
 from app.serializers import attempt_view, object_id, prompt_evaluation_view
 from app.services.attempts import (
     LEARNING_GENERATION_LIMIT,
+    GenerationFailed,
     GenerationLimitReached,
     create_attempt,
     record_prompt_evaluation,
@@ -19,7 +20,6 @@ from app.services.attempts import (
     submit_attempt,
 )
 from app.services.challenges import rubric_of
-from app.services.meta.image_generator import ImageGenerationError
 from app.services.openai.client import LLMResponseError
 from app.services.openai.prompt_evaluator import evaluate_prompt
 from app.services.scoring.token_counter import count_prompt_tokens
@@ -102,7 +102,7 @@ async def generate_learning_image(attempt_id: str, body: PromptRequest) -> dict:
             generation_number=generation_number,
             prompt_evaluation=prompt_evaluation,
         )
-    except (ImageGenerationError, LLMResponseError) as error:
+    except GenerationFailed as error:
         await release_generation(attempt["_id"])
         raise HTTPException(status_code=502, detail=str(error)) from error
 

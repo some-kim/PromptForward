@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './App.css'
 import { ApiError, api, type Attempt, type Challenge, type Game } from './api'
 import { GameMode } from './components/GameMode'
@@ -22,20 +22,35 @@ export default function App() {
   const [view, setView] = useState<View>({ name: 'challenges' })
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [invitedGameId, setInvitedGameId] = useState(gameIdFromHash)
+  const joining = useRef<string | null>(null)
+
+  useEffect(() => {
+    const onHashChange = () => setInvitedGameId(gameIdFromHash())
+    addEventListener('hashchange', onHashChange)
+    return () => removeEventListener('hashchange', onHashChange)
+  }, [])
 
   useEffect(() => {
     api.listChallenges().then(setChallenges).catch((caught) => setError(String(caught)))
   }, [])
 
   useEffect(() => {
-    const invitedGameId = gameIdFromHash()
-    if (!invitedGameId || view.name === 'game') return
+    // A ref, not state: StrictMode runs this effect twice and two joins race into a false 409.
+    if (!invitedGameId || view.name === 'game' || joining.current === invitedGameId) return
+    joining.current = invitedGameId
 
     api
       .joinGame(invitedGameId, playerId, name || 'Player')
-      .then((game) => setView({ name: 'game', game }))
-      .catch((caught) => setError(caught instanceof ApiError ? caught.message : String(caught)))
-  }, [name, playerId, view.name])
+      .then((game) => {
+        setError(null)
+        setView({ name: 'game', game })
+      })
+      .catch((caught) => {
+        joining.current = null
+        setError(caught instanceof ApiError ? caught.message : String(caught))
+      })
+  }, [invitedGameId, name, playerId, view.name])
 
   async function startLearning(challenge: Challenge) {
     setBusy(true)
@@ -65,6 +80,7 @@ export default function App() {
   }
 
   function exit() {
+    joining.current = null
     location.hash = ''
     setView({ name: 'challenges' })
   }

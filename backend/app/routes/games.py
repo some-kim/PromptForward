@@ -14,6 +14,7 @@ from app import db
 from app.serializers import game_view, object_id
 from app.services.attempts import (
     GAME_GENERATION_LIMIT,
+    GenerationFailed,
     GenerationLimitReached,
     create_attempt,
     record_prompt_evaluation,
@@ -23,7 +24,6 @@ from app.services.attempts import (
     submit_attempt,
 )
 from app.services.challenges import rubric_of
-from app.services.meta.image_generator import ImageGenerationError
 from app.services.openai.client import LLMResponseError
 from app.services.openai.prompt_evaluator import evaluate_prompt
 from app.services.scoring.final_score import PlayerOutcome, pick_winner
@@ -140,19 +140,22 @@ async def generate_game_image(game_id: str, body: GenerateRequest) -> dict:
 
     # The prompt never blocks generation in Game Mode, so both run at once.
     evaluation_task = asyncio.create_task(evaluate_prompt(rubric_of(challenge), body.prompt))
-    try:
-        evaluation, _ = await asyncio.gather(
-            evaluation_task,
-            run_generation(
-                attempt=attempt,
-                challenge=challenge,
-                prompt=body.prompt,
-                generation_number=generation_number,
-                prompt_evaluation=None,
-            ),
+    generation_task = asyncio.create_task(
+        run_generation(
+            attempt=attempt,
+            challenge=challenge,
+            prompt=body.prompt,
+            generation_number=generation_number,
+            prompt_evaluation=None,
         )
-    except (ImageGenerationError, LLMResponseError) as error:
-        evaluation_task.cancel()
+    )
+    try:
+        evaluation, _ = await asyncio.gather(evaluation_task, generation_task)
+    except (GenerationFailed, LLMResponseError) as error:
+        # gather leaves the other task running; it must stop before the slot is refunded.
+        for task in (evaluation_task, generation_task):
+            task.cancel()
+        await asyncio.gather(evaluation_task, generation_task, return_exceptions=True)
         await release_generation(attempt["_id"])
         raise HTTPException(status_code=502, detail=str(error)) from error
 

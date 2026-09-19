@@ -30,7 +30,7 @@ app = FastAPI(title="PromptForward", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if not config.is_production else [],
+    allow_origins=list(config.cors_allow_origins),
     allow_methods=["*"],
     allow_headers=["*"],
 )

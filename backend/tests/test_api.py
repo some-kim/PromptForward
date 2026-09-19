@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 
 import pytest
@@ -19,6 +20,7 @@ from app.models import (
     RubricCriterion,
     StoredFile,
 )
+from app.services.dropbox.image_storage import extension_for
 from app.services.scoring.prompt_score import score_prompt_evaluation
 from app.services.scoring.result_score import score_result_evaluation
 from tests.conftest import png_bytes
@@ -92,10 +94,11 @@ async def client(monkeypatch, database):
     async def fake_store_target(image_bytes, image_hash, mime_type) -> StoredFile:
         return StoredFile(id=f"id:{image_hash}", path=f"/PromptForward/Challenges/{image_hash}.png")
 
-    async def fake_store_generated(attempt_id, number, image_bytes) -> StoredFile:
+    async def fake_store_generated(attempt_id, number, image_bytes, mime_type) -> StoredFile:
+        extension = extension_for(mime_type)
         return StoredFile(
             id=f"id:{attempt_id}:{number}",
-            path=f"/PromptForward/Generated/{attempt_id}/{number}.png",
+            path=f"/PromptForward/Generated/{attempt_id}/{number}.{extension}",
         )
 
     async def fake_generate_image(prompt: str, aspect_ratio: str) -> GeneratedImage:
@@ -255,6 +258,67 @@ class TestLearningMode:
         assert body["usage"]["promptEvaluations"] == 2
         assert len(body["generations"]) == 1
 
+    async def test_one_evaluation_unlocks_only_one_generation(self, client):
+        challenge_id = await create_challenge(client)
+        attempt_id = (
+            await client.post(
+                "/api/learning/attempts", json={"challengeId": challenge_id, "userId": "player-1"}
+            )
+        ).json()["id"]
+        await client.post(
+            f"/api/learning/attempts/{attempt_id}/evaluate", json={"prompt": STRONG_PROMPT}
+        )
+
+        first, second = await asyncio.gather(
+            client.post(
+                f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": STRONG_PROMPT}
+            ),
+            client.post(
+                f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": STRONG_PROMPT}
+            ),
+        )
+        assert sorted([first.status_code, second.status_code]) == [200, 409]
+
+    async def test_failed_generation_refunds_the_slot_without_reusing_its_number(
+        self, client, monkeypatch
+    ):
+        from app.services import attempts as attempts_service
+
+        challenge_id = await create_challenge(client)
+        attempt_id = (
+            await client.post(
+                "/api/learning/attempts", json={"challengeId": challenge_id, "userId": "player-1"}
+            )
+        ).json()["id"]
+
+        working_store = attempts_service.store_generated_image
+
+        async def failing_store(*_args):
+            raise RuntimeError("Dropbox is down")
+
+        monkeypatch.setattr(attempts_service, "store_generated_image", failing_store)
+        await client.post(
+            f"/api/learning/attempts/{attempt_id}/evaluate", json={"prompt": STRONG_PROMPT}
+        )
+        failed = await client.post(
+            f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": STRONG_PROMPT}
+        )
+        assert failed.status_code == 502
+
+        monkeypatch.setattr(attempts_service, "store_generated_image", working_store)
+        retry_prompt = f"{STRONG_PROMPT} retry"
+        await client.post(
+            f"/api/learning/attempts/{attempt_id}/evaluate", json={"prompt": retry_prompt}
+        )
+        retried = await client.post(
+            f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": retry_prompt}
+        )
+        assert retried.status_code == 200
+        body = retried.json()
+        assert body["usage"]["generations"] == 1
+        assert body["generations"][0]["number"] == 2
+        assert body["generationsRemaining"] == 2
+
     async def test_generation_limit_is_enforced(self, client):
         challenge_id = await create_challenge(client)
         attempt_id = (
@@ -360,3 +424,9 @@ class TestGameMode:
         assert "generations" not in opponent["attempt"]
         assert opponent["attempt"]["status"] == "submitted"
         assert STRONG_PROMPT not in as_opponent.text
+
+        image = await client.get(
+            f"/api/attempts/{opponent['attempt']['id']}/generations/1/image",
+            params={"userId": "p2"},
+        )
+        assert image.status_code == 403

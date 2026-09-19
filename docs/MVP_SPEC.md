@@ -137,6 +137,7 @@ DROPBOX_GENERATED_FOLDER=/PromptForward/Generated
 
 APP_ENV=development
 PORT=8000
+CORS_ALLOW_ORIGINS=http://localhost:5173    # comma-separated; no wildcard
 ```
 
 Create a `.env.example` with the same variables and empty values (keep non-secret defaults).
@@ -248,7 +249,7 @@ Challenge analysis is **fully automatic**. A developer only needs to add a targe
 Two entry points, both calling the same `createChallenge(image)` function:
 
 1. **Seed script** (primary for the hackathon): reads every image in `DROPBOX_CHALLENGES_FOLDER` and calls `createChallenge` on each. Safe to re-run.
-2. `POST /api/challenges` (dev only, disabled when `APP_ENV=production`): multipart image upload.
+2. `POST /api/challenges` (dev only, disabled when `APP_ENV=production`): multipart image upload, capped at 10 MB.
 
 ### Flow
 
@@ -521,6 +522,9 @@ The gate must be enforced by the backend, not only the UI:
 - Every evaluation is stored on the attempt (`promptEvaluations`).
 - `generate` only succeeds if the **most recent** evaluation passed **and** its prompt text is identical to the prompt being generated. Otherwise return `409`.
 - Learning Mode allows up to 3 generations per attempt. Each one needs its own passing evaluation. Enforce the limit atomically.
+- An evaluation is **consumed** by the generation it unlocks: the atomic reservation records the evaluation's id and refuses any later reservation that would reuse it, so one passing evaluation can never unlock two generations (including concurrent requests).
+- Generation numbers come from a monotonic sequence that is never decremented. Refunding a failed generation frees a slot but never reissues a number, so a retry cannot overwrite an earlier generation's stored image.
+- A generation that fails for **any** reason — image generation, image storage, target download, or result evaluation — refunds its slot. Its consumed evaluation stays consumed, so a retry re-evaluates the prompt first.
 - Learning Mode computes an Efficiency score (see Efficiency Score) and shows it with Prompt Quality, Result Quality, prompt tokens, evaluations used, and generations. It does not compute a Final score.
 - Selected generation: the one with the highest Result Quality (ties go to the earlier one). Result Quality and Prompt Quality come from it.
 
@@ -1063,10 +1067,12 @@ POST /api/games/:id/join                      { userId, displayName }
 GET  /api/games/:id                           opponent details hidden until completed
 POST /api/games/:id/generate                  { userId, prompt } → one per player
 
-GET  /api/attempts/:id/generations/:n/image   generated image bytes
+GET  /api/attempts/:id/generations/:n/image?userId=   generated image bytes
 ```
 
 **Never send the rubric to the client.** It is effectively the answer key.
+
+Generated images are as private as the attempt they belong to: the image route requires the owning player's `userId` unless the attempt's game is already `completed`, so knowing an opponent's attempt id is not enough to peek at their image.
 
 Do not overbuild the API.
 

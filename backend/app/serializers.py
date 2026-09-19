@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
 
 from bson import ObjectId
 
@@ -31,13 +32,16 @@ def challenge_view(challenge: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def generation_view(attempt_id: str, generation: dict[str, Any]) -> dict[str, Any]:
+def generation_view(attempt_id: str, owner_id: str, generation: dict[str, Any]) -> dict[str, Any]:
     result_evaluation = generation.get("resultEvaluation") or {}
     prompt_evaluation = generation.get("promptEvaluation") or {}
+    number = generation["number"]
     return {
-        "number": generation["number"],
+        "number": number,
         "prompt": generation["prompt"],
-        "imageUrl": f"/api/attempts/{attempt_id}/generations/{generation['number']}/image",
+        "imageUrl": (
+            f"/api/attempts/{attempt_id}/generations/{number}/image?userId={quote(owner_id)}"
+        ),
         "promptQuality": prompt_evaluation.get("promptQuality"),
         "resultQuality": result_evaluation.get("resultQuality"),
         "resultFeedback": result_evaluation.get("feedback"),
@@ -69,7 +73,10 @@ def attempt_view(attempt: dict[str, Any]) -> dict[str, Any]:
         "mode": attempt["mode"],
         "status": attempt["status"],
         "latestEvaluation": prompt_evaluation_view(evaluations[-1]) if evaluations else None,
-        "generations": [generation_view(attempt_id, g) for g in attempt.get("generations", [])],
+        "generations": [
+            generation_view(attempt_id, attempt["userId"], g)
+            for g in attempt.get("generations", [])
+        ],
         "generationsRemaining": _generations_remaining(attempt),
         "selectedGeneration": attempt.get("selectedGeneration"),
         "scores": attempt.get("scores"),

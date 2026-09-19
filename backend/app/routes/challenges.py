@@ -13,6 +13,8 @@ from app.services.dropbox.image_storage import download_image
 
 router = APIRouter(prefix="/api/challenges", tags=["challenges"])
 
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
 
 @router.get("")
 async def list_challenges() -> list[dict]:
@@ -36,8 +38,12 @@ async def get_challenge_image(challenge_id: str) -> Response:
 async def upload_challenge(image: UploadFile = File(...)) -> dict:
     if get_config().is_production:
         raise HTTPException(status_code=404, detail="Not found")
-    challenge = await create_challenge(await image.read())
-    return challenge_view(challenge)
+
+    image_bytes = await image.read(MAX_UPLOAD_BYTES + 1)
+    if len(image_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Target images are limited to 10 MB")
+
+    return challenge_view(await create_challenge(image_bytes))
 
 
 async def _load(challenge_id: str) -> dict:

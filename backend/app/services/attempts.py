@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -23,6 +24,10 @@ GAME_GENERATION_LIMIT = 1
 
 class GenerationLimitReached(RuntimeError):
     pass
+
+
+class GenerationFailed(RuntimeError):
+    """Any failure that must refund the reserved slot."""
 
 
 def now() -> datetime:
@@ -47,6 +52,8 @@ async def create_attempt(
         "promptEvaluations": [],
         "generations": [],
         "reservedGenerations": 0,
+        "generationSequence": 0,
+        "consumedEvaluationId": None,
         "selectedGeneration": None,
         "scores": Scores().model_dump(),
         "createdAt": now(),
@@ -69,7 +76,13 @@ async def record_prompt_evaluation(
         {"_id": attempt_id},
         {
             "$push": {"promptEvaluations": entry},
-            "$set": {"lastEvaluation": {"prompt": prompt, "passed": evaluation.passed}},
+            "$set": {
+                "lastEvaluation": {
+                    "id": uuid.uuid4().hex,
+                    "prompt": prompt,
+                    "passed": evaluation.passed,
+                }
+            },
         },
     )
 
@@ -78,21 +91,34 @@ async def reserve_generation(attempt_id: ObjectId, *, limit: int, gate_prompt: s
     """Atomically reserve a generation slot. Returns the generation number.
 
     `gate_prompt` enforces the Learning Mode server-side gate inside the same update: the most
-    recent evaluation must have passed and must be for exactly this prompt.
+    recent evaluation must have passed, must be for exactly this prompt, and must not already
+    have been consumed by an earlier generation.
+
+    The returned number comes from `generationSequence`, which only ever grows, so a refunded
+    slot never reissues a number that an in-flight generation is already writing to.
     """
     query: dict[str, Any] = {"_id": attempt_id, "reservedGenerations": {"$lt": limit}}
+    update: list[dict[str, Any]] = [
+        {
+            "$set": {
+                "reservedGenerations": {"$add": ["$reservedGenerations", 1]},
+                "generationSequence": {"$add": [{"$ifNull": ["$generationSequence", 0]}, 1]},
+            }
+        }
+    ]
     if gate_prompt is not None:
         query["lastEvaluation.passed"] = True
         query["lastEvaluation.prompt"] = gate_prompt
+        query["$expr"] = {"$ne": ["$lastEvaluation.id", "$consumedEvaluationId"]}
+        update[0]["$set"]["consumedEvaluationId"] = "$lastEvaluation.id"
 
-    updated = await db.attempts().find_one_and_update(
-        query, {"$inc": {"reservedGenerations": 1}}, return_document=True
-    )
+    updated = await db.attempts().find_one_and_update(query, update, return_document=True)
     if updated is None:
         raise GenerationLimitReached(
-            "No generation slot available for this attempt, or the prompt did not pass"
+            "No generation slot available for this attempt, or the prompt has no unused "
+            "passing evaluation"
         )
-    return int(updated["reservedGenerations"])
+    return int(updated["generationSequence"])
 
 
 async def release_generation(attempt_id: ObjectId) -> None:
@@ -108,25 +134,32 @@ async def run_generation(
     generation_number: int,
     prompt_evaluation: PromptEvaluation | None,
 ) -> dict[str, Any]:
-    """Generate the image, store it, evaluate the result, and append the generation."""
+    """Generate the image, store it, evaluate the result, and append the generation.
+
+    Every provider failure surfaces as `GenerationFailed` so callers have a single exception to
+    catch when refunding the reserved slot.
+    """
     rubric = rubric_of(challenge)
     target = challenge["target"]
 
-    generated = await generate_image(
-        prompt, closest_aspect_ratio(target["width"], target["height"])
-    )
-    stored = await store_generated_image(
-        str(attempt["_id"]), generation_number, generated.imageBytes
-    )
+    try:
+        generated = await generate_image(
+            prompt, closest_aspect_ratio(target["width"], target["height"])
+        )
+        stored = await store_generated_image(
+            str(attempt["_id"]), generation_number, generated.imageBytes, generated.mimeType
+        )
 
-    target_bytes = await download_image(target["dropboxPath"])
-    result_evaluation: ResultEvaluation = await evaluate_result(
-        rubric,
-        target_bytes,
-        target["mimeType"],
-        generated.imageBytes,
-        generated.mimeType,
-    )
+        target_bytes = await download_image(target["dropboxPath"])
+        result_evaluation: ResultEvaluation = await evaluate_result(
+            rubric,
+            target_bytes,
+            target["mimeType"],
+            generated.imageBytes,
+            generated.mimeType,
+        )
+    except Exception as error:
+        raise GenerationFailed(str(error)) from error
 
     generation: dict[str, Any] = {
         "number": generation_number,
@@ -136,6 +169,7 @@ async def run_generation(
         "output": {
             "type": "image",
             "dropboxPath": stored.path,
+            "mimeType": generated.mimeType,
             "provider": generated.provider,
             "model": generated.model,
             "generationTimeMs": generated.generationTimeMs,
