@@ -33,7 +33,9 @@ function gameIdFromHash(): string | null {
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [loadingSession, setLoadingSession] = useState(() => getToken() !== null);
+  const [loadingSession, setLoadingSession] = useState(
+    () => getToken() !== null,
+  );
   const [difficulty, setLevel] = useState<Difficulty>(getDifficulty);
   const [view, setView] = useState<View>({ name: "home" });
   const [error, setError] = useState<string | null>(null);
@@ -189,6 +191,8 @@ export default function App() {
 
   function exit() {
     joining.current = null;
+    // Clear the invite id with the hash: leaving it set re-joins the game we are leaving.
+    setInvitedGameId(null);
     location.hash = "";
     setError(null);
     setView({ name: "home" });

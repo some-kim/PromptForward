@@ -14,7 +14,20 @@ export function EcoPrompt({ prompt, onChange, disabled }: Props) {
   return (
     <aside className="eco">
       <h3>
-        EcoPrompt <span aria-hidden="true">🌱</span>
+        EcoPrompt
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M20 4c0 9-5 13-11 13-2 0-4-1-4-1s1-9 9-10c3-.4 6-2 6-2z"
+            fill="var(--green)"
+          />
+          <path
+            d="M5 20c1-6 5-9 10-11"
+            fill="none"
+            stroke="var(--green)"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          />
+        </svg>
       </h3>
       <dl>
         <div>
