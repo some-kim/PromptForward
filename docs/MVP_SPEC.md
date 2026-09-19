@@ -1123,6 +1123,7 @@ A game-style lobby, not a grid of every challenge. The player sets a difficulty 
 - **Learning** starts a solo attempt on a random target of that difficulty.
 - **Battle** creates a game and lets the server pick the random target for that difficulty, then shows the invite link.
 - If a difficulty has no targets yet, both buttons are disabled with a "no targets at this difficulty" note.
+- Below the buttons, a "How it works" section explains the two modes and the three score parts (result quality, prompt quality, efficiency) so a first-time player needs no instructions.
 
 Visual style: minimal and flat on an eggshell-white background (`#f4f1ea`), dark text, thin borders, no gradients, shadows, or decorative effects. Type and controls are large enough to read at a glance so the app works for all ages.
 

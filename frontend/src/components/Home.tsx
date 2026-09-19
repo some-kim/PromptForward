@@ -128,6 +128,34 @@ export function Home({
           <small>1 try, vs a friend</small>
         </button>
       </div>
+
+      <section className="info">
+        <h2>How it works</h2>
+        <p>
+          You are shown a target image. Write the prompt that would make an
+          image model recreate it, then see how close you got.
+        </p>
+        <dl>
+          <div>
+            <dt>Learning</dt>
+            <dd>
+              Practice alone. Your prompt is reviewed before it is used, and you
+              get up to three generations.
+            </dd>
+          </div>
+          <div>
+            <dt>Battle</dt>
+            <dd>
+              Share the link with a friend. You both describe the same target,
+              one generation each, higher score wins.
+            </dd>
+          </div>
+        </dl>
+        <p className="hint">
+          Score = how close your image is to the target, how well your prompt
+          describes it, and how few words and tries you needed.
+        </p>
+      </section>
     </section>
   );
 }
