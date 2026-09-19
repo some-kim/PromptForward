@@ -1120,12 +1120,12 @@ A game-style lobby, not a grid of every challenge. The player sets a difficulty 
 
 - Difficulty is a player setting stored in the browser; it defaults to `easy`.
 - The target is never shown on the lobby: the card shows a static illustrative example of that difficulty (bundled in `frontend/public/examples/`), never a real target, so nobody can pre-read the image and pre-write a prompt. Inside Learning and Battle the target is visible as the reference to describe.
-- **Learning** starts a solo attempt on a random target of that difficulty.
+- **Learning** starts a solo attempt on a random target of that difficulty, and after an attempt is scored a "Next target" button starts a fresh attempt on another random target at the same difficulty, so practice is endless without returning to the lobby.
 - **Battle** creates a game and lets the server pick the random target for that difficulty, then shows the invite link.
 - If a difficulty has no targets yet, both buttons are disabled with a "no targets at this difficulty" note.
 - Below the buttons, a "How it works" section explains the two modes and the three score parts (result quality, prompt quality, efficiency) so a first-time player needs no instructions.
 
-Visual style: minimal and flat on an eggshell-white background (`#f4f1ea`), dark text, thin borders, no gradients, shadows, or decorative effects. Type and controls are large enough to read at a glance so the app works for all ages.
+Visual style: minimal and flat on an eggshell-white background (`#f4f1ea`), dark text, thin borders, no gradients, shadows, or decorative effects. Accents use Google's palette (blue `#1a73e8`, red `#ea4335`, yellow `#f9ab00`, green `#34a853`) on the wordmark, difficulty tabs, and mode buttons; type is Inter from Google Fonts and corners are rounded. Type and controls are large enough to read at a glance so the app works for all ages.
 
 ---
 

@@ -47,6 +47,28 @@ h2 {
   margin-bottom: 2.5rem;
 }
 
+.logo {
+  font-size: 2.6rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.logo .c1 {
+  color: var(--blue);
+}
+
+.logo .c2 {
+  color: var(--red);
+}
+
+.logo .c3 {
+  color: var(--yellow);
+}
+
+.logo .c4 {
+  color: var(--green);
+}
+
 .app-header p {
   margin: 0;
   color: var(--muted);
@@ -81,6 +103,12 @@ button {
 button:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+button.secondary {
+  background: #fff;
+  color: var(--blue);
+  border-color: var(--blue);
 }
 
 button.link {

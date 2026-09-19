@@ -12,12 +12,16 @@ import { round } from "../format";
 type Props = {
   challenge: Challenge;
   attempt: Attempt;
+  busy: boolean;
+  onNext: () => void;
   onExit: () => void;
 };
 
 export function LearningMode({
   challenge,
   attempt: initialAttempt,
+  busy: switching,
+  onNext,
   onExit,
 }: Props) {
   const [attempt, setAttempt] = useState(initialAttempt);
@@ -98,17 +102,24 @@ export function LearningMode({
               {selected.resultFeedback}
             </p>
           )}
-          {(attempt.generationsRemaining ?? 0) > 0 && (
-            <button
-              onClick={() => {
-                setEvaluation(null);
-                setEvaluatedPrompt(null);
-                setAttempt({ ...attempt, status: "in_progress" });
-              }}
-            >
-              Try another prompt ({attempt.generationsRemaining} left)
+          <div className="actions">
+            {(attempt.generationsRemaining ?? 0) > 0 && (
+              <button
+                className="secondary"
+                disabled={switching}
+                onClick={() => {
+                  setEvaluation(null);
+                  setEvaluatedPrompt(null);
+                  setAttempt({ ...attempt, status: "in_progress" });
+                }}
+              >
+                Try another prompt ({attempt.generationsRemaining} left)
+              </button>
+            )}
+            <button disabled={switching} onClick={onNext}>
+              {switching ? "Loading…" : "Next target →"}
             </button>
-          )}
+          </div>
         </div>
       ) : (
         <div className="prompt-panel">

@@ -1,17 +1,12 @@
 import { useEffect, useState } from "react";
 import { DIFFICULTIES, api, type Challenge, type Difficulty } from "../api";
+import { pickRandom } from "../pick";
 
 const BLURB: Record<Difficulty, string> = {
   easy: "One clear subject.",
   medium: "A subject, a setting, specific lighting.",
   hard: "Many subjects, unusual style, precise composition.",
 };
-
-function pickRandom(challenges: Challenge[]): Challenge | null {
-  return challenges.length === 0
-    ? null
-    : challenges[Math.floor(Math.random() * challenges.length)];
-}
 
 type HomeProps = {
   name: string;

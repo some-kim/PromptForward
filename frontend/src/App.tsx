@@ -11,6 +11,7 @@ import {
 import { GameMode } from "./components/GameMode";
 import { Home } from "./components/Home";
 import { LearningMode } from "./components/LearningMode";
+import { pickRandom } from "./pick";
 import {
   getDifficulty,
   getDisplayName,
@@ -96,6 +97,29 @@ export default function App() {
     }
   }
 
+  async function nextLearning(current: Challenge) {
+    setBusy(true);
+    setError(null);
+    try {
+      const pool = await api.listChallenges(difficulty);
+      const next = pickRandom(pool, (one) => one.id === current.id);
+      if (!next) {
+        setError(`No ${difficulty} targets available.`);
+        return;
+      }
+      const attempt = await api.createLearningAttempt(
+        next.id,
+        playerId,
+        name || "Player",
+      );
+      setView({ name: "learning", challenge: next, attempt });
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : String(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function startBattle() {
     setBusy(true);
     setError(null);
@@ -125,7 +149,21 @@ export default function App() {
   return (
     <main>
       <header className="app-header">
-        <h1>PromptForward</h1>
+        <h1 className="logo" aria-label="PromptForward">
+          <span className="c1">P</span>
+          <span className="c2">r</span>
+          <span className="c3">o</span>
+          <span className="c4">m</span>
+          <span className="c1">p</span>
+          <span className="c2">t</span>
+          <span className="c3">F</span>
+          <span className="c4">o</span>
+          <span className="c1">r</span>
+          <span className="c2">w</span>
+          <span className="c3">a</span>
+          <span className="c4">r</span>
+          <span className="c1">d</span>
+        </h1>
         <p>Write better prompts with fewer wasted generations.</p>
       </header>
 
@@ -145,8 +183,11 @@ export default function App() {
 
       {view.name === "learning" && (
         <LearningMode
+          key={view.attempt.id}
           challenge={view.challenge}
           attempt={view.attempt}
+          busy={busy}
+          onNext={() => nextLearning(view.challenge)}
           onExit={exit}
         />
       )}
