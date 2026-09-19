@@ -1,0 +1,14 @@
+# PromptForward
+
+PromptForward teaches users how to write better and more efficient AI prompts through guided practice and competition. The MVP focuses on image recreation: a user sees a target image and writes a prompt trying to recreate it, and PromptForward scores result quality, prompt quality, and efficiency.
+
+Two modes:
+
+- **Learning Mode**: the prompt is evaluated before image generation, with feedback on what to improve.
+- **Game Mode**: two players compete to reproduce the same target image with one generation each.
+
+## Documentation
+
+- [MVP Spec](docs/MVP_SPEC.md) — architecture, scoring, data model, API routes, and MVP scope.
+
+The spec is the source of truth. Any change to the plan is written into the spec before the code changes.
