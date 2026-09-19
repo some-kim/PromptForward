@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ApiError,
   api,
@@ -33,6 +33,16 @@ export function LearningMode({
   const [evaluatedPrompt, setEvaluatedPrompt] = useState<string | null>(null);
   const [busy, setBusy] = useState<"evaluating" | "generating" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // An attempt allows several generations; progress is recorded once, when it is left behind.
+  const finished = useRef<{ score: number; generations: number } | null>(null);
+
+  function leave(go: () => void) {
+    if (finished.current) {
+      onScored(finished.current.score, finished.current.generations);
+      finished.current = null;
+    }
+    go();
+  }
 
   const readyToGenerate =
     evaluation?.passed === true && evaluatedPrompt === prompt;
@@ -58,10 +68,10 @@ export function LearningMode({
       const scored = await api.generateLearningImage(attempt.id, prompt);
       setAttempt(scored);
       if (scored.status === "submitted") {
-        onScored(
-          scored.scores?.resultQuality ?? 0,
-          scored.usage?.generations ?? 1,
-        );
+        finished.current = {
+          score: scored.scores?.resultQuality ?? 0,
+          generations: scored.usage?.generations ?? 1,
+        };
       }
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : String(caught));
@@ -84,7 +94,7 @@ export function LearningMode({
             {challenge.difficulty}
           </span>
         </h2>
-        <button className="link" onClick={onExit}>
+        <button className="link" onClick={() => leave(onExit)}>
           ← Home
         </button>
       </header>
@@ -126,7 +136,7 @@ export function LearningMode({
                 Try another prompt ({attempt.generationsRemaining} left)
               </button>
             )}
-            <button disabled={switching} onClick={onNext}>
+            <button disabled={switching} onClick={() => leave(onNext)}>
               {switching ? "Loading…" : "Next target →"}
             </button>
           </div>
