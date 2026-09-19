@@ -125,12 +125,12 @@ export const api = {
 
   me: () => request<User>('/api/auth/me'),
 
-  // keepalive: a finished attempt is also flushed while the page is unloading.
-  addProgress: (score: number, generations: number) =>
+  // Keyed by attempt: reporting the same attempt twice adjusts it instead of counting it twice.
+  addProgress: (attemptId: string, score: number, generations: number) =>
     request<Progress>('/api/auth/progress', {
       method: 'POST',
       keepalive: true,
-      body: JSON.stringify({ score, generations }),
+      body: JSON.stringify({ attemptId, score, generations }),
     }),
 
   listChallenges: (difficulty?: Difficulty) =>

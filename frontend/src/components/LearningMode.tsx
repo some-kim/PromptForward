@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import {
   ApiError,
   api,
@@ -14,7 +14,7 @@ type Props = {
   challenge: Challenge;
   attempt: Attempt;
   busy: boolean;
-  onScored: (score: number, generations: number) => void;
+  onScored: (attemptId: string, score: number, generations: number) => void;
   onNext: () => void;
   onExit: () => void;
 };
@@ -33,34 +33,9 @@ export function LearningMode({
   const [evaluatedPrompt, setEvaluatedPrompt] = useState<string | null>(null);
   const [busy, setBusy] = useState<"evaluating" | "generating" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // An attempt allows several generations; progress is recorded once, when it is left behind.
-  const finished = useRef<{ score: number; generations: number } | null>(null);
 
-  function flush() {
-    if (!finished.current) return;
-    onScored(finished.current.score, finished.current.generations);
-    finished.current = null;
-  }
-
-  function leave(go: () => void) {
-    flush();
-    go();
-  }
-
-  const flushRef = useRef(flush);
-  useEffect(() => {
-    flushRef.current = flush;
-  });
-
-  // A refresh or closed tab would otherwise drop a finished attempt before it is recorded.
-  useEffect(() => {
-    const onHide = () => flushRef.current();
-    addEventListener("pagehide", onHide);
-    return () => removeEventListener("pagehide", onHide);
-  }, []);
-
-  const readyToGenerate =
-    evaluation?.passed === true && evaluatedPrompt === prompt;
+  const evaluated = evaluatedPrompt === prompt ? evaluation : null;
+  const readyToGenerate = evaluated?.passed === true;
 
   async function evaluatePrompt() {
     setBusy("evaluating");
@@ -83,10 +58,11 @@ export function LearningMode({
       const scored = await api.generateLearningImage(attempt.id, prompt);
       setAttempt(scored);
       if (scored.status === "submitted") {
-        finished.current = {
-          score: scored.scores?.resultQuality ?? 0,
-          generations: scored.usage?.generations ?? 1,
-        };
+        onScored(
+          scored.id,
+          scored.scores?.resultQuality ?? 0,
+          scored.usage?.generations ?? 1,
+        );
       }
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : String(caught));
@@ -109,7 +85,7 @@ export function LearningMode({
             {challenge.difficulty}
           </span>
         </h2>
-        <button className="link" onClick={() => leave(onExit)}>
+        <button className="link" onClick={onExit}>
           ← Home
         </button>
       </header>
@@ -151,7 +127,7 @@ export function LearningMode({
                 Try another prompt ({attempt.generationsRemaining} left)
               </button>
             )}
-            <button disabled={switching} onClick={() => leave(onNext)}>
+            <button disabled={switching} onClick={onNext}>
               {switching ? "Loading…" : "Next target →"}
             </button>
           </div>
@@ -166,29 +142,25 @@ export function LearningMode({
             onSubmit={readyToGenerate ? generateImage : evaluatePrompt}
             submitDisabled={!prompt.trim() || busy !== null}
             actions={
-              <>
-                <button
-                  className="ghost"
-                  onClick={evaluatePrompt}
-                  disabled={!prompt.trim() || busy !== null}
-                >
-                  {busy === "evaluating" ? "Evaluating…" : "Evaluate"}
-                </button>
-                <SendButton
-                  busy={busy === "generating"}
-                  title={
-                    readyToGenerate
-                      ? "Generate image"
-                      : "Evaluate your prompt first"
-                  }
-                  disabled={!readyToGenerate || busy !== null}
-                  onClick={generateImage}
-                />
-              </>
+              <SendButton
+                busy={busy !== null}
+                tone={
+                  evaluated ? (evaluated.passed ? "pass" : "fail") : "neutral"
+                }
+                title={
+                  readyToGenerate ? "Generate image" : "Check this prompt"
+                }
+                disabled={!prompt.trim() || busy !== null}
+                onClick={readyToGenerate ? generateImage : evaluatePrompt}
+              />
             }
           />
-          {busy === "generating" && (
-            <p className="hint">Generating… this takes a while.</p>
+          {busy && (
+            <p className="hint">
+              {busy === "evaluating"
+                ? "Checking your prompt…"
+                : "Generating… this takes a while."}
+            </p>
           )}
 
           {evaluation && (
@@ -198,13 +170,11 @@ export function LearningMode({
               <p className="score">
                 Prompt Quality: {round(evaluation.promptQuality)}
               </p>
-              {evaluation.passed && evaluatedPrompt === prompt ? (
-                <p>✓ Ready to generate</p>
+              {evaluation.passed && evaluated ? (
+                <p>✓ Ready — press the arrow again to generate</p>
               ) : (
                 <>
-                  {evaluatedPrompt !== prompt && (
-                    <p>Prompt changed — evaluate it again.</p>
-                  )}
+                  {!evaluated && <p>Prompt changed — check it again.</p>}
                   {evaluation.needsImprovement.length > 0 && (
                     <>
                       <p>Needs improvement:</p>

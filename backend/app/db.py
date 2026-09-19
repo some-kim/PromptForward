@@ -40,6 +40,10 @@ def sessions() -> AsyncIOMotorCollection:
     return get_database()["sessions"]
 
 
+def progress_events() -> AsyncIOMotorCollection:
+    return get_database()["progress_events"]
+
+
 async def ensure_indexes() -> None:
     await challenges().create_index("target.imageHash", unique=True)
     await attempts().create_index("challengeId")

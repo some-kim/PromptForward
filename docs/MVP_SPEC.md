@@ -1076,6 +1076,7 @@ Each player has an account so stats are theirs rather than their browser's.
 - Sign-up and login return an opaque session token (`secrets.token_urlsafe`) stored in a `sessions` collection keyed by the token hash. The client keeps it in `localStorage` and sends `Authorization: Bearer <token>`; logout deletes the session.
 - The account id is the `userId` used by Learning attempts and Battle games, so a player's history is tied to the account rather than a generated UUID.
 - Progress lives on the user document and is updated server-side by `POST /api/auth/progress`, which applies the same rules as before (score → XP, streak on consecutive UTC days, generations counted) and returns the new totals. It stays cosmetic and never feeds scoring.
+- Progress is reported as soon as an attempt is scored (not when the screen is left), and is keyed by `attemptId`: a `progress_events` document records what each attempt contributed, so re-reporting the same attempt (a retry with a better score, a reopened battle) adjusts its contribution instead of counting a second attempt. Logging out therefore cannot lose a finished attempt.
 - This is hackathon-grade auth: no email verification, password reset, or OAuth. Sessions do not expire.
 
 ---
@@ -1087,7 +1088,7 @@ POST /api/auth/signup                         { username, password, displayName?
 POST /api/auth/login                          { username, password } → token + user
 POST /api/auth/logout                         ends the session
 GET  /api/auth/me                             signed-in user + progress
-POST /api/auth/progress                       { score, generations } → updated progress
+POST /api/auth/progress                       { attemptId, score, generations } → updated progress
 
 GET  /api/challenges                          list challenges (id + image URL only)
 GET  /api/challenges/:id                      challenge WITHOUT rubric
@@ -1152,11 +1153,11 @@ A game-style lobby, not a grid of every challenge. The player sets a difficulty 
 
 Player progress strip: the lobby shows three outlined pills above the difficulty picker — a day streak, grams of CO2e saved, and an XP level with a title (Novice → Prompt Master). Progress belongs to the signed-in account and lives on the user document in MongoDB: each finished attempt adds its score as XP, extends the streak when it is the next calendar day, and counts the generations used; the saving is the generations not spent against a three-per-target baseline at a rough 4.2 g CO2e per generation. The client posts finished attempts to `POST /api/auth/progress` and renders the returned totals, so stats follow the player to any browser. It is a motivational display only and never feeds scoring. The pills lift on hover and their icons animate continuously (flame flickers, leaf sways, trophy shines), as does the logo arrow; all of it stops under `prefers-reduced-motion`.
 
-Prompt composer: both modes write prompts in a ChatGPT-style composer — one rounded white container outlined in dark that holds an auto-growing borderless textarea with its action buttons inside on the bottom right (Learning: a ghost "Evaluate" button plus a circular blue send button that is enabled once the prompt passes; Battle: the send button alone). Enter submits, Shift+Enter adds a newline, and the send button shows a spinner while a generation is running. Interaction polish: hover/press feedback on buttons and difficulty tabs, and results fade up on reveal with the winner card popping once.
+Prompt composer: both modes write prompts in a ChatGPT-style composer — one rounded white container outlined in dark that holds an auto-growing borderless textarea with its action buttons inside on the bottom right (a single circular send arrow in both modes). Enter submits, Shift+Enter adds a newline, and the send button shows a spinner while it is working. In Learning there is no separate Evaluate control: the arrow evaluates the current prompt, turns green when the prompt passes (pressing it again generates the image), red when it fails, and returns to blue whenever the prompt is edited. Screens fade and rise in on entry, and images fade in when they load. Interaction polish: hover/press feedback on buttons and difficulty tabs, and results fade up on reveal with the winner card popping once.
 
 Battle result screen: while a game is active no scores are shown — after a player generates, the panel only confirms the image is in and says scores are revealed once the opponent finishes. When the game completes, both players' generated images are shown side by side in outlined cards with their score breakdown and prompt, and the winner's card is highlighted in green with a "winner" label (a draw is labelled below the cards).
 
-Visual style: minimal and flat on an eggshell-white background (`#f4f1ea`), dark text, thin borders, no gradients or shadows. The page content sits on an eggshell card outlined in dark, and the area around it tiles a light cartoon doodle pattern (`frontend/public/doodles.svg`: sparkles, stars, squiggles, picture frames) in Google's palette to signal creativity without competing with the text. Accents use Google's palette (blue `#1a73e8`, red `#ea4335`, yellow `#f9ab00`, green `#34a853`): a cartoon speech-bubble-and-spark logo mark, a two-tone "Prompt/Forward" wordmark in Fredoka, colored difficulty tabs, and solid mode buttons (blue Learning, yellow Battle) with the same dark outline as the logo. The player name and avatar sit in the top-right of the header. Body type is Inter from Google Fonts at a large base size, and corners are rounded, so the app reads at a glance for all ages.
+Visual style: minimal and flat on an eggshell-white background (`#f4f1ea`), dark text, thin borders, no gradients or shadows. The page content sits on an eggshell card outlined in dark, and the area around it tiles a light cartoon doodle pattern (`frontend/public/doodles.svg`: sparkles, stars, squiggles, picture frames) in Google's palette to signal creativity without competing with the text. Accents use Google's palette (blue `#1a73e8`, red `#ea4335`, yellow `#f9ab00`, green `#34a853`): a cartoon speech-bubble-and-spark logo mark, a two-tone "Prompt/Forward" wordmark in Fredoka, colored difficulty tabs, and solid mode buttons (blue Learning, yellow Battle) with the same dark outline as the logo. The player name and avatar sit in the top-right of the header. Body type is Plus Jakarta Sans from Google Fonts at a large base size, and corners are rounded, so the app reads at a glance for all ages.
 
 ---
 
@@ -1174,11 +1175,11 @@ Visual style: minimal and flat on an eggshell-white background (`#f4f1ea`), dark
 │ [                                 ] │
 │ [                                 ] │
 │                                     │
-│          [ Evaluate Prompt ]        │
+│                             ( ↑ )   │
 └─────────────────────────────────────┘
 ```
 
-Editing the prompt after a pass disables **Generate** until it is re-evaluated.
+The arrow is the only control: blue it evaluates, green it generates, red the prompt still fails. Editing the prompt after a pass returns it to blue, so generation always follows a fresh evaluation.
 
 If it fails:
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ApiError, api, type Game } from '../api'
 import { Scoreboard } from './Scoreboard'
 import { Composer, SendButton } from './Composer'
@@ -8,7 +8,7 @@ const POLL_INTERVAL_MS = 2000
 type Props = {
   game: Game
   playerId: string
-  onScored: (score: number, generations: number) => void
+  onScored: (attemptId: string, score: number, generations: number) => void
   onExit: () => void
 }
 
@@ -32,7 +32,6 @@ export function GameMode({ game: initialGame, playerId, onScored, onExit }: Prop
   }, [game.id, game.status, playerId])
 
   const me = game.players.find((player) => player.isYou)
-  const recorded = useRef(false)
   const opponent = game.players.find((player) => !player.isYou)
   const myGeneration = me?.attempt.generations?.[0]
   const hasGenerated = myGeneration !== undefined
@@ -42,11 +41,11 @@ export function GameMode({ game: initialGame, playerId, onScored, onExit }: Prop
   const cannotGenerate =
     generating || game.status !== 'active' || !prompt.trim() || hasGenerated
 
+  // Reporting is keyed by attempt, so reopening a finished battle re-reports without double counting.
   useEffect(() => {
-    if (game.status !== 'completed' || recorded.current) return
-    recorded.current = true
     const mine = game.players.find((player) => player.isYou)
-    onScored(mine?.attempt.scores?.final ?? 0, 1)
+    if (game.status !== 'completed' || !mine) return
+    onScored(mine.attempt.id, mine.attempt.scores?.final ?? 0, 1)
   }, [game, onScored])
 
   async function generate() {

@@ -30,6 +30,7 @@ class LogInRequest(BaseModel):
 
 
 class ProgressRequest(BaseModel):
+    attemptId: str = Field(max_length=64)
     score: float = Field(ge=0, le=100)
     generations: int = Field(ge=1, le=10)
 
@@ -78,4 +79,4 @@ async def me(user: dict = Depends(current_user)) -> dict:
 
 @router.post("/progress")
 async def add_progress(body: ProgressRequest, user: dict = Depends(current_user)) -> dict:
-    return await record_attempt(user, body.score, body.generations)
+    return await record_attempt(user, body.attemptId, body.score, body.generations)

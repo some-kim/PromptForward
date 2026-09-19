@@ -59,16 +59,19 @@ export function SendButton({
   busy,
   disabled,
   title,
+  tone = 'neutral',
   onClick,
 }: {
   busy?: boolean
   disabled?: boolean
   title: string
+  // The arrow doubles as the verdict: green once the prompt passes, red while it does not.
+  tone?: 'neutral' | 'pass' | 'fail'
   onClick: () => void
 }) {
   return (
     <button
-      className="send"
+      className={`send ${tone}`}
       title={title}
       aria-label={title}
       disabled={disabled}

@@ -43,7 +43,7 @@ async def database():
 
     await db.ensure_indexes()
     yield db.get_database()
-    for name in ("challenges", "attempts", "games", "users", "sessions"):
+    for name in ("challenges", "attempts", "games", "users", "sessions", "progress_events"):
         await db.get_database()[name].delete_many({})
     # Each test runs in its own event loop, so the client cannot be shared between them.
     await db.close_client()

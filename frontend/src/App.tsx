@@ -96,16 +96,19 @@ export default function App() {
   const showError = useCallback((message: string) => setError(message), []);
   const endSplash = useCallback(() => setSplashDone(true), []);
 
-  const scored = useCallback((score: number, generations: number) => {
-    api
-      .addProgress(score, generations)
-      .then((updated) =>
-        setUser((current) =>
-          current ? { ...current, progress: updated } : current,
-        ),
-      )
-      .catch(() => undefined);
-  }, []);
+  const scored = useCallback(
+    (attemptId: string, score: number, generations: number) => {
+      api
+        .addProgress(attemptId, score, generations)
+        .then((updated) =>
+          setUser((current) =>
+            current ? { ...current, progress: updated } : current,
+          ),
+        )
+        .catch(() => undefined);
+    },
+    [],
+  );
 
   function signedIn(session: Session) {
     setToken(session.token);

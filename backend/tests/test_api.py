@@ -541,7 +541,9 @@ class TestAccounts:
 
         headers = {"Authorization": f"Bearer {token}"}
         progress = await client.post(
-            "/api/auth/progress", json={"score": 91.4, "generations": 2}, headers=headers
+            "/api/auth/progress",
+            json={"attemptId": "attempt-1", "score": 91.4, "generations": 2},
+            headers=headers,
         )
         assert progress.json() == {
             "xp": 91,
@@ -575,8 +577,40 @@ class TestAccounts:
         )
         assert wrong.status_code == 401
 
+    async def test_reporting_the_same_attempt_twice_adjusts_it(self, client):
+        signup = await client.post(
+            "/api/auth/signup", json={"username": "kris", "password": "hunter2hunter2"}
+        )
+        headers = {"Authorization": f"Bearer {signup.json()['token']}"}
+
+        first = await client.post(
+            "/api/auth/progress",
+            json={"attemptId": "attempt-1", "score": 40, "generations": 1},
+            headers=headers,
+        )
+        assert (first.json()["xp"], first.json()["attempts"]) == (40, 1)
+
+        # A retry of the same attempt replaces its contribution instead of adding another attempt.
+        retried = await client.post(
+            "/api/auth/progress",
+            json={"attemptId": "attempt-1", "score": 80, "generations": 2},
+            headers=headers,
+        )
+        assert retried.json()["xp"] == 80
+        assert retried.json()["attempts"] == 1
+        assert retried.json()["generations"] == 2
+
+        other = await client.post(
+            "/api/auth/progress",
+            json={"attemptId": "attempt-2", "score": 10, "generations": 1},
+            headers=headers,
+        )
+        assert (other.json()["xp"], other.json()["attempts"]) == (90, 2)
+
     async def test_progress_requires_a_session(self, client):
-        anonymous = await client.post("/api/auth/progress", json={"score": 50, "generations": 1})
+        anonymous = await client.post(
+            "/api/auth/progress", json={"attemptId": "a", "score": 50, "generations": 1}
+        )
         assert anonymous.status_code == 401
 
         bogus = await client.get("/api/auth/me", headers={"Authorization": "Bearer nope"})

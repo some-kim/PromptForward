@@ -29,10 +29,6 @@ export function SignIn({ onSignedIn }: { onSignedIn: (session: Session) => void 
   return (
     <section className="panel sign-in">
       <h2>{mode === "login" ? "Welcome back" : "Create your account"}</h2>
-      <p className="hint">
-        Your streak, XP, and CO₂ saved are saved to your account.
-      </p>
-
       <form
         className="sign-in-form"
         onSubmit={(event) => {

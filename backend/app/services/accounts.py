@@ -8,6 +8,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import bcrypt
 from bson import ObjectId
+from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
 from app import db
@@ -117,20 +118,54 @@ def _next_streak(previous: dict, today: str) -> int:
     return int(previous.get("streak", 0)) + 1 if last == yesterday else 1
 
 
-async def record_attempt(user: dict, score: float, generations: int) -> dict:
-    """Applies one finished attempt to the account's stats and returns the new totals."""
-    previous = {**EMPTY_PROGRESS, **(user.get("progress") or {})}
-    today = datetime.now(timezone.utc).date().isoformat()
+async def record_attempt(user: dict, attempt_id: str, score: float, generations: int) -> dict:
+    """Applies one attempt to the account's stats and returns the new totals.
 
-    progress = {
-        "xp": int(previous["xp"]) + max(0, round(score)),
-        "attempts": int(previous["attempts"]) + 1,
-        "generations": int(previous["generations"]) + max(1, int(generations)),
-        "streak": _next_streak(previous, today),
-        "lastPlayedDay": today,
+    Keyed by attempt so the client can report as soon as an attempt is scored and report again
+    after a retry: the account gains the difference, never a second attempt.
+    """
+    xp = max(0, round(score))
+    used = max(1, int(generations))
+    event = {
+        "_id": f"{user['_id']}:{attempt_id}",
+        "userId": user["_id"],
+        "xp": xp,
+        "generations": used,
     }
-    await db.users().update_one({"_id": user["_id"]}, {"$set": {"progress": progress}})
-    return progress
+
+    try:
+        await db.progress_events().insert_one(event)
+        deltas = {"progress.xp": xp, "progress.attempts": 1, "progress.generations": used}
+    except DuplicateKeyError:
+        applied = await db.progress_events().find_one_and_update(
+            {"_id": event["_id"]},
+            {"$set": {"xp": xp, "generations": used}},
+        )
+        deltas = {
+            "progress.xp": xp - int(applied["xp"]),
+            "progress.attempts": 0,
+            "progress.generations": used - int(applied["generations"]),
+        }
+
+    updated = await db.users().find_one_and_update(
+        {"_id": user["_id"]},
+        {"$inc": deltas},
+        return_document=ReturnDocument.AFTER,
+    )
+    return await _touch_streak(user["_id"], {**EMPTY_PROGRESS, **(updated.get("progress") or {})})
+
+
+async def _touch_streak(user_id: ObjectId, progress: dict) -> dict:
+    today = datetime.now(timezone.utc).date().isoformat()
+    streak = _next_streak(progress, today)
+    if (progress["lastPlayedDay"], progress["streak"]) == (today, streak):
+        return progress
+
+    await db.users().update_one(
+        {"_id": user_id, "progress.lastPlayedDay": progress["lastPlayedDay"]},
+        {"$set": {"progress.streak": streak, "progress.lastPlayedDay": today}},
+    )
+    return {**progress, "streak": streak, "lastPlayedDay": today}
 
 
 def user_view(user: dict) -> dict:
