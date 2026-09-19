@@ -606,6 +606,7 @@ Rules:
 - Request the supported aspect ratio closest to the target's (stored `width`/`height` on the challenge). This keeps composition comparisons fair.
 - 1 image per call.
 - Provider failures, timeouts, and safety refusals do **not** consume a generation. Return an error and release the reserved slot.
+- Prefer inline `b64_json` responses. A response that carries a URL instead is only fetched when it is `https` on the configured `META_API_BASE_URL` host, so a redirected or compromised endpoint cannot make the backend fetch internal addresses.
 - Download the returned image immediately and store it in Dropbox at `DROPBOX_GENERATED_FOLDER/{attemptId}/{generationNumber}.png`. Provider URLs may expire.
 
 Service interface (keep provider logic behind it so another provider can be swapped in):

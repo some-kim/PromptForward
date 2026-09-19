@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import time
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -91,8 +92,24 @@ async def _extract_image(client: httpx.AsyncClient, body: dict[str, Any]) -> tup
         return base64.b64decode(item["b64_json"]), mime_type
 
     if item.get("url"):
-        downloaded = await client.get(item["url"])
+        url = item["url"]
+        if not _is_provider_url(url):
+            raise ImageGenerationError(f"Meta returned an image URL outside the provider: {url}")
+        downloaded = await client.get(url)
         downloaded.raise_for_status()
         return downloaded.content, downloaded.headers.get("content-type", mime_type)
 
     raise ImageGenerationError(f"Meta image generation returned an unreadable image: {item}")
+
+
+def _is_provider_url(url: str) -> bool:
+    """Only https URLs served by the configured provider host are fetched.
+
+    The response body is untrusted input: without this a redirected or compromised endpoint
+    could make the backend fetch internal addresses.
+    """
+    parsed = urlparse(url)
+    provider = urlparse(get_config().meta.base_url).hostname
+    if parsed.scheme != "https" or not parsed.hostname or not provider:
+        return False
+    return parsed.hostname == provider or parsed.hostname.endswith(f".{provider}")

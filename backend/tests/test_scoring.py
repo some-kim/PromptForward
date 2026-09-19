@@ -15,6 +15,7 @@ from app.models import (
     Rubric,
     RubricCriterion,
 )
+from app.services.meta.image_generator import _is_provider_url
 from app.services.scoring.efficiency_score import efficiency_score
 from app.services.scoring.final_score import PlayerOutcome, final_score, pick_winner
 from app.services.scoring.prompt_score import (
@@ -316,3 +317,18 @@ class TestTokenCounter:
             "A realistic nighttime photograph of a yellow umbrella centered on a rainy city street"
         )
         assert long > short
+
+
+class TestProviderImageUrls:
+    """The provider response is untrusted input, so its URLs must stay on the provider host."""
+
+    def test_provider_host_over_https_is_allowed(self):
+        assert _is_provider_url("https://meta.test/images/1.png")
+        assert _is_provider_url("https://cdn.meta.test/images/1.png")
+
+    def test_other_hosts_and_schemes_are_rejected(self):
+        assert not _is_provider_url("http://meta.test/images/1.png")
+        assert not _is_provider_url("https://evil.example/images/1.png")
+        assert not _is_provider_url("http://169.254.169.254/latest/meta-data/")
+        assert not _is_provider_url("file:///etc/passwd")
+        assert not _is_provider_url("https://meta.test.evil.example/1.png")
