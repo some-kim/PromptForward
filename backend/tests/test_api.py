@@ -390,6 +390,55 @@ class TestGameMode:
             assert attempt["scores"]["final"] is not None
             assert attempt["scores"]["efficiency"] > 0
 
+    async def test_failed_evaluation_does_not_buy_a_second_image(self, client, monkeypatch):
+        from app.routes import games as games_route
+        from app.services.openai.client import LLMResponseError
+
+        challenge_id = await create_challenge(client)
+        game_id = (
+            await client.post(
+                "/api/games",
+                json={"userId": "p1", "displayName": "Kris", "challengeId": challenge_id},
+            )
+        ).json()["id"]
+        await client.post(f"/api/games/{game_id}/join", json={"userId": "p2", "displayName": "Sam"})
+
+        working_evaluate = games_route.evaluate_prompt
+
+        async def failing_evaluate(rubric, prompt):
+            raise LLMResponseError("OpenAI is down")
+
+        monkeypatch.setattr(games_route, "evaluate_prompt", failing_evaluate)
+        failed = await client.post(
+            f"/api/games/{game_id}/generate", json={"userId": "p1", "prompt": STRONG_PROMPT}
+        )
+        assert failed.status_code == 502
+
+        monkeypatch.setattr(games_route, "evaluate_prompt", working_evaluate)
+        retried = await client.post(
+            f"/api/games/{game_id}/generate", json={"userId": "p1", "prompt": "a different prompt"}
+        )
+        assert retried.status_code == 200
+        mine = next(p for p in retried.json()["players"] if p["userId"] == "p1")
+        assert len(mine["attempt"]["generations"]) == 1
+        assert mine["attempt"]["generations"][0]["prompt"] == STRONG_PROMPT
+        assert mine["attempt"]["scores"]["promptQuality"] is not None
+
+    async def test_oversized_prompts_are_rejected(self, client):
+        challenge_id = await create_challenge(client)
+        game_id = (
+            await client.post(
+                "/api/games",
+                json={"userId": "p1", "displayName": "Kris", "challengeId": challenge_id},
+            )
+        ).json()["id"]
+        await client.post(f"/api/games/{game_id}/join", json={"userId": "p2", "displayName": "Sam"})
+
+        oversized = await client.post(
+            f"/api/games/{game_id}/generate", json={"userId": "p1", "prompt": "x" * 2001}
+        )
+        assert oversized.status_code == 422
+
     async def test_third_player_is_rejected(self, client):
         challenge_id = await create_challenge(client)
         game_id = (

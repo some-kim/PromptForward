@@ -6,7 +6,7 @@ import base64
 import functools
 from typing import Any, TypeVar
 
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, OpenAIError
 from pydantic import BaseModel, ValidationError
 
 from app.config import get_config
@@ -17,7 +17,7 @@ TEMPERATURE = 0.0
 
 
 class LLMResponseError(RuntimeError):
-    """Raised when the model returns output that fails backend validation twice."""
+    """The single failure mode of an OpenAI call: unreachable, refused, or invalid output twice."""
 
 
 @functools.lru_cache(maxsize=1)
@@ -41,7 +41,7 @@ async def parse_structured(
     """Call the model with an enforced JSON schema, validating in backend code.
 
     `validate` is an optional callable applied to the parsed response; anything it raises
-    is treated as invalid output. Invalid output is retried exactly once.
+    is treated as invalid output. Invalid output and transport failures are retried exactly once.
     """
     client = get_client()
     last_error: Exception | None = None
@@ -63,7 +63,7 @@ async def parse_structured(
             if validate is not None:
                 validate(parsed)
             return parsed
-        except (ValidationError, ValueError, LLMResponseError) as error:
+        except (ValidationError, ValueError, LLMResponseError, OpenAIError) as error:
             last_error = error
 
-    raise LLMResponseError(f"Model returned invalid output twice: {last_error}")
+    raise LLMResponseError(f"Model call failed twice: {last_error}")

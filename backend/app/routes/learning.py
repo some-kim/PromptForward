@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app import db
 from app.models import PromptEvaluation
@@ -26,6 +26,8 @@ from app.services.scoring.token_counter import count_prompt_tokens
 
 router = APIRouter(prefix="/api/learning", tags=["learning"])
 
+MAX_PROMPT_CHARS = 2000
+
 
 class CreateAttemptRequest(BaseModel):
     challengeId: str
@@ -34,7 +36,7 @@ class CreateAttemptRequest(BaseModel):
 
 
 class PromptRequest(BaseModel):
-    prompt: str
+    prompt: str = Field(max_length=MAX_PROMPT_CHARS)
 
 
 @router.post("/attempts", status_code=201)

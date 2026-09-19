@@ -8,13 +8,13 @@ from typing import Any
 
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app import db
+from app.models import PromptEvaluation
 from app.serializers import game_view, object_id
 from app.services.attempts import (
     GAME_GENERATION_LIMIT,
-    GenerationFailed,
     GenerationLimitReached,
     create_attempt,
     record_prompt_evaluation,
@@ -30,6 +30,8 @@ from app.services.scoring.final_score import PlayerOutcome, pick_winner
 
 router = APIRouter(prefix="/api/games", tags=["games"])
 
+MAX_PROMPT_CHARS = 2000
+
 
 class CreateGameRequest(BaseModel):
     userId: str
@@ -44,7 +46,7 @@ class JoinGameRequest(BaseModel):
 
 class GenerateRequest(BaseModel):
     userId: str
-    prompt: str
+    prompt: str = Field(max_length=MAX_PROMPT_CHARS)
 
 
 @router.post("", status_code=201)
@@ -129,6 +131,14 @@ async def generate_game_image(game_id: str, body: GenerateRequest) -> dict:
     attempt = await db.attempts().find_one({"_id": player["attemptId"]})
     challenge = await db.challenges().find_one({"_id": game["challengeId"]})
 
+    # An earlier call whose image succeeded but whose evaluation failed only needs the evaluation:
+    # the player keeps that one image instead of being handed a second generation.
+    unscored = next(
+        (g for g in attempt.get("generations", []) if g.get("promptEvaluation") is None), None
+    )
+    if unscored is not None:
+        return await _score_prompt(game, attempt, challenge, unscored)
+
     try:
         generation_number = await reserve_generation(
             attempt["_id"], limit=GAME_GENERATION_LIMIT, gate_prompt=None
@@ -149,17 +159,45 @@ async def generate_game_image(game_id: str, body: GenerateRequest) -> dict:
             prompt_evaluation=None,
         )
     )
-    try:
-        evaluation, _ = await asyncio.gather(evaluation_task, generation_task)
-    except (GenerationFailed, LLMResponseError) as error:
-        # gather leaves the other task running; it must stop before the slot is refunded.
-        for task in (evaluation_task, generation_task):
-            task.cancel()
-        await asyncio.gather(evaluation_task, generation_task, return_exceptions=True)
+    evaluation, generated = await asyncio.gather(
+        evaluation_task, generation_task, return_exceptions=True
+    )
+
+    if isinstance(generated, BaseException):
+        # No image was stored, so the slot is refunded and the player may try again.
         await release_generation(attempt["_id"])
+        raise HTTPException(status_code=502, detail=str(generated)) from generated
+
+    if isinstance(evaluation, BaseException):
+        # The image is committed. Keep the slot used and let a retry score the prompt only.
+        raise HTTPException(status_code=502, detail=str(evaluation)) from evaluation
+
+    return await _finish_generation(game, attempt, generation_number, body.prompt, evaluation)
+
+
+async def _score_prompt(
+    game: dict[str, Any],
+    attempt: dict[str, Any],
+    challenge: dict[str, Any],
+    generation: dict[str, Any],
+) -> dict:
+    prompt = generation["prompt"]
+    try:
+        evaluation = await evaluate_prompt(rubric_of(challenge), prompt)
+    except LLMResponseError as error:
         raise HTTPException(status_code=502, detail=str(error)) from error
 
-    await record_prompt_evaluation(attempt["_id"], body.prompt, evaluation)
+    return await _finish_generation(game, attempt, generation["number"], prompt, evaluation)
+
+
+async def _finish_generation(
+    game: dict[str, Any],
+    attempt: dict[str, Any],
+    generation_number: int,
+    prompt: str,
+    evaluation: PromptEvaluation,
+) -> dict:
+    await record_prompt_evaluation(attempt["_id"], prompt, evaluation)
     await db.attempts().update_one(
         {"_id": attempt["_id"], "generations.number": generation_number},
         {"$set": {"generations.$.promptEvaluation": evaluation.model_dump()}},
@@ -167,7 +205,7 @@ async def generate_game_image(game_id: str, body: GenerateRequest) -> dict:
     await submit_attempt(attempt["_id"])
     await _complete_if_ready(game["_id"])
 
-    return await _view(game["_id"], body.userId)
+    return await _view(game["_id"], attempt["userId"])
 
 
 async def _pick_challenge(challenge_id: str | None) -> dict[str, Any]:

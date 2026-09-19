@@ -584,7 +584,7 @@ Result Score
 - **Identity**: no login in the MVP. The client generates a `playerId` (UUID) on first load, keeps it in `localStorage`, and sends it with every game request along with a display name.
 - **Create**: `POST /api/games` with optional `challengeId` (random challenge if omitted). Creator joins as player 1. `status = waiting`.
 - **Join**: `POST /api/games/:id/join`. Second player joins. `status = active`. A third join returns `409`.
-- **Generate**: allowed only while `status = active` and the player has not generated yet. Enforce this **atomically** in MongoDB (conditional update that reserves the slot) so double clicks cannot generate twice. The attempt is submitted automatically once its generation and evaluations finish. If generation fails, release the slot so the player can try again.
+- **Generate**: allowed only while `status = active` and the player has not generated yet. Enforce this **atomically** in MongoDB (conditional update that reserves the slot) so double clicks cannot generate twice. The attempt is submitted automatically once its generation and evaluations finish. If image generation fails, release the slot so the player can try again. If the image succeeded but the parallel prompt evaluation failed, the slot stays used: calling generate again only re-scores the stored image's prompt, so a provider hiccup can never buy a second image.
 - **Complete**: when both players have submitted, the backend computes scores, sets `winnerUserId`, and sets `status = completed`.
 - **Polling**: clients poll `GET /api/games/:id` every 2 seconds. Opponent prompts and images are hidden until `completed`; before that only whether the opponent has finished is shown.
 - **Invite**: the creator shares the URL `#/game/:id`. Opening it calls join automatically, so the MVP needs no matchmaking or lobby.
@@ -1071,6 +1071,8 @@ GET  /api/attempts/:id/generations/:n/image?token=   generated image bytes
 ```
 
 **Never send the rubric to the client.** It is effectively the answer key.
+
+Prompts are capped at 2000 characters (`422` beyond) so a single request cannot run up tokenizer, storage, and provider cost.
 
 Generated images are as private as the attempt they belong to. Each attempt gets an unguessable `imageToken` when it is created; the image route requires it. The token reaches a client only inside a view it is allowed to see, so an opponent receives it once the game is `completed` and never before. This keeps the MVP loginless: no account is needed to view your own images, and a guessed attempt id or `userId` reveals nothing.
 
