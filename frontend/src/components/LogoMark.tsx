@@ -12,12 +12,12 @@ export function LogoMark() {
           fill="#1a73e8"
         />
         <path
-          d="M31 12l4 10 10 4-10 4-4 10-4-10-10-4 10-4z"
+          d="M17 22h17v-7l13 11-13 11v-7H17z"
           fill="#f9ab00"
         />
       </g>
-      <circle cx="46" cy="18" r="3.5" fill="#ea4335" />
-      <circle cx="47" cy="34" r="3" fill="#34a853" />
+      <circle cx="50" cy="38" r="3" fill="#34a853" />
+      <circle cx="21" cy="14" r="3" fill="#ea4335" />
     </svg>
   );
 }
