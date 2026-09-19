@@ -23,14 +23,24 @@ The architecture should remain generic enough to add **text-generation challenge
 
 ---
 
-## Stack Decision (fill in before handoff)
+## Stack Decision
 
 ```text
-Backend:  <FILL IN, e.g. Python + FastAPI, or Node + TypeScript + Express>
-Frontend: <FILL IN, e.g. React + Vite>
+Backend:  Python 3.10+ + FastAPI (Motor async MongoDB driver, Pydantic models, tiktoken)
+Frontend: React + Vite + TypeScript
 ```
 
+Rationale: `tiktoken` (the fixed tokenizer this document requires) is native to Python, Pydantic models pair directly with OpenAI structured outputs for the three evaluators, and Motor supports the atomic conditional updates the generation limits need.
+
 All code snippets in this document are illustrative pseudocode. Implement them in the chosen backend language. Do not mix languages in the backend.
+
+Repository layout:
+
+```text
+backend/    FastAPI application, scoring services, seed script, tests
+frontend/   React + Vite + TypeScript client
+docs/       This specification
+```
 
 ---
 
@@ -573,6 +583,7 @@ Result Score
 - **Generate**: allowed only while `status = active` and the player has not generated yet. Enforce this **atomically** in MongoDB (conditional update that reserves the slot) so double clicks cannot generate twice. The attempt is submitted automatically once its generation and evaluations finish. If generation fails, release the slot so the player can try again.
 - **Complete**: when both players have submitted, the backend computes scores, sets `winnerUserId`, and sets `status = completed`.
 - **Polling**: clients poll `GET /api/games/:id` every 2 seconds. Opponent prompts and images are hidden until `completed`; before that only whether the opponent has finished is shown.
+- **Invite**: the creator shares the URL `#/game/:id`. Opening it calls join automatically, so the MVP needs no matchmaking or lobby.
 
 ### Winner
 

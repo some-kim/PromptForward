@@ -1,0 +1,144 @@
+import { useState } from 'react'
+import { ApiError, api, type Attempt, type Challenge, type PromptEvaluation } from '../api'
+import { Scoreboard } from './Scoreboard'
+import { round } from '../format'
+
+type Props = {
+  challenge: Challenge
+  attempt: Attempt
+  onExit: () => void
+}
+
+export function LearningMode({ challenge, attempt: initialAttempt, onExit }: Props) {
+  const [attempt, setAttempt] = useState(initialAttempt)
+  const [prompt, setPrompt] = useState('')
+  const [evaluation, setEvaluation] = useState<PromptEvaluation | null>(null)
+  const [evaluatedPrompt, setEvaluatedPrompt] = useState<string | null>(null)
+  const [busy, setBusy] = useState<'evaluating' | 'generating' | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const readyToGenerate = evaluation?.passed === true && evaluatedPrompt === prompt
+
+  async function evaluatePrompt() {
+    setBusy('evaluating')
+    setError(null)
+    try {
+      const result = await api.evaluatePrompt(attempt.id, prompt)
+      setEvaluation(result)
+      setEvaluatedPrompt(prompt)
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : String(caught))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function generateImage() {
+    setBusy('generating')
+    setError(null)
+    try {
+      setAttempt(await api.generateLearningImage(attempt.id, prompt))
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : String(caught))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const generations = attempt.generations ?? []
+  const selected = generations.find((g) => g.number === attempt.selectedGeneration)
+
+  return (
+    <section className="mode">
+      <header className="mode-header">
+        <h2>Learning Mode</h2>
+        <button className="link" onClick={onExit}>
+          Back to challenges
+        </button>
+      </header>
+
+      <div className="image-row">
+        <figure>
+          <figcaption>Target</figcaption>
+          <img src={challenge.imageUrl} alt="Target" />
+        </figure>
+        {selected && (
+          <figure>
+            <figcaption>Your result</figcaption>
+            <img src={selected.imageUrl} alt="Generated result" />
+          </figure>
+        )}
+      </div>
+
+      {attempt.status === 'submitted' ? (
+        <div className="results">
+          <Scoreboard attempt={attempt} />
+          {selected?.resultFeedback && (
+            <p className="feedback">
+              <strong>Feedback</strong>
+              <br />
+              {selected.resultFeedback}
+            </p>
+          )}
+          {(attempt.generationsRemaining ?? 0) > 0 && (
+            <button
+              onClick={() => {
+                setEvaluation(null)
+                setEvaluatedPrompt(null)
+                setAttempt({ ...attempt, status: 'in_progress' })
+              }}
+            >
+              Try another prompt ({attempt.generationsRemaining} left)
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="prompt-panel">
+          <label htmlFor="prompt">Write a prompt</label>
+          <textarea
+            id="prompt"
+            rows={5}
+            value={prompt}
+            placeholder="Describe the target image so an image model can recreate it."
+            onChange={(event) => setPrompt(event.target.value)}
+          />
+
+          <div className="actions">
+            <button onClick={evaluatePrompt} disabled={!prompt.trim() || busy !== null}>
+              {busy === 'evaluating' ? 'Evaluating…' : 'Evaluate Prompt'}
+            </button>
+            <button onClick={generateImage} disabled={!readyToGenerate || busy !== null}>
+              {busy === 'generating' ? 'Generating… this takes a while' : 'Generate Image'}
+            </button>
+          </div>
+
+          {evaluation && (
+            <div className={`evaluation ${evaluation.passed ? 'passed' : 'failed'}`}>
+              <p className="score">Prompt Quality: {round(evaluation.promptQuality)}</p>
+              {evaluation.passed && evaluatedPrompt === prompt ? (
+                <p>✓ Ready to generate</p>
+              ) : (
+                <>
+                  {evaluatedPrompt !== prompt && <p>Prompt changed — evaluate it again.</p>}
+                  {evaluation.needsImprovement.length > 0 && (
+                    <>
+                      <p>Needs improvement:</p>
+                      <ul>
+                        {evaluation.needsImprovement.map((hint) => (
+                          <li key={hint}>{hint}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </>
+              )}
+              <p className="feedback">{evaluation.feedback}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {error && <p className="error">{error}</p>}
+    </section>
+  )
+}

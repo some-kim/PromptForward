@@ -1,0 +1,224 @@
+:root {
+  color-scheme: dark;
+  --bg: #11131a;
+  --panel: #1a1e29;
+  --text: #e8eaf1;
+  --muted: #9aa3b8;
+  --accent: #ffc83d;
+  --pass: #55d187;
+  --fail: #ff7b72;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+main {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: 2rem;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-size: 1.25rem;
+}
+
+.app-header {
+  display: grid;
+  gap: 0.25rem;
+  margin-bottom: 2rem;
+}
+
+.app-header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.app-header label {
+  margin-top: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+input,
+textarea {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid #2b3145;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  width: 100%;
+}
+
+textarea {
+  resize: vertical;
+}
+
+button {
+  background: var(--accent);
+  color: #1a1400;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button.link {
+  background: none;
+  color: var(--muted);
+  padding: 0;
+  font-weight: 400;
+  text-decoration: underline;
+}
+
+.mode-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.challenge-grid {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.challenge-grid li {
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 0.75rem;
+}
+
+.challenge-grid img,
+.image-row img,
+.player-result img {
+  width: 100%;
+  border-radius: 8px;
+  display: block;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.image-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.image-row figure {
+  margin: 0;
+}
+
+figcaption {
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.4rem;
+}
+
+.prompt-panel,
+.results {
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.evaluation {
+  border-left: 3px solid var(--muted);
+  padding-left: 0.75rem;
+}
+
+.evaluation.passed {
+  border-color: var(--pass);
+}
+
+.evaluation.failed {
+  border-color: var(--fail);
+}
+
+.evaluation .score {
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin: 0 0 0.25rem;
+}
+
+.feedback,
+.hint,
+.prompt-text {
+  color: var(--muted);
+}
+
+.scoreboard {
+  margin: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.scoreboard > div {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #252a3a;
+  padding: 0.3rem 0;
+}
+
+.scoreboard dt,
+.scoreboard dd {
+  margin: 0;
+}
+
+.scoreboard .spacer {
+  margin-top: 0.5rem;
+}
+
+.scoreboard .final {
+  font-weight: 700;
+  font-size: 1.1rem;
+  border-bottom: none;
+}
+
+.game-results {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.winner {
+  color: var(--accent);
+}
+
+.waiting code {
+  word-break: break-all;
+}
+
+.error {
+  color: var(--fail);
+}
