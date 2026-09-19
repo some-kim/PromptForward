@@ -7,6 +7,7 @@ type Props = {
   label?: string
   onChange: (value: string) => void
   onSubmit?: () => void
+  submitDisabled?: boolean
   actions: ReactNode
 }
 
@@ -19,6 +20,7 @@ export function Composer({
   label,
   onChange,
   onSubmit,
+  submitDisabled,
   actions,
 }: Props) {
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -42,9 +44,9 @@ export function Composer({
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === 'Enter' && !event.shiftKey && onSubmit) {
+          if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault()
-            onSubmit()
+            if (onSubmit && !submitDisabled) onSubmit()
           }
         }}
       />

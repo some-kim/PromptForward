@@ -130,6 +130,7 @@ export function LearningMode({
             placeholder="Describe the target image so an image model can recreate it."
             onChange={setPrompt}
             onSubmit={readyToGenerate ? generateImage : evaluatePrompt}
+            submitDisabled={!prompt.trim() || busy !== null}
             actions={
               <>
                 <button

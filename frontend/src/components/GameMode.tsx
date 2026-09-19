@@ -37,6 +37,8 @@ export function GameMode({ game: initialGame, playerId, onExit }: Props) {
   // The image is made but scoring the prompt failed: the only action left is to score it again.
   const needsScore = hasGenerated && myGeneration.promptQuality === null && !generating
   const joinUrl = `${location.origin}/#/game/${game.id}`
+  const cannotGenerate =
+    generating || game.status !== 'active' || !prompt.trim() || hasGenerated
 
   async function generate() {
     setGenerating(true)
@@ -108,6 +110,7 @@ export function GameMode({ game: initialGame, playerId, onExit }: Props) {
             placeholder="Describe the target image so an image model can recreate it."
             onChange={setPrompt}
             onSubmit={generate}
+            submitDisabled={cannotGenerate}
             actions={
               needsScore ? (
                 <button onClick={generate} disabled={generating}>
@@ -117,12 +120,7 @@ export function GameMode({ game: initialGame, playerId, onExit }: Props) {
                 <SendButton
                   busy={generating}
                   title={generating ? 'Working…' : 'Generate image'}
-                  disabled={
-                    generating ||
-                    game.status !== 'active' ||
-                    !prompt.trim() ||
-                    hasGenerated
-                  }
+                  disabled={cannotGenerate}
                   onClick={generate}
                 />
               )
