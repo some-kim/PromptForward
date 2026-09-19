@@ -1,105 +1,125 @@
-import { useEffect, useRef, useState } from 'react'
-import './App.css'
+import { useCallback, useEffect, useRef, useState } from "react";
+import "./App.css";
 import {
   ApiError,
-  DIFFICULTIES,
   api,
   type Attempt,
   type Challenge,
   type Difficulty,
   type Game,
-} from './api'
-import { GameMode } from './components/GameMode'
-import { LearningMode } from './components/LearningMode'
-import { getDisplayName, getPlayerId, setDisplayName } from './player'
+} from "./api";
+import { GameMode } from "./components/GameMode";
+import { Home } from "./components/Home";
+import { LearningMode } from "./components/LearningMode";
+import {
+  getDifficulty,
+  getDisplayName,
+  getPlayerId,
+  setDifficulty,
+  setDisplayName,
+} from "./player";
 
 type View =
-  | { name: 'challenges' }
-  | { name: 'learning'; challenge: Challenge; attempt: Attempt }
-  | { name: 'game'; game: Game }
+  | { name: "home" }
+  | { name: "learning"; challenge: Challenge; attempt: Attempt }
+  | { name: "game"; game: Game };
 
 function gameIdFromHash(): string | null {
-  const match = location.hash.match(/^#\/game\/(\w+)$/)
-  return match ? match[1] : null
+  const match = location.hash.match(/^#\/game\/(\w+)$/);
+  return match ? match[1] : null;
 }
 
 export default function App() {
-  const playerId = getPlayerId()
-  const [name, setName] = useState(getDisplayName())
-  const [challenges, setChallenges] = useState<Challenge[]>([])
-  const [difficulty, setDifficulty] = useState<Difficulty | null>(null)
-  const [view, setView] = useState<View>({ name: 'challenges' })
-  const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [invitedGameId, setInvitedGameId] = useState(gameIdFromHash)
-  const joining = useRef<string | null>(null)
+  const playerId = getPlayerId();
+  const [name, setName] = useState(getDisplayName());
+  const [difficulty, setLevel] = useState<Difficulty>(getDifficulty);
+  const [view, setView] = useState<View>({ name: "home" });
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [invitedGameId, setInvitedGameId] = useState(gameIdFromHash);
+  const joining = useRef<string | null>(null);
 
   useEffect(() => {
-    const onHashChange = () => setInvitedGameId(gameIdFromHash())
-    addEventListener('hashchange', onHashChange)
-    return () => removeEventListener('hashchange', onHashChange)
-  }, [])
-
-  useEffect(() => {
-    api
-      .listChallenges(difficulty ?? undefined)
-      .then(setChallenges)
-      .catch((caught) => setError(String(caught)))
-  }, [difficulty])
+    const onHashChange = () => setInvitedGameId(gameIdFromHash());
+    addEventListener("hashchange", onHashChange);
+    return () => removeEventListener("hashchange", onHashChange);
+  }, []);
 
   useEffect(() => {
     // A ref, not state: StrictMode runs this effect twice and two joins race into a false 409.
-    if (!invitedGameId || view.name === 'game' || joining.current === invitedGameId) return
-    joining.current = invitedGameId
+    if (
+      !invitedGameId ||
+      view.name === "game" ||
+      joining.current === invitedGameId
+    )
+      return;
+    joining.current = invitedGameId;
 
     api
-      .joinGame(invitedGameId, playerId, name || 'Player')
+      .joinGame(invitedGameId, playerId, name || "Player")
       .then((game) => {
-        setError(null)
-        setView({ name: 'game', game })
+        setError(null);
+        setView({ name: "game", game });
       })
       .catch((caught) => {
-        joining.current = null
-        setError(caught instanceof ApiError ? caught.message : String(caught))
-      })
-  }, [invitedGameId, name, playerId, view.name])
+        joining.current = null;
+        setError(caught instanceof ApiError ? caught.message : String(caught));
+      });
+  }, [invitedGameId, name, playerId, view.name]);
+
+  const showError = useCallback((message: string) => setError(message), []);
+
+  function changeName(next: string) {
+    setName(next);
+    setDisplayName(next);
+  }
+
+  function changeDifficulty(next: Difficulty) {
+    setLevel(next);
+    setDifficulty(next);
+  }
 
   async function startLearning(challenge: Challenge) {
-    setBusy(true)
-    setError(null)
+    setBusy(true);
+    setError(null);
     try {
-      const attempt = await api.createLearningAttempt(challenge.id, playerId, name || 'Player')
-      setView({ name: 'learning', challenge, attempt })
+      const attempt = await api.createLearningAttempt(
+        challenge.id,
+        playerId,
+        name || "Player",
+      );
+      setView({ name: "learning", challenge, attempt });
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : String(caught))
+      setError(caught instanceof ApiError ? caught.message : String(caught));
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
   }
 
-  async function startGame(challenge?: Challenge) {
-    setBusy(true)
-    setError(null)
+  async function startBattle() {
+    setBusy(true);
+    setError(null);
     try {
       const game = await api.createGame(
         playerId,
-        name || 'Player',
-        challenge?.id,
-        challenge ? undefined : (difficulty ?? undefined),
-      )
-      location.hash = `#/game/${game.id}`
-      setView({ name: 'game', game })
+        name || "Player",
+        undefined,
+        difficulty,
+      );
+      location.hash = `#/game/${game.id}`;
+      setView({ name: "game", game });
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : String(caught))
+      setError(caught instanceof ApiError ? caught.message : String(caught));
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
   }
 
   function exit() {
-    joining.current = null
-    location.hash = ''
-    setView({ name: 'challenges' })
+    joining.current = null;
+    location.hash = "";
+    setError(null);
+    setView({ name: "home" });
   }
 
   return (
@@ -107,75 +127,35 @@ export default function App() {
       <header className="app-header">
         <h1>PromptForward</h1>
         <p>Write better prompts with fewer wasted generations.</p>
-        <label>
-          Display name
-          <input
-            value={name}
-            placeholder="Player"
-            onChange={(event) => {
-              setName(event.target.value)
-              setDisplayName(event.target.value)
-            }}
-          />
-        </label>
       </header>
 
-      {view.name === 'challenges' && (
-        <section>
-          <div className="mode-header">
-            <h2>Challenges</h2>
-            <button onClick={() => startGame()} disabled={busy || challenges.length === 0}>
-              Start a random game
-            </button>
-          </div>
-          <div className="difficulty-filter">
-            <button
-              className={difficulty === null ? 'selected' : undefined}
-              onClick={() => setDifficulty(null)}
-            >
-              All
-            </button>
-            {DIFFICULTIES.map((level) => (
-              <button
-                key={level}
-                className={difficulty === level ? 'selected' : undefined}
-                onClick={() => setDifficulty(level)}
-              >
-                {level}
-              </button>
-            ))}
-          </div>
-          {challenges.length === 0 && (
-            <p>
-              No {difficulty ?? ''} challenges yet. Run the seed script to add target images.
-            </p>
-          )}
-          <ul className="challenge-grid">
-            {challenges.map((challenge) => (
-              <li key={challenge.id}>
-                <img src={challenge.imageUrl} alt="Challenge target" />
-                <span className={`difficulty ${challenge.difficulty}`}>{challenge.difficulty}</span>
-                <div className="actions">
-                  <button onClick={() => startLearning(challenge)} disabled={busy}>
-                    Learn
-                  </button>
-                  <button onClick={() => startGame(challenge)} disabled={busy}>
-                    Challenge a friend
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
+      {view.name === "home" && (
+        <Home
+          key={difficulty}
+          name={name}
+          onNameChange={changeName}
+          difficulty={difficulty}
+          onDifficultyChange={changeDifficulty}
+          busy={busy}
+          onLearn={startLearning}
+          onBattle={startBattle}
+          onError={showError}
+        />
       )}
 
-      {view.name === 'learning' && (
-        <LearningMode challenge={view.challenge} attempt={view.attempt} onExit={exit} />
+      {view.name === "learning" && (
+        <LearningMode
+          challenge={view.challenge}
+          attempt={view.attempt}
+          onExit={exit}
+        />
       )}
 
-      {view.name === 'game' && <GameMode game={view.game} playerId={playerId} onExit={exit} />}
+      {view.name === "game" && (
+        <GameMode game={view.game} playerId={playerId} onExit={exit} />
+      )}
 
       {error && <p className="error">{error}</p>}
     </main>
-  )
+  );
 }

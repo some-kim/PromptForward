@@ -1098,6 +1098,34 @@ Do not overbuild the API.
 
 ---
 
+## Home Screen UI
+
+A game-style lobby, not a grid of every challenge. The player sets a difficulty once and each mode then draws a random target at that difficulty.
+
+```text
+┌─────────────────────────────────────┐
+│ [avatar] Kris            12 targets │
+│                                     │
+│     Difficulty  [Easy][Med][Hard]   │
+│                                     │
+│        ┌───────────────────┐        │
+│        │   random target   │        │
+│        │      preview      │        │
+│        └───────────────────┘        │
+│              [ Shuffle ]            │
+│                                     │
+│   [  Learning  ]     [  Battle  ]   │
+└─────────────────────────────────────┘
+```
+
+- Difficulty is a player setting stored in the browser; it defaults to `easy`.
+- The preview is a random challenge of that difficulty, re-rolled by **Shuffle** and whenever the difficulty changes.
+- **Learning** starts a solo attempt on a random target of that difficulty (the previewed one).
+- **Battle** creates a game and lets the server pick the random target for that difficulty, then shows the invite link.
+- If a difficulty has no targets yet, both buttons are disabled with a "no targets at this difficulty" note.
+
+---
+
 ## Learning Mode UI
 
 ```text

@@ -1,59 +1,77 @@
-import { useState } from 'react'
-import { ApiError, api, type Attempt, type Challenge, type PromptEvaluation } from '../api'
-import { Scoreboard } from './Scoreboard'
-import { round } from '../format'
+import { useState } from "react";
+import {
+  ApiError,
+  api,
+  type Attempt,
+  type Challenge,
+  type PromptEvaluation,
+} from "../api";
+import { Scoreboard } from "./Scoreboard";
+import { round } from "../format";
 
 type Props = {
-  challenge: Challenge
-  attempt: Attempt
-  onExit: () => void
-}
+  challenge: Challenge;
+  attempt: Attempt;
+  onExit: () => void;
+};
 
-export function LearningMode({ challenge, attempt: initialAttempt, onExit }: Props) {
-  const [attempt, setAttempt] = useState(initialAttempt)
-  const [prompt, setPrompt] = useState('')
-  const [evaluation, setEvaluation] = useState<PromptEvaluation | null>(null)
-  const [evaluatedPrompt, setEvaluatedPrompt] = useState<string | null>(null)
-  const [busy, setBusy] = useState<'evaluating' | 'generating' | null>(null)
-  const [error, setError] = useState<string | null>(null)
+export function LearningMode({
+  challenge,
+  attempt: initialAttempt,
+  onExit,
+}: Props) {
+  const [attempt, setAttempt] = useState(initialAttempt);
+  const [prompt, setPrompt] = useState("");
+  const [evaluation, setEvaluation] = useState<PromptEvaluation | null>(null);
+  const [evaluatedPrompt, setEvaluatedPrompt] = useState<string | null>(null);
+  const [busy, setBusy] = useState<"evaluating" | "generating" | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const readyToGenerate = evaluation?.passed === true && evaluatedPrompt === prompt
+  const readyToGenerate =
+    evaluation?.passed === true && evaluatedPrompt === prompt;
 
   async function evaluatePrompt() {
-    setBusy('evaluating')
-    setError(null)
+    setBusy("evaluating");
+    setError(null);
     try {
-      const result = await api.evaluatePrompt(attempt.id, prompt)
-      setEvaluation(result)
-      setEvaluatedPrompt(prompt)
+      const result = await api.evaluatePrompt(attempt.id, prompt);
+      setEvaluation(result);
+      setEvaluatedPrompt(prompt);
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : String(caught))
+      setError(caught instanceof ApiError ? caught.message : String(caught));
     } finally {
-      setBusy(null)
+      setBusy(null);
     }
   }
 
   async function generateImage() {
-    setBusy('generating')
-    setError(null)
+    setBusy("generating");
+    setError(null);
     try {
-      setAttempt(await api.generateLearningImage(attempt.id, prompt))
+      setAttempt(await api.generateLearningImage(attempt.id, prompt));
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : String(caught))
+      setError(caught instanceof ApiError ? caught.message : String(caught));
     } finally {
-      setBusy(null)
+      setBusy(null);
     }
   }
 
-  const generations = attempt.generations ?? []
-  const selected = generations.find((g) => g.number === attempt.selectedGeneration)
+  const generations = attempt.generations ?? [];
+  const selected = generations.find(
+    (g) => g.number === attempt.selectedGeneration,
+  );
 
   return (
     <section className="mode">
       <header className="mode-header">
-        <h2>Learning Mode</h2>
+        <h2>
+          Learning Mode{" "}
+          <span className={`difficulty ${challenge.difficulty}`}>
+            {challenge.difficulty}
+          </span>
+        </h2>
         <button className="link" onClick={onExit}>
-          Back to challenges
+          ← Home
         </button>
       </header>
 
@@ -70,7 +88,7 @@ export function LearningMode({ challenge, attempt: initialAttempt, onExit }: Pro
         )}
       </div>
 
-      {attempt.status === 'submitted' ? (
+      {attempt.status === "submitted" ? (
         <div className="results">
           <Scoreboard attempt={attempt} />
           {selected?.resultFeedback && (
@@ -83,9 +101,9 @@ export function LearningMode({ challenge, attempt: initialAttempt, onExit }: Pro
           {(attempt.generationsRemaining ?? 0) > 0 && (
             <button
               onClick={() => {
-                setEvaluation(null)
-                setEvaluatedPrompt(null)
-                setAttempt({ ...attempt, status: 'in_progress' })
+                setEvaluation(null);
+                setEvaluatedPrompt(null);
+                setAttempt({ ...attempt, status: "in_progress" });
               }}
             >
               Try another prompt ({attempt.generationsRemaining} left)
@@ -104,22 +122,36 @@ export function LearningMode({ challenge, attempt: initialAttempt, onExit }: Pro
           />
 
           <div className="actions">
-            <button onClick={evaluatePrompt} disabled={!prompt.trim() || busy !== null}>
-              {busy === 'evaluating' ? 'Evaluating…' : 'Evaluate Prompt'}
+            <button
+              onClick={evaluatePrompt}
+              disabled={!prompt.trim() || busy !== null}
+            >
+              {busy === "evaluating" ? "Evaluating…" : "Evaluate Prompt"}
             </button>
-            <button onClick={generateImage} disabled={!readyToGenerate || busy !== null}>
-              {busy === 'generating' ? 'Generating… this takes a while' : 'Generate Image'}
+            <button
+              onClick={generateImage}
+              disabled={!readyToGenerate || busy !== null}
+            >
+              {busy === "generating"
+                ? "Generating… this takes a while"
+                : "Generate Image"}
             </button>
           </div>
 
           {evaluation && (
-            <div className={`evaluation ${evaluation.passed ? 'passed' : 'failed'}`}>
-              <p className="score">Prompt Quality: {round(evaluation.promptQuality)}</p>
+            <div
+              className={`evaluation ${evaluation.passed ? "passed" : "failed"}`}
+            >
+              <p className="score">
+                Prompt Quality: {round(evaluation.promptQuality)}
+              </p>
               {evaluation.passed && evaluatedPrompt === prompt ? (
                 <p>✓ Ready to generate</p>
               ) : (
                 <>
-                  {evaluatedPrompt !== prompt && <p>Prompt changed — evaluate it again.</p>}
+                  {evaluatedPrompt !== prompt && (
+                    <p>Prompt changed — evaluate it again.</p>
+                  )}
                   {evaluation.needsImprovement.length > 0 && (
                     <>
                       <p>Needs improvement:</p>
@@ -140,5 +172,5 @@ export function LearningMode({ challenge, attempt: initialAttempt, onExit }: Pro
 
       {error && <p className="error">{error}</p>}
     </section>
-  )
+  );
 }
