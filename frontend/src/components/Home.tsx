@@ -116,7 +116,6 @@ export function Home({
           }}
         >
           Learning
-          <small>Practice, 3 tries</small>
         </button>
         <button
           className="big battle"
@@ -124,7 +123,6 @@ export function Home({
           onClick={onBattle}
         >
           Battle
-          <small>1 try, vs a friend</small>
         </button>
       </div>
 
