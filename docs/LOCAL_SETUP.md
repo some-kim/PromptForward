@@ -5,7 +5,8 @@ terminal). Takes about ten minutes the first time.
 
 ## What you need
 
-- Git, Python 3.10+, Node 20.19.x or 22.12+, Docker (for MongoDB).
+- Git, Python 3.10+, Node 20.19.x or 22.12+. Docker only if you want a private
+  local MongoDB instead of the shared Atlas one.
 - The team's credentials for `backend/.env` (ask the project owner; they are
   never committed). One Meta key covers both the evaluators and image
   generation. Dropbox is a single shared account behind the backend — nobody
@@ -40,7 +41,6 @@ OPENAI_PROMPT_EVALUATOR_MODEL=muse-spark-1.3
 OPENAI_RESULT_EVALUATOR_MODEL=muse-spark-1.3
 META_API_BASE_URL=https://api.meta.ai/v1
 META_IMAGE_MODEL=muse-image-1.0
-MONGODB_URI=mongodb://localhost:27017
 MONGODB_DB_NAME=promptforward
 DROPBOX_CHALLENGES_FOLDER=/Challenges
 DROPBOX_GENERATED_FOLDER=/Generated
@@ -48,21 +48,27 @@ DROPBOX_GENERATED_FOLDER=/Generated
 
 The secrets you paste in from the owner: `OPENAI_API_KEY` and `META_API_KEY`
 (both the Meta key while OpenAI is out of credits), `DROPBOX_APP_KEY`,
-`DROPBOX_APP_SECRET`, `DROPBOX_REFRESH_TOKEN`. Leave `DROPBOX_ACCESS_TOKEN`
-empty — generated access tokens expire after ~4 hours; the refresh token does
-not.
+`DROPBOX_APP_SECRET`, `DROPBOX_REFRESH_TOKEN`, and `MONGODB_URI` (the team's
+shared MongoDB Atlas connection string, `mongodb+srv://...`; it already contains
+the 40 seeded problems, so you do not need Docker or seeding). Leave
+`DROPBOX_ACCESS_TOKEN` empty — generated access tokens expire after ~4 hours;
+the refresh token does not.
 
-Start MongoDB and the API:
+Start the API:
 
 ```bash
-docker run -d --name pf-mongo -p 27017:27017 mongo:7
 uvicorn app.main:app --reload --port 8000
 ```
 
+Only if you want a private database instead of the shared one:
+`docker run -d --name pf-mongo -p 27017:27017 mongo:7`, set
+`MONGODB_URI=mongodb://localhost:27017`, and seed it (step 3).
+
 `curl localhost:8000/api/health` should return `{"status":"ok",...}`.
 
-## 3. Seed the problem set (once per database)
+## 3. Seed the problem set (only for a fresh private database)
 
+Skip this if you use the shared Atlas `MONGODB_URI` — it is already seeded.
 Problems, rubrics and progress live in MongoDB, so a fresh local database is
 empty even though the target images are already in the shared Dropbox.
 
@@ -76,9 +82,6 @@ targets once with `muse-spark-1.3` (about 40 evaluator calls plus 40 reference
 checks — a few dollars of the Meta budget), and warns if any reference prompt
 scores below 70. Re-running is cheap: already-analyzed targets are skipped.
 Add `--skip-check` to skip the reference scoring.
-
-To avoid everyone re-seeding, the team can share one hosted MongoDB (Atlas free
-tier): set the same `MONGODB_URI` in every `.env` and seed it once.
 
 ## 4. Frontend
 
