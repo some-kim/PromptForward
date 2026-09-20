@@ -1,8 +1,60 @@
+import { useEffect, useState } from "react";
+
+import { api, type Savings } from "../api";
+
 type HomeProps = {
   busy: boolean;
   onLearn: () => void;
   onBattle: () => void;
 };
+
+const usd = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+});
+
+// Site-wide model calls avoided: prompts that failed the check never reach the image
+// model, and a repeated prompt on the same target is served from the cache.
+function SavingsLedger() {
+  const [savings, setSavings] = useState<Savings | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getSavings()
+      .then((result) => {
+        if (!cancelled) setSavings(result);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!savings) return null;
+  const avoided = savings.blockedGenerations + savings.cacheHits;
+  if (avoided === 0) return null;
+
+  return (
+    <dl className="savings-ledger" aria-label="Model calls avoided">
+      <div>
+        <dt>Generations skipped</dt>
+        <dd>{savings.blockedGenerations}</dd>
+      </div>
+      <div>
+        <dt>Evaluations from cache</dt>
+        <dd>{savings.cacheHits}</dd>
+      </div>
+      <div>
+        <dt>Est. saved</dt>
+        <dd>
+          {usd.format(savings.estimatedSavedUsd)}
+          <small> · {Math.round(savings.savedShare * 100)}% of spend</small>
+        </dd>
+      </div>
+    </dl>
+  );
+}
 
 const LEAVES = [
   { cx: 160, cy: 14, rx: 52, ry: 18 },
@@ -137,6 +189,8 @@ export function Home({ busy, onLearn, onBattle }: HomeProps) {
           </dd>
         </div>
       </dl>
+
+      <SavingsLedger />
     </section>
   );
 }

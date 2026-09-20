@@ -40,7 +40,7 @@ def cache_key(challenge: dict[str, Any], prompt: str) -> str:
 
 async def evaluate_prompt_cached(challenge: dict[str, Any], prompt: str) -> PromptEvaluation:
     key = cache_key(challenge, prompt)
-    cached = await db.prompt_evaluations().find_one({"_id": key})
+    cached = await db.prompt_evaluations().find_one_and_update({"_id": key}, {"$inc": {"hits": 1}})
     if cached is not None:
         return PromptEvaluation.model_validate(cached["evaluation"])
 
@@ -53,6 +53,7 @@ async def evaluate_prompt_cached(challenge: dict[str, Any], prompt: str) -> Prom
                 "challengeId": challenge_id,
                 "prompt": normalize_prompt(prompt),
                 "evaluation": evaluation.model_dump(),
+                "hits": 0,
                 "createdAt": datetime.now(timezone.utc),
             }
         },

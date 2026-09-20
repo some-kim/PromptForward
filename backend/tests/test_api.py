@@ -361,6 +361,21 @@ class TestLearningMode:
         await evaluate(problem_id, WEAK_PROMPT)
         assert calls == [WEAK_PROMPT, STRONG_PROMPT, WEAK_PROMPT, WEAK_PROMPT, WEAK_PROMPT]
 
+        # Every avoided call is counted: 6 checks, 5 model calls, 1 served from the cache,
+        # and the weak prompts never reached the image model.
+        stats = (
+            await client.get(
+                "/api/stats/savings", params={"generationCost": 1, "evaluationCost": 0.5}
+            )
+        ).json()
+        assert stats["promptChecks"] == 6
+        assert stats["cachedEvaluations"] == 5
+        assert stats["cacheHits"] == 1
+        assert stats["blockedGenerations"] == 5
+        assert stats["generations"] == 0
+        assert stats["estimatedSavedUsd"] == 5.5
+        assert stats["estimatedSpentUsd"] == 2.5
+
     async def test_weak_prompt_still_generates_and_scores_both(self, client):
         challenge_id = await create_challenge(client)
         attempt = await client.post(

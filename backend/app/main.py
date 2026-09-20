@@ -19,6 +19,7 @@ from app.routes import (
     library,
     problems,
     standings,
+    stats,
 )
 
 try:
@@ -52,6 +53,7 @@ app.include_router(games.router)
 app.include_router(library.router)
 app.include_router(images.router)
 app.include_router(standings.router)
+app.include_router(stats.router)
 
 
 @app.get("/api/health")
