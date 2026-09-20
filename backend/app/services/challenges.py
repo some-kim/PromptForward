@@ -88,7 +88,7 @@ async def create_challenge(
         if source == "curated":
             promoted = await db.challenges().find_one_and_update(
                 {"target.imageHash": image_hash, "source": "player"},
-                {"$set": {"source": "curated", "target": doc["target"], "updatedAt": now}},
+                {"$set": doc},
                 return_document=True,
             )
             if promoted is not None:
