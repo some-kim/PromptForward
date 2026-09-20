@@ -1,7 +1,11 @@
+import type { SkillSummary } from "../api";
+import { SkillProgress } from "./SkillProgress";
+
 type HomeProps = {
   busy: boolean;
-  onTrain: () => void;
+  onLearn: () => void;
   onBattle: () => void;
+  skills: SkillSummary[] | null;
 };
 
 const LEAVES = [
@@ -87,7 +91,13 @@ function Lightning() {
   );
 }
 
-export function Home({ busy, onTrain, onBattle }: HomeProps) {
+
+export function Home({
+  busy,
+  onLearn,
+  onBattle,
+  skills,
+}: HomeProps) {
   return (
     <section className="home">
       <p className="home-kicker">Pick a mode</p>
@@ -96,14 +106,14 @@ export function Home({ busy, onTrain, onBattle }: HomeProps) {
         <button
           className="mode-word train"
           disabled={busy}
-          onClick={onTrain}
-          aria-label="Start prompt training"
+          onClick={onLearn}
+          aria-label="Open the problem set"
         >
           <span className="word-wrap">
             <Tree />
             <span className="word">LEARN</span>
           </span>
-          <span className="sub">Prompt Training · solo</span>
+          <span className="sub">Problem Set · random practice</span>
         </button>
 
         <button
@@ -120,12 +130,17 @@ export function Home({ busy, onTrain, onBattle }: HomeProps) {
         </button>
       </div>
 
+      {skills && skills.some((skill) => skill.total > 0) && (
+        <SkillProgress skills={skills} />
+      )}
+
       <dl className="marquee-notes">
         <div className="note train">
-          <dt>Training</dt>
+          <dt>Learn</dt>
           <dd>
-            Describe a target, see what your words covered and missed, three
-            images per target.
+            A problem set of titled targets, each isolating one prompt skill,
+            with hints that unlock as you go — or a random target at any
+            difficulty. Score 70 to solve.
           </dd>
         </div>
         <div className="note battle">

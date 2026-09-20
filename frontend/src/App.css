@@ -1794,3 +1794,361 @@ button.big:hover:not(:disabled) {
     display: none;
   }
 }
+
+/* ---- Problem set ------------------------------------------------------- */
+
+.learn-header {
+  flex-wrap: wrap;
+}
+
+.learn-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-right: auto;
+}
+
+.learn-tabs .tab {
+  padding: 0.35rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--muted);
+  font-family:
+    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.learn-tabs .tab.selected {
+  border-color: var(--leaf);
+  color: var(--text);
+  background: color-mix(in srgb, var(--leaf) 14%, transparent);
+}
+
+.skill-progress {
+  padding: 1rem 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+}
+
+.skill-progress-head {
+  display: flex;
+  justify-content: space-between;
+  font-family:
+    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+  margin-bottom: 0.75rem;
+}
+
+.skill-progress-head strong {
+  color: var(--text);
+}
+
+.skill-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 1.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.skill-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6rem 2.6rem;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.35rem 0.4rem;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+button.skill-row {
+  cursor: pointer;
+}
+
+button.skill-row:hover,
+.skill-list li.selected .skill-row {
+  border-color: var(--violet);
+  background: color-mix(in srgb, var(--violet) 6%, var(--surface));
+}
+
+.skill-name {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.skill-badge,
+.solved-badge {
+  padding: 0.1rem 0.45rem;
+  border-radius: 2px;
+  background: var(--green);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.skill-bar {
+  position: relative;
+  height: 6px;
+  background: var(--bg);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.skill-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.skill-fill.attempted {
+  background: var(--yellow);
+}
+
+.skill-fill.solved {
+  background: var(--green);
+}
+
+.skill-count {
+  font-family:
+    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-align: right;
+}
+
+.problems .difficulty-bar .continue {
+  margin-left: auto;
+}
+
+.problem-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 0.9rem;
+}
+
+.problem-table th {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  font-family:
+    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--muted);
+  text-align: left;
+}
+
+.problem-table td {
+  padding: 0.7rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.problem-row {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.problem-row:hover,
+.problem-row:focus-visible {
+  background: color-mix(in srgb, var(--violet) 6%, var(--surface));
+  outline: none;
+}
+
+.problem-row.solved .problem-title {
+  color: var(--muted);
+}
+
+.problem-title {
+  display: block;
+  font-weight: 600;
+}
+
+.problem-tests {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.col-status {
+  width: 7rem;
+  white-space: nowrap;
+}
+
+.col-num {
+  width: 2.5rem;
+  color: var(--muted);
+  font-family:
+    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+.col-skill {
+  width: 12rem;
+}
+
+.col-diff {
+  width: 7rem;
+}
+
+.col-score {
+  width: 4rem;
+  text-align: right;
+  font-family:
+    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 0.45rem;
+  border-radius: 50%;
+  background: var(--line);
+  vertical-align: middle;
+}
+
+.status-dot.attempted {
+  background: var(--yellow);
+}
+
+.status-dot.solved {
+  background: var(--green);
+}
+
+.status-text {
+  font-size: 0.78rem;
+  color: var(--muted);
+  vertical-align: middle;
+}
+
+.problem-row.solved .status-text {
+  color: var(--green);
+}
+
+.skill-chip {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--violet) 10%, var(--surface));
+  color: var(--violet);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.problem-order {
+  color: var(--muted);
+  font-family:
+    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 0.8em;
+}
+
+/* ---- Coach ------------------------------------------------------------- */
+
+.coach {
+  display: grid;
+  gap: 0.6rem;
+  padding: 1rem 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--violet);
+  border-radius: 2px;
+  font-size: 0.9rem;
+}
+
+.coach.solved {
+  border-left-color: var(--green);
+}
+
+.coach-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.coach-lesson {
+  margin: 0;
+  font-weight: 600;
+}
+
+.coach-tests,
+.coach-hints,
+.coach-missed,
+.coach-reference {
+  margin: 0;
+  color: var(--text);
+}
+
+.coach-hints ol,
+.coach-missed ul {
+  margin: 0.3rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.coach-hints li,
+.coach-missed li {
+  margin: 0.2rem 0;
+}
+
+.coach-hints li.locked {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.coach-missed {
+  padding: 0.6rem 0.8rem;
+  background: color-mix(in srgb, var(--red) 6%, var(--surface));
+  border-radius: 2px;
+}
+
+.coach-reference {
+  padding: 0.6rem 0.8rem;
+  background: color-mix(in srgb, var(--green) 8%, var(--surface));
+  border-radius: 2px;
+}
+
+.coach-reference p {
+  margin: 0.3rem 0 0;
+  font-family:
+    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 0.82rem;
+}
+
+@media (width <= 720px) {
+  .marquee,
+  .marquee-notes,
+  .skill-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .problem-table .col-skill,
+  .problem-table .col-num,
+  .problem-tests {
+    display: none;
+  }
+}

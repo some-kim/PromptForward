@@ -42,6 +42,14 @@ def bearer_token(authorization: str | None = Header(default=None)) -> str:
     return token
 
 
+async def optional_user(authorization: str | None = Header(default=None)) -> dict | None:
+    """The signed-in account if a valid bearer token was sent, else None."""
+    scheme, _, token = (authorization or "").partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        return None
+    return await user_for_token(token)
+
+
 async def current_user(token: str = Depends(bearer_token)) -> dict:
     user = await user_for_token(token)
     if user is None:

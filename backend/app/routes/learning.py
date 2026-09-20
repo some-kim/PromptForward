@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import asyncio
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app import db
 from app.models import PromptEvaluation
+from app.routes.auth import optional_user
 from app.serializers import attempt_view, attention_view, object_id, prompt_evaluation_view
 from app.services.attempts import (
     LEARNING_GENERATION_LIMIT,
@@ -23,8 +24,9 @@ from app.services.attempts import (
     submit_attempt,
 )
 from app.services.challenges import rubric_of
+from app.services.evaluation_cache import evaluate_prompt_cached
 from app.services.openai.client import LLMResponseError
-from app.services.openai.prompt_evaluator import evaluate_prompt
+from app.services.problems import coaching_view
 from app.services.scoring.token_counter import count_prompt_tokens
 
 router = APIRouter(prefix="/api/learning", tags=["learning"])
@@ -44,7 +46,9 @@ class PromptRequest(BaseModel):
 
 
 @router.post("/attempts", status_code=201)
-async def create_learning_attempt(body: CreateAttemptRequest) -> dict:
+async def create_learning_attempt(
+    body: CreateAttemptRequest, user: dict | None = Depends(optional_user)
+) -> dict:
     challenge_id = object_id(body.challengeId)
     challenge = await db.challenges().find_one({"_id": challenge_id}) if challenge_id else None
     if challenge is None:
@@ -55,13 +59,16 @@ async def create_learning_attempt(body: CreateAttemptRequest) -> dict:
         user_id=body.userId,
         display_name=body.displayName,
         mode="learning",
+        account_id=user["_id"] if user else None,
     )
-    return attempt_view(attempt)
+    return _coached_view(attempt, challenge)
 
 
 @router.get("/attempts/{attempt_id}")
 async def get_learning_attempt(attempt_id: str) -> dict:
-    return attempt_view(await _load(attempt_id))
+    attempt = await _load(attempt_id)
+    challenge = await db.challenges().find_one({"_id": attempt["challengeId"]})
+    return _coached_view(attempt, challenge)
 
 
 @router.post("/attempts/{attempt_id}/evaluate")
@@ -71,7 +78,7 @@ async def evaluate_learning_prompt(attempt_id: str, body: PromptRequest) -> dict
     rubric = rubric_of(challenge)
 
     try:
-        evaluation = await evaluate_prompt(rubric, body.prompt)
+        evaluation = await evaluate_prompt_cached(challenge, body.prompt)
     except LLMResponseError as error:
         raise HTTPException(status_code=502, detail=str(error)) from error
 
@@ -84,6 +91,7 @@ async def evaluate_learning_prompt(attempt_id: str, body: PromptRequest) -> dict
         "generationsRemaining": max(
             0, LEARNING_GENERATION_LIMIT - attempt.get("reservedGenerations", 0)
         ),
+        "coaching": coaching_view(challenge, await _load(attempt_id)),
     }
 
 
@@ -93,7 +101,7 @@ async def generate_learning_image(attempt_id: str, body: PromptRequest) -> dict:
     challenge = await db.challenges().find_one({"_id": attempt["challengeId"]})
 
     if _awaiting_submission(attempt):
-        return attempt_view(await submit_attempt(attempt["_id"]))
+        return _coached_view(await submit_attempt(attempt["_id"]), challenge)
 
     # A weak prompt still generates: the lesson is seeing what it produces, and the score keeps
     # prompt quality and image quality side by side.
@@ -127,7 +135,11 @@ async def generate_learning_image(attempt_id: str, body: PromptRequest) -> dict:
         await release_generation(attempt["_id"], generation_number)
         raise
 
-    return attempt_view(await submit_attempt(attempt["_id"]))
+    return _coached_view(await submit_attempt(attempt["_id"]), challenge)
+
+
+def _coached_view(attempt: dict, challenge: dict) -> dict:
+    return {**attempt_view(attempt), "coaching": coaching_view(challenge, attempt)}
 
 
 def _awaiting_submission(attempt: dict) -> bool:
@@ -155,7 +167,7 @@ async def _evaluation_for(attempt: dict, challenge: dict, prompt: str) -> Prompt
             return _evaluation_model(entry)
 
     try:
-        evaluation = await evaluate_prompt(rubric_of(challenge), prompt)
+        evaluation = await evaluate_prompt_cached(challenge, prompt)
     except LLMResponseError as error:
         raise HTTPException(status_code=502, detail=str(error)) from error
     await record_prompt_evaluation(attempt["_id"], prompt, evaluation)

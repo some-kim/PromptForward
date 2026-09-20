@@ -24,9 +24,8 @@ from app.services.attempts import (
     run_generation,
     submit_attempt,
 )
-from app.services.challenges import rubric_of
+from app.services.evaluation_cache import evaluate_prompt_cached
 from app.services.openai.client import LLMResponseError
-from app.services.openai.prompt_evaluator import evaluate_prompt
 from app.services.scoring.final_score import PlayerOutcome, pick_winner
 
 router = APIRouter(prefix="/api/games", tags=["games"])
@@ -162,7 +161,7 @@ async def generate_game_image(game_id: str, body: GenerateRequest) -> dict:
         ) from error
 
     # The prompt never blocks generation in Game Mode, so both run at once.
-    evaluation_task = asyncio.create_task(evaluate_prompt(rubric_of(challenge), body.prompt))
+    evaluation_task = asyncio.create_task(evaluate_prompt_cached(challenge, body.prompt))
     generation_task = asyncio.create_task(
         run_generation(
             attempt=attempt,
@@ -202,7 +201,7 @@ async def _score_prompt(
 ) -> dict:
     prompt = generation["prompt"]
     try:
-        evaluation = await evaluate_prompt(rubric_of(challenge), prompt)
+        evaluation = await evaluate_prompt_cached(challenge, prompt)
     except LLMResponseError as error:
         raise HTTPException(status_code=502, detail=str(error)) from error
 
@@ -237,9 +236,10 @@ async def _pick_challenge(
             raise HTTPException(status_code=404, detail="Challenge not found")
         return challenge
 
-    pipeline: list[dict[str, Any]] = [{"$sample": {"size": 1}}]
+    match: dict[str, Any] = {"problem": None}
     if difficulty:
-        pipeline.insert(0, {"$match": {"difficulty": difficulty}})
+        match["difficulty"] = difficulty
+    pipeline: list[dict[str, Any]] = [{"$match": match}, {"$sample": {"size": 1}}]
     sampled = await db.challenges().aggregate(pipeline).to_list(1)
     if not sampled:
         detail = (

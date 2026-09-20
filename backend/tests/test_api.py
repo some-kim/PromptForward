@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import uuid
 
 import pytest
@@ -82,11 +84,10 @@ def prompt_evaluation(statuses: list[str], score: int = 90):
 @pytest.fixture
 async def client(monkeypatch, database):
     from app.routes import challenges as challenges_route
-    from app.routes import games as games_route
     from app.routes import images as images_route
-    from app.routes import learning as learning_route
     from app.services import attempts as attempts_service
     from app.services import challenges as challenges_service
+    from app.services import evaluation_cache
 
     async def fake_analyze(image_bytes: bytes, mime_type: str) -> Rubric:
         return RUBRIC
@@ -125,8 +126,14 @@ async def client(monkeypatch, database):
             ),
         )
 
+    deleted_targets: list[str] = []
+
+    async def fake_delete_target(path: str) -> None:
+        deleted_targets.append(path)
+
     monkeypatch.setattr(challenges_service, "analyze_challenge", fake_analyze)
     monkeypatch.setattr(challenges_service, "store_target_image", fake_store_target)
+    monkeypatch.setattr(challenges_service, "delete_target_image", fake_delete_target)
     monkeypatch.setattr(
         challenges_service,
         "read_image_meta",
@@ -144,13 +151,13 @@ async def client(monkeypatch, database):
             return prompt_evaluation(["missing", "partial", "missing", "covered"], score=50)
         return prompt_evaluation(["covered", "covered", "covered", "covered"])
 
-    monkeypatch.setattr(learning_route, "evaluate_prompt", strong_prompt_evaluation)
-    monkeypatch.setattr(games_route, "evaluate_prompt", strong_prompt_evaluation)
+    monkeypatch.setattr(evaluation_cache, "evaluate_prompt", strong_prompt_evaluation)
 
     from app.main import app
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as async_client:
+        async_client.deleted_targets = deleted_targets
         yield async_client
 
 
@@ -211,6 +218,46 @@ class TestChallenges:
 
 
 class TestLearningMode:
+    async def test_same_prompt_on_same_target_is_scored_once(self, client, monkeypatch):
+        from app.services import evaluation_cache
+
+        calls: list[str] = []
+        real_evaluate = evaluation_cache.evaluate_prompt
+
+        async def counting_evaluate(rubric, prompt: str):
+            calls.append(prompt)
+            return await real_evaluate(rubric, prompt)
+
+        monkeypatch.setattr(evaluation_cache, "evaluate_prompt", counting_evaluate)
+        challenge_id = await create_challenge(client)
+        other_challenge_id = await create_challenge(client, color="green")
+
+        async def evaluate(target: str, prompt: str) -> dict:
+            attempt = await client.post(
+                "/api/learning/attempts", json={"challengeId": target, "userId": "player-1"}
+            )
+            response = await client.post(
+                f"/api/learning/attempts/{attempt.json()['id']}/evaluate", json={"prompt": prompt}
+            )
+            assert response.status_code == 200
+            return response.json()
+
+        first = await evaluate(challenge_id, WEAK_PROMPT)
+        second = await evaluate(challenge_id, f"  {WEAK_PROMPT}\n")  # whitespace is ignored
+        assert first["promptQuality"] == second["promptQuality"]
+        assert calls == [WEAK_PROMPT]
+
+        await evaluate(challenge_id, STRONG_PROMPT)
+        await evaluate(other_challenge_id, WEAK_PROMPT)  # a different target is a new score
+        assert calls == [WEAK_PROMPT, STRONG_PROMPT, WEAK_PROMPT]
+
+        # A problem that keeps its id but gets a new image is scored afresh.
+        problem_id = await create_problem(client, color="red")
+        await evaluate(problem_id, WEAK_PROMPT)
+        assert await create_problem(client, color="purple") == problem_id
+        await evaluate(problem_id, WEAK_PROMPT)
+        assert calls == [WEAK_PROMPT, STRONG_PROMPT, WEAK_PROMPT, WEAK_PROMPT, WEAK_PROMPT]
+
     async def test_weak_prompt_still_generates_and_scores_both(self, client):
         challenge_id = await create_challenge(client)
         attempt = await client.post(
@@ -376,7 +423,7 @@ class TestLearningMode:
     async def test_unreachable_evaluator_refuses_the_generation_and_refunds_the_slot(
         self, client, monkeypatch
     ):
-        from app.routes import learning as learning_route
+        from app.services import evaluation_cache
         from app.services.openai.client import LLMResponseError
 
         challenge_id = await create_challenge(client)
@@ -386,18 +433,18 @@ class TestLearningMode:
             )
         ).json()["id"]
 
-        working_evaluate = learning_route.evaluate_prompt
+        working_evaluate = evaluation_cache.evaluate_prompt
 
         async def failing_evaluate(rubric, prompt):
             raise LLMResponseError("OpenAI is down")
 
-        monkeypatch.setattr(learning_route, "evaluate_prompt", failing_evaluate)
+        monkeypatch.setattr(evaluation_cache, "evaluate_prompt", failing_evaluate)
         failed = await client.post(
             f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": STRONG_PROMPT}
         )
         assert failed.status_code == 502
 
-        monkeypatch.setattr(learning_route, "evaluate_prompt", working_evaluate)
+        monkeypatch.setattr(evaluation_cache, "evaluate_prompt", working_evaluate)
         retried = await client.post(
             f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": STRONG_PROMPT}
         )
@@ -483,7 +530,7 @@ class TestGameMode:
             assert attempt["scores"]["efficiency"] > 0
 
     async def test_failed_evaluation_does_not_buy_a_second_image(self, client, monkeypatch):
-        from app.routes import games as games_route
+        from app.services import evaluation_cache
         from app.services.openai.client import LLMResponseError
 
         challenge_id = await create_challenge(client)
@@ -495,18 +542,18 @@ class TestGameMode:
         ).json()["id"]
         await client.post(f"/api/games/{game_id}/join", json={"userId": "p2", "displayName": "Sam"})
 
-        working_evaluate = games_route.evaluate_prompt
+        working_evaluate = evaluation_cache.evaluate_prompt
 
         async def failing_evaluate(rubric, prompt):
             raise LLMResponseError("OpenAI is down")
 
-        monkeypatch.setattr(games_route, "evaluate_prompt", failing_evaluate)
+        monkeypatch.setattr(evaluation_cache, "evaluate_prompt", failing_evaluate)
         failed = await client.post(
             f"/api/games/{game_id}/generate", json={"userId": "p1", "prompt": STRONG_PROMPT}
         )
         assert failed.status_code == 502
 
-        monkeypatch.setattr(games_route, "evaluate_prompt", working_evaluate)
+        monkeypatch.setattr(evaluation_cache, "evaluate_prompt", working_evaluate)
         retried = await client.post(
             f"/api/games/{game_id}/generate", json={"userId": "p1", "prompt": "a different prompt"}
         )
@@ -729,3 +776,227 @@ class TestAccounts:
 
         assert (await client.post("/api/auth/logout", headers=headers)).status_code == 204
         assert (await client.get("/api/auth/me", headers=headers)).status_code == 401
+
+
+PROBLEM = {
+    "slug": "umbrella-in-the-rain",
+    "title": "Umbrella in the rain",
+    "skill": "setting",
+    "order": 3,
+    "tests": "Naming the street and the weather, not just the umbrella.",
+    "hints": ["Where is the umbrella?", "What time of day is it, and what is the weather?"],
+    "referencePrompt": STRONG_PROMPT,
+}
+
+
+async def create_problem(client: AsyncClient, color: str = "yellow", **overrides) -> str:
+    response = await client.post(
+        "/api/challenges",
+        files={"image": ("target.png", png_bytes(color=color), "image/png")},
+        data={"difficulty": "easy", "problem": json.dumps({**PROBLEM, **overrides})},
+    )
+    assert response.status_code == 201, response.text
+    return response.json()["id"]
+
+
+class TestProblems:
+    async def test_problem_metadata_is_listed_without_hints_or_reference(self, client):
+        problem_id = await create_problem(client)
+        await create_challenge(client, color="green")
+
+        listed = (await client.get("/api/problems")).json()
+        assert [problem["id"] for problem in listed["problems"]] == [problem_id]
+        problem = listed["problems"][0]
+        assert problem["title"] == "Umbrella in the rain"
+        assert problem["skill"] == "setting"
+        assert problem["status"] == "unsolved"
+        assert problem["bestScore"] is None
+        assert problem["hintCount"] == 2
+        assert "Where is the umbrella" not in listed and STRONG_PROMPT not in str(listed)
+        setting = next(skill for skill in listed["skills"] if skill["skill"] == "setting")
+        assert (setting["total"], setting["solved"]) == (1, 0)
+
+        by_skill = (await client.get("/api/challenges", params={"skill": "setting"})).json()
+        assert [challenge["id"] for challenge in by_skill] == [problem_id]
+        assert by_skill[0]["problem"]["title"] == "Umbrella in the rain"
+
+    async def test_relabeling_an_existing_image_does_not_reanalyze(self, client):
+        first = await create_problem(client)
+        second = await create_problem(client, title="Renamed")
+        assert first == second
+        detail = (await client.get(f"/api/challenges/{first}")).json()
+        assert detail["problem"]["title"] == "Renamed"
+
+    async def test_hints_unlock_per_weak_prompt_and_reference_after_solving(self, client):
+        problem_id = await create_problem(client)
+        created = await client.post(
+            "/api/learning/attempts", json={"challengeId": problem_id, "userId": "player-1"}
+        )
+        coaching = created.json()["coaching"]
+        assert coaching["hints"] == []
+        assert coaching["hintsRemaining"] == 2
+        assert coaching["referencePrompt"] is None
+        attempt_id = created.json()["id"]
+
+        weak = await client.post(
+            f"/api/learning/attempts/{attempt_id}/evaluate", json={"prompt": WEAK_PROMPT}
+        )
+        assert weak.json()["coaching"]["hints"] == ["Where is the umbrella?"]
+        assert weak.json()["coaching"]["referencePrompt"] is None
+
+        strong = await client.post(
+            f"/api/learning/attempts/{attempt_id}/evaluate", json={"prompt": STRONG_PROMPT}
+        )
+        assert len(strong.json()["coaching"]["hints"]) == 1
+
+        generated = await client.post(
+            f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": STRONG_PROMPT}
+        )
+        coaching = generated.json()["coaching"]
+        assert coaching["solved"] is True
+        assert coaching["referencePrompt"] == STRONG_PROMPT
+
+    async def test_problems_stay_out_of_the_training_pool(self, client):
+        plain_id = await create_challenge(client, color="blue", difficulty="easy")
+        await create_problem(client)
+        listed = (await client.get("/api/challenges", params={"difficulty": "easy"})).json()
+        assert [challenge["id"] for challenge in listed] == [plain_id]
+
+    async def test_a_new_image_for_a_slug_replaces_the_problem_in_place(self, client):
+        problem_id = await create_problem(client, color="yellow")
+        replaced_id = await create_problem(client, color="blue")
+        assert replaced_id == problem_id
+        listed = (await client.get("/api/problems")).json()
+        assert [problem["id"] for problem in listed["problems"]] == [problem_id]
+        # The retired file is gone, so the folder seeder cannot bring it back as a plain target.
+        old_hash = hashlib.sha256(png_bytes(color="yellow")).hexdigest()
+        assert client.deleted_targets == [f"/PromptForward/Challenges/easy/{old_hash}.png"]
+
+    async def test_a_slug_cannot_take_over_another_challenges_image(self, client):
+        plain_id = await create_challenge(client, color="blue")
+        problem_id = await create_problem(client, color="yellow")
+        response = await client.post(
+            "/api/challenges",
+            files={"image": ("target.png", png_bytes(color="blue"), "image/png")},
+            data={"difficulty": "easy", "problem": json.dumps(PROBLEM)},
+        )
+        assert response.status_code == 409
+        listed = (await client.get("/api/problems")).json()
+        assert [problem["id"] for problem in listed["problems"]] == [problem_id]
+        assert (await client.get(f"/api/challenges/{plain_id}")).json()["problem"] is None
+
+    async def test_progress_marks_problems_solved_per_account(self, client):
+        problem_id = await create_problem(client)
+        signup = await client.post(
+            "/api/auth/signup", json={"username": "kris", "password": "hunter2hunter2"}
+        )
+        headers = {"Authorization": f"Bearer {signup.json()['token']}"}
+        attempt_id = (
+            await client.post(
+                "/api/learning/attempts",
+                json={"challengeId": problem_id, "userId": signup.json()["user"]["id"]},
+                headers=headers,
+            )
+        ).json()["id"]
+
+        # An attempt that has not been scored yet earns nothing, whatever the client claims.
+        await client.post(
+            "/api/auth/progress",
+            json={"attemptId": attempt_id, "score": 99, "generations": 1},
+            headers=headers,
+        )
+        listed = (await client.get("/api/problems", headers=headers)).json()
+        assert listed["problems"][0]["status"] == "unsolved"
+
+        weak = await client.post(
+            f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": WEAK_PROMPT}
+        )
+        weak_final = round(weak.json()["scores"]["final"])
+        await client.post(
+            "/api/auth/progress",
+            json={"attemptId": attempt_id, "score": 99, "generations": 1},
+            headers=headers,
+        )
+        listed = (await client.get("/api/problems", headers=headers)).json()
+        assert listed["problems"][0]["status"] == ("solved" if weak_final >= 70 else "attempted")
+        assert listed["problems"][0]["bestScore"] == weak_final
+        assert listed["problems"][0]["attempts"] == 1
+
+        # A retry of the same attempt raises the best score without counting twice.
+        strong = await client.post(
+            f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": STRONG_PROMPT}
+        )
+        strong_final = round(strong.json()["scores"]["final"])
+        assert strong_final >= 70
+        for _ in range(2):
+            await client.post(
+                "/api/auth/progress",
+                json={"attemptId": attempt_id, "score": strong_final, "generations": 2},
+                headers=headers,
+            )
+        listed = (await client.get("/api/problems", headers=headers)).json()
+        assert listed["problems"][0]["status"] == "solved"
+        assert listed["problems"][0]["bestScore"] == max(weak_final, strong_final)
+        assert listed["problems"][0]["attempts"] == 1
+        setting = next(skill for skill in listed["skills"] if skill["skill"] == "setting")
+        assert setting["solved"] == 1
+
+        anonymous = (await client.get("/api/problems")).json()
+        assert anonymous["problems"][0]["status"] == "unsolved"
+
+    async def test_only_own_learning_attempts_on_problems_count_as_progress(self, client):
+        problem_id = await create_problem(client)
+        plain_id = await create_challenge(client, color="blue")
+        signup = await client.post(
+            "/api/auth/signup", json={"username": "kris", "password": "hunter2hunter2"}
+        )
+        headers = {"Authorization": f"Bearer {signup.json()['token']}"}
+        me = signup.json()["user"]["id"]
+
+        async def solved_attempt(challenge_id: str, auth: dict[str, str]) -> str:
+            attempt_id = (
+                await client.post(
+                    "/api/learning/attempts",
+                    json={"challengeId": challenge_id, "userId": me},
+                    headers=auth,
+                )
+            ).json()["id"]
+            response = await client.post(
+                f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": STRONG_PROMPT}
+            )
+            assert response.json()["scores"]["final"] >= 70
+            return attempt_id
+
+        # An anonymous attempt claiming my id on the problem, and my own attempt on a random target.
+        theirs = await solved_attempt(problem_id, {})
+        random_practice = await solved_attempt(plain_id, headers)
+        for attempt_id in (theirs, random_practice):
+            await client.post(
+                "/api/auth/progress",
+                json={"attemptId": attempt_id, "score": 90, "generations": 1},
+                headers=headers,
+            )
+        listed = (await client.get("/api/problems", headers=headers)).json()
+        assert listed["problems"][0]["status"] == "unsolved"
+        assert listed["problems"][0]["attempts"] == 0
+
+        mine = await solved_attempt(problem_id, headers)
+        await client.post(
+            "/api/auth/progress",
+            json={"attemptId": mine, "score": 90, "generations": 1},
+            headers=headers,
+        )
+        listed = (await client.get("/api/problems", headers=headers)).json()
+        assert listed["problems"][0]["status"] == "solved"
+        assert listed["problems"][0]["attempts"] == 1
+
+    async def test_a_new_slug_cannot_relabel_an_existing_challenge(self, client):
+        plain_id = await create_challenge(client, color="blue")
+        response = await client.post(
+            "/api/challenges",
+            files={"image": ("target.png", png_bytes(color="blue"), "image/png")},
+            data={"difficulty": "easy", "problem": json.dumps(PROBLEM)},
+        )
+        assert response.status_code == 409
+        assert (await client.get("/api/problems")).json()["problems"] == []
+        assert (await client.get(f"/api/challenges/{plain_id}")).json()["problem"] is None

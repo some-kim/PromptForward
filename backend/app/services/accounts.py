@@ -12,6 +12,7 @@ from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
 from app import db
+from app.services.problems import record_problem_result
 
 USERNAME_MIN = 3
 USERNAME_MAX = 32
@@ -146,6 +147,14 @@ async def record_attempt(user: dict, attempt_id: str, score: float, generations:
             "progress.attempts": 0,
             "progress.generations": used - int(applied["generations"]),
         }
+
+    if ObjectId.is_valid(attempt_id):
+        attempt = await db.attempts().find_one(
+            {"_id": ObjectId(attempt_id)},
+            {"challengeId": 1, "accountId": 1, "mode": 1, "status": 1, "scores.final": 1},
+        )
+        if attempt is not None:
+            await record_problem_result(user["_id"], attempt)
 
     updated = await db.users().find_one_and_update(
         {"_id": user["_id"]},

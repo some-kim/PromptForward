@@ -67,6 +67,19 @@ async def store_target_image(
     return StoredFile(id=metadata.id, path=metadata.path_lower or path)
 
 
+async def delete_target_image(path: str) -> None:
+    """Remove a target image nothing references any more; a missing file is fine."""
+
+    def _delete() -> None:
+        try:
+            get_dropbox().files_delete_v2(path)
+        except ApiError as error:
+            if not (error.error.is_path_lookup() and error.error.get_path_lookup().is_not_found()):
+                raise ImageStorageError(f"Could not delete {path}: {error}") from error
+
+    await asyncio.to_thread(_delete)
+
+
 async def store_generated_image(
     attempt_id: str, generation_number: int, image_bytes: bytes, mime_type: str
 ) -> StoredFile:
