@@ -966,6 +966,34 @@ class TestBattleImages:
         assert attempt["status"] == "submitted"
         assert attempt["scores"]["final"] > 0
 
+    async def test_defaults_come_from_dropbox_challenges_not_uploads(self, client):
+        from app import db
+
+        seeded = await seed_defaults(client, 4)
+        host, guest = str(uuid.uuid4()), str(uuid.uuid4())
+        uploaded = await upload_image(client, host, "purple")
+
+        created = await client.post(
+            "/api/games",
+            json={
+                "userId": host,
+                "displayName": "Kris",
+                "settings": {"durationSeconds": 60, "imagesPerPlayer": 2},
+                "useDefaultImages": True,
+            },
+        )
+        battle_id = created.json()["id"]
+        await client.post(
+            "/api/games/join",
+            json={"code": created.json()["code"], "userId": guest, "displayName": "Sam"},
+        )
+        await client.post(f"/api/games/{battle_id}/default-images", json={"userId": guest})
+
+        game = await db.games().find_one({"_id": ObjectId(battle_id)})
+        chosen = {str(one) for player in game["players"] for one in player["challengeIds"]}
+        assert chosen <= set(seeded)
+        assert uploaded not in chosen
+
     async def test_a_retried_round_records_its_evaluation_once(self, client, monkeypatch):
         from app import db
         from app.services import battles

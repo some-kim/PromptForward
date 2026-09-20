@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import random
+import re
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -17,6 +18,7 @@ from bson import ObjectId
 from pymongo.errors import DuplicateKeyError
 
 from app import db
+from app.config import get_config
 from app.models import BattleSettings, PromptEvaluation
 from app.services.attempts import (
     GAME_GENERATION_LIMIT,
@@ -184,8 +186,17 @@ async def remove_image(
     return updated
 
 
+def _curated_pool_filter() -> dict[str, Any]:
+    """Only images seeded from the Dropbox challenges folder, never a player's upload."""
+    folder = get_config().dropbox.challenges_folder.rstrip("/")
+    return {
+        "source": "curated",
+        "target.dropboxPath": {"$regex": f"^{re.escape(folder)}/"},
+    }
+
+
 async def fill_with_defaults(game: dict[str, Any], user_id: str) -> dict[str, Any]:
-    """Fill the player's remaining slots from the curated pool."""
+    """Fill the player's remaining slots from the Dropbox challenge images."""
     player = _player_of(game, user_id)
     held = len(player["challengeIds"])
     missing = game["settings"]["imagesPerPlayer"] - held
@@ -197,7 +208,7 @@ async def fill_with_defaults(game: dict[str, Any], user_id: str) -> dict[str, An
         await db.challenges()
         .aggregate(
             [
-                {"$match": {"source": {"$ne": "player"}, "_id": {"$nin": taken}}},
+                {"$match": {**_curated_pool_filter(), "_id": {"$nin": taken}}},
                 {"$sample": {"size": missing}},
                 {"$project": {"_id": 1}},
             ]
@@ -205,7 +216,7 @@ async def fill_with_defaults(game: dict[str, Any], user_id: str) -> dict[str, An
         .to_list(missing)
     )
     if len(sampled) < missing:
-        raise BattleError("Not enough images have been seeded to fill the battle")
+        raise BattleError("Not enough Dropbox challenge images have been seeded for this battle")
 
     # Conditional on the count this fill was computed from, so two fills cannot both append.
     updated = await db.games().find_one_and_update(
