@@ -1,18 +1,21 @@
 :root {
-  color-scheme: dark;
-  --bg: #04060e;
-  --panel: #0a1120;
-  --surface: #0d172b;
-  --line: #1c3450;
-  --text: #eaf4ff;
-  --muted: #8ba6c6;
-  --accent: #4cc3ff;
-  --pass: #35d39a;
-  --fail: #ff5a6e;
-  --blue: #2f9fff;
-  --red: #ff5a6e;
-  --yellow: #ffc441;
-  --green: #35d39a;
+  color-scheme: light;
+  --bg: #ececec;
+  --panel: #f4f4f4;
+  --surface: #fff;
+  --line: #d3d3d3;
+  --text: #0a0a0a;
+  --muted: #71757a;
+  --accent: #0a0a0a;
+  --pass: #1f9d55;
+  --fail: #d92d20;
+  --blue: #1f4fd8;
+  --red: #d92d20;
+  --yellow: #b07800;
+  --green: #1f9d55;
+  --leaf: #17864a;
+  --spark: #e0a000;
+  --display: "Archivo Black", "Plus Jakarta Sans", system-ui, sans-serif;
 }
 
 html {
@@ -66,21 +69,9 @@ body::after {
 
 body::after {
   background:
-    radial-gradient(
-      900px 600px at 50% 110%,
-      rgb(47 159 255 / 26%),
-      transparent 70%
-    ),
-    radial-gradient(
-      600px 500px at 12% 18%,
-      rgb(76 195 255 / 14%),
-      transparent 70%
-    ),
-    radial-gradient(
-      700px 500px at 88% 8%,
-      rgb(47 159 255 / 12%),
-      transparent 70%
-    );
+    radial-gradient(900px 600px at 50% 110%, rgb(0 0 0 / 5%), transparent 70%),
+    radial-gradient(600px 500px at 12% 18%, rgb(0 0 0 / 4%), transparent 70%),
+    radial-gradient(700px 500px at 88% 8%, rgb(0 0 0 / 4%), transparent 70%);
   animation: glow-breathe 14s ease-in-out infinite;
 }
 
@@ -114,18 +105,17 @@ body::after {
 
 .backdrop-circuit .trace {
   fill: none;
-  stroke: #163a5e;
+  stroke: #dedede;
   stroke-width: 1.5;
 }
 
 /* A short bright dash chasing along the same path reads as current in the trace. */
 .backdrop-circuit .trace-pulse {
   fill: none;
-  stroke: var(--accent);
-  stroke-width: 2;
+  stroke: #b4b4b4;
+  stroke-width: 2.5;
   stroke-linecap: round;
   stroke-dasharray: 90 1600;
-  filter: drop-shadow(0 0 6px var(--accent));
   animation: trace-run 9s linear infinite;
 }
 
@@ -145,11 +135,9 @@ body::after {
 
 .particle {
   position: absolute;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 10px 2px rgb(76 195 255 / 60%);
+  width: 6px;
+  height: 6px;
+  background: rgb(0 0 0 / 12%);
   opacity: 0;
   animation: float-up 18s linear infinite;
 }
@@ -196,9 +184,9 @@ body::after {
 }
 
 .particle:nth-child(even) {
-  width: 3px;
-  height: 3px;
-  background: #7fd8ff;
+  width: 4px;
+  height: 4px;
+  background: rgb(0 0 0 / 8%);
   animation-delay: -8s;
 }
 
@@ -227,7 +215,7 @@ body::after {
   background: linear-gradient(
     180deg,
     transparent,
-    rgb(76 195 255 / 7%),
+    rgb(255 255 255 / 55%),
     transparent
   );
   animation: scan-sweep 11s ease-in-out infinite;
@@ -248,10 +236,10 @@ body::after {
   inset: 0;
   background: repeating-linear-gradient(
     180deg,
-    rgb(0 0 0 / 16%) 0 1px,
+    rgb(0 0 0 / 4%) 0 1px,
     transparent 1px 3px
   );
-  opacity: 0.7;
+  opacity: 0.6;
   animation: scanlines-roll 8s linear infinite;
 }
 
@@ -261,15 +249,15 @@ body::after {
   background: radial-gradient(
     120% 90% at 50% 45%,
     transparent 45%,
-    rgb(0 0 0 / 55%) 100%
+    rgb(0 0 0 / 10%) 100%
   );
 }
 
 main {
-  max-width: 920px;
-  margin: 2rem auto;
-  padding: 1.75rem 2rem 2.25rem;
-  background: rgb(6 11 22 / 88%);
+  max-width: 1040px;
+  margin: 2.5rem auto;
+  padding: 2.25rem 2.75rem 3rem;
+  background: rgb(255 255 255 / 72%);
   border: 1px solid var(--line);
   border-radius: 2px;
 }
@@ -291,7 +279,7 @@ h2 {
   gap: 0.2rem;
   justify-items: center;
   text-align: center;
-  margin-bottom: 1.75rem;
+  margin-bottom: 2.25rem;
 }
 
 .app-header .player-chip {
@@ -303,9 +291,9 @@ h2 {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-family: Fredoka, "Plus Jakarta Sans", system-ui, sans-serif;
-  font-size: 2.4rem;
-  font-weight: 700;
+  font-family: var(--display);
+  font-size: 2.2rem;
+  font-weight: 400;
   letter-spacing: -0.02em;
 }
 
@@ -381,11 +369,6 @@ button.link {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-}
-
-.home {
-  display: grid;
-  gap: 1.25rem;
 }
 
 .player-chip {
@@ -669,6 +652,7 @@ button.link {
 }
 
 .difficulty-tabs .tab.selected {
+  background: var(--text);
   color: #fff;
   font-weight: 600;
 }
@@ -725,312 +709,297 @@ button.link {
   text-align: center;
 }
 
-.panels {
+/* Editorial home: two oversized words tilted into a V, outlined until hovered. */
+.home {
+  display: grid;
+  gap: 3rem;
+}
+
+.marquee {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1.1rem;
-  align-items: stretch;
+  align-items: center;
+  gap: 0 2rem;
+  padding: 4rem 0 4.5rem;
 }
 
-/* Both modes share one cabinet: same frame, same type, only --mode changes. */
-.panel {
-  --mode: var(--accent);
+.mode-word {
+  --mode: var(--text);
 
-  position: relative;
   display: grid;
-  grid-template-rows: auto 1fr auto;
-  gap: 0.9rem;
-  padding: 1.1rem;
-  background: linear-gradient(170deg, #0a1728, #060d18 72%);
-  border: 1px solid var(--line);
-  border-radius: 2px;
-  box-shadow: inset 0 0 40px rgb(76 195 255 / 4%);
+  justify-items: center;
+  gap: 0.6rem;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.mode-word.train {
+  --mode: var(--leaf);
+
+  transform: rotate(7deg);
+  transform-origin: right center;
+}
+
+.mode-word.battle {
+  --mode: var(--spark);
+
+  transform: rotate(-7deg);
+  transform-origin: left center;
+}
+
+.mode-word .word {
+  font-family: var(--display);
+  font-size: clamp(3rem, 11vw, 7.5rem);
+  line-height: 0.85;
+  letter-spacing: -0.03em;
+  color: transparent;
+  -webkit-text-stroke: 2px var(--text);
   transition:
-    transform 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease;
+    color 0.25s ease,
+    -webkit-text-stroke-color 0.25s ease;
 }
 
-/* Corner brackets, drawn as four small gradient patches in the panel corners. */
-.panel::before {
-  content: "";
-  position: absolute;
-  inset: 6px;
-  pointer-events: none;
-  background:
-    linear-gradient(var(--mode), var(--mode)) 0 0 / 14px 1px no-repeat,
-    linear-gradient(var(--mode), var(--mode)) 0 0 / 1px 14px no-repeat,
-    linear-gradient(var(--mode), var(--mode)) 100% 0 / 14px 1px no-repeat,
-    linear-gradient(var(--mode), var(--mode)) 100% 0 / 1px 14px no-repeat,
-    linear-gradient(var(--mode), var(--mode)) 0 100% / 14px 1px no-repeat,
-    linear-gradient(var(--mode), var(--mode)) 0 100% / 1px 14px no-repeat,
-    linear-gradient(var(--mode), var(--mode)) 100% 100% / 14px 1px no-repeat,
-    linear-gradient(var(--mode), var(--mode)) 100% 100% / 1px 14px no-repeat;
-  opacity: 0.55;
-  animation: bracket-breathe 4.5s ease-in-out infinite;
-}
-
-.panel:hover {
-  transform: translateY(-3px);
-  border-color: var(--mode);
-  box-shadow: inset 0 0 40px rgb(76 195 255 / 7%);
-}
-
-.panel-kicker {
-  display: block;
-  margin-bottom: 0.35rem;
-  color: var(--mode);
+.mode-word .index,
+.mode-word .sub {
   font-family:
     "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-  font-size: 0.66rem;
+  font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.24em;
+  color: var(--muted);
+  transition: color 0.25s ease;
 }
 
-.panel h2 {
-  margin: 0 0 0.3rem;
-  font-family: Fredoka, "Plus Jakarta Sans", system-ui, sans-serif;
-  font-size: 1.4rem;
+.mode-word .sub {
+  letter-spacing: 0.1em;
+}
+
+.mode-word:hover:not(:disabled) .word,
+.mode-word:focus-visible .word {
   color: var(--mode);
-  text-shadow: 0 0 18px rgb(76 195 255 / 25%);
+  -webkit-text-stroke-color: var(--mode);
 }
 
-.panel header p {
-  margin: 0;
-  font-size: 0.9rem;
-  line-height: 1.5;
-  color: var(--muted);
+.mode-word:hover:not(:disabled) .index,
+.mode-word:hover:not(:disabled) .sub {
+  color: var(--mode);
 }
 
-@keyframes bracket-breathe {
-  0%,
-  100% {
-    opacity: 0.35;
-  }
-  50% {
-    opacity: 0.75;
-  }
+.mode-word.train:hover:not(:disabled) {
+  transform: rotate(7deg) scale(1.04);
 }
 
-.panel .big {
-  width: 100%;
-  box-sizing: border-box;
+.mode-word.battle:hover:not(:disabled) {
+  transform: rotate(-7deg) scale(1.04);
 }
 
-/* Each preview is a little CRT: phosphor tint, scanlines, and a slow flicker. */
-.preview {
-  position: relative;
-  display: grid;
-  gap: 0.5rem;
-  align-content: start;
-  padding: 0.7rem;
-  border: 1px solid var(--line);
-  border-radius: 2px;
-  overflow: hidden;
-  background:
-    radial-gradient(120% 90% at 50% 0%, rgb(76 195 255 / 8%), transparent 70%),
-    rgb(4 10 20 / 85%);
-  animation: crt-flicker 6s ease-in-out infinite;
+/* Both marks sit in the same slot under their word and only play on hover or focus. */
+.roots,
+.sword {
+  width: min(16rem, 80%);
+  height: 4.4rem;
+  overflow: visible;
 }
 
-.preview::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    180deg,
-    rgb(0 0 0 / 22%) 0 1px,
-    transparent 1px 3px
-  );
-  animation: scanlines-roll 8s linear infinite;
+.roots path {
+  stroke: var(--leaf);
+  stroke-dasharray: 120;
+  stroke-dashoffset: 120;
+  opacity: 0.25;
 }
 
-@keyframes crt-flicker {
-  0%,
-  100% {
-    filter: brightness(1);
-  }
-  47% {
-    filter: brightness(1.04);
-  }
-  52% {
-    filter: brightness(0.97);
-  }
+.mode-word.train:hover:not(:disabled) .roots path,
+.mode-word.train:focus-visible .roots path {
+  opacity: 1;
+  animation: root-grow 1.1s ease-out forwards;
 }
 
-@keyframes scanlines-roll {
-  to {
-    background-position: 0 30px;
-  }
+/* Deeper branches start later, so growth spreads outward from the taproot. */
+.roots path:nth-child(2),
+.roots path:nth-child(3) {
+  animation-delay: 0.25s;
 }
 
-.panel.training {
-  --mode: var(--blue);
-}
-
-.preview-target {
-  width: 100%;
-  height: 108px;
-  object-fit: cover;
-  border-radius: 2px;
-  border: 1px solid var(--line);
-}
-
-.preview-target.placeholder {
-  display: grid;
-  place-items: center;
-  background: var(--surface);
-  color: var(--muted);
-  font-size: 1.8rem;
-}
-
-.preview-chips {
-  display: flex;
-  gap: 0.3rem;
-  font-family:
-    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-  font-size: 0.7rem;
-}
-
-.preview-chips span {
-  padding: 0.1rem 0.5rem;
-  border: 1px solid currentcolor;
-  border-radius: 2px;
-}
-
-.preview-chips .covered {
-  color: var(--green);
-}
-
-.preview-chips .partial {
-  color: var(--yellow);
-}
-
-.preview-chips .missing {
-  color: var(--red);
-}
-
-.preview-composer {
-  font-family:
-    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.4rem 0.4rem 0.4rem 0.7rem;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 2px;
-  color: var(--muted);
-  font-size: 0.75rem;
-}
-
-.preview-send {
-  display: grid;
-  place-items: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 2px;
-  background: var(--blue);
-  color: #fff;
-  font-style: normal;
-}
-
-.panel.royale {
-  --mode: var(--accent);
-}
-
-.royale-preview {
-  justify-items: center;
-  text-align: center;
-}
-
-.royale-round {
-  font-family:
-    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--accent);
-}
-
-.pin {
-  display: flex;
-  gap: 0.4rem;
-}
-
-.pin span {
-  display: grid;
-  place-items: center;
-  width: 2.1rem;
-  height: 2.6rem;
-  border-radius: 2px;
-  background: #0a1a2e;
-  border: 1px solid var(--accent);
-  color: var(--accent);
-  font-family:
-    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-  font-size: 1.3rem;
-  font-weight: 600;
-  text-shadow: 0 0 10px rgb(76 195 255 / 60%);
-  animation: pin-glow 2.8s ease-in-out infinite;
-}
-
-.pin span:nth-child(2) {
+.roots path:nth-child(4) {
   animation-delay: 0.35s;
 }
 
-.pin span:nth-child(3) {
-  animation-delay: 0.7s;
+.roots path:nth-child(n + 5) {
+  animation-delay: 0.6s;
 }
 
-.pin span:nth-child(4) {
-  animation-delay: 1.05s;
+@keyframes root-grow {
+  from {
+    stroke-dashoffset: 120;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 
-@keyframes pin-glow {
+.sword .blade {
+  fill: var(--surface);
+  stroke: var(--text);
+  transform-origin: 30% 80%;
+}
+
+.sword .bolt {
+  fill: var(--spark);
+  stroke: var(--spark);
+  opacity: 0;
+}
+
+.sword .sparks circle {
+  fill: var(--spark);
+  opacity: 0;
+}
+
+.mode-word.battle:hover:not(:disabled) .blade,
+.mode-word.battle:focus-visible .blade {
+  animation: sword-slash 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.mode-word.battle:hover:not(:disabled) .bolt,
+.mode-word.battle:focus-visible .bolt {
+  animation: bolt-strike 0.7s steps(1, end) infinite;
+}
+
+.mode-word.battle:hover:not(:disabled) .sparks circle,
+.mode-word.battle:focus-visible .sparks circle {
+  animation: spark-fly 0.7s ease-out infinite;
+}
+
+.sword .sparks circle:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.sword .sparks circle:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+@keyframes sword-slash {
+  0% {
+    transform: rotate(-16deg) translateX(-6px);
+  }
+  55% {
+    transform: rotate(6deg) translateX(4px);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes bolt-strike {
   0%,
   100% {
-    box-shadow: 0 0 0 rgb(76 195 255 / 0%);
+    opacity: 0;
   }
-  50% {
-    box-shadow: 0 0 14px rgb(76 195 255 / 35%);
+  15%,
+  35% {
+    opacity: 1;
+  }
+  25% {
+    opacity: 0.3;
   }
 }
 
-.royale-players {
-  display: flex;
-  gap: 0.35rem;
-  font-size: 0.72rem;
-  font-weight: 600;
+@keyframes spark-fly {
+  0% {
+    opacity: 0;
+    transform: none;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(10px, -10px) scale(0.4);
+  }
 }
 
-.royale-players span {
-  padding: 0.15rem 0.6rem;
+.marquee-notes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin: 0;
+  padding-top: 1.75rem;
+  border-top: 1px solid var(--line);
+}
+
+.marquee-notes .note {
+  padding-left: 0.9rem;
+  border-left: 3px solid var(--mode);
+}
+
+.marquee-notes .note.train {
+  --mode: var(--leaf);
+}
+
+.marquee-notes .note.battle {
+  --mode: var(--spark);
+}
+
+.marquee-notes dt {
+  font-family:
+    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  color: var(--mode);
+}
+
+.marquee-notes dd {
+  margin: 0.35rem 0 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.panel {
+  padding: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 2px;
-  color: #04121f;
-}
-
-.royale-players .p1 {
-  background: var(--accent);
-}
-
-.royale-players .p2 {
-  background: #35d39a;
-}
-
-.royale-players .p3 {
-  background: #7aa8ff;
 }
 
 .hint.how {
   text-align: center;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .roots path,
+  .sword .blade,
+  .sword .bolt,
+  .sword .sparks circle {
+    animation: none !important;
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+
+  .mode-word,
+  .mode-word .word {
+    transition: none;
+  }
+}
+
 @media (width <= 720px) {
-  .panels {
+  .marquee,
+  .marquee-notes {
     grid-template-columns: 1fr;
+  }
+
+  .marquee {
+    gap: 2.5rem;
+    padding: 2rem 0 2.5rem;
+  }
+
+  .mode-word.train,
+  .mode-word.battle {
+    transform: none;
+    transform-origin: center;
   }
 }
 
@@ -1039,42 +1008,19 @@ button.big {
   gap: 0.25rem;
   padding: 1.1rem 1rem;
   border-radius: 2px;
-  border: 1px solid transparent;
-  font-family: Fredoka, "Plus Jakarta Sans", system-ui, sans-serif;
-  font-size: 1.3rem;
-  font-weight: 600;
+  border: 1px solid var(--blue);
+  background: var(--blue);
+  color: #fff;
+  font-family: var(--display);
+  font-size: 1.15rem;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
 }
 
 button.big small {
   font-size: 0.85rem;
   font-weight: 400;
   opacity: 0.8;
-}
-
-/* Arcade-cabinet buttons: dim phosphor plate that lights up on hover, same shape both sides. */
-.panel .big {
-  background: linear-gradient(
-    180deg,
-    rgb(76 195 255 / 12%),
-    rgb(76 195 255 / 4%)
-  );
-  border-color: var(--mode);
-  color: var(--mode);
-  text-shadow: 0 0 14px rgb(76 195 255 / 35%);
-  letter-spacing: 0.02em;
-  transition:
-    background 0.25s ease,
-    box-shadow 0.25s ease,
-    transform 0.15s cubic-bezier(0.22, 0.61, 0.36, 1);
-}
-
-.panel .big:hover:not(:disabled) {
-  background: linear-gradient(
-    180deg,
-    rgb(76 195 255 / 24%),
-    rgb(76 195 255 / 10%)
-  );
-  box-shadow: 0 0 22px rgb(76 195 255 / 22%);
 }
 
 .image-row img,
@@ -1625,7 +1571,7 @@ button.big:hover:not(:disabled) {
   gap: 0.9rem;
   margin: 0 0 1.5rem;
   padding: 0.6rem 0.9rem;
-  background: linear-gradient(90deg, rgb(13 43 74 / 70%), transparent);
+  background: linear-gradient(90deg, rgb(0 0 0 / 5%), transparent);
   border-left: 2px solid var(--accent);
 }
 
@@ -1653,7 +1599,7 @@ button.big:hover:not(:disabled) {
   width: 5.5rem;
   height: 5.5rem;
   object-fit: contain;
-  filter: drop-shadow(0 0 14px rgb(76 195 255 / 45%));
+  filter: drop-shadow(0 2px 6px rgb(0 0 0 / 18%));
   will-change: transform;
   backface-visibility: hidden;
   animation: hover-bob 5s ease-in-out infinite;

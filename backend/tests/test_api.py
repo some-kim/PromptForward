@@ -373,6 +373,69 @@ class TestLearningMode:
         )
         assert exhausted.status_code == 409
 
+    async def test_unreachable_evaluator_refuses_the_generation_and_refunds_the_slot(
+        self, client, monkeypatch
+    ):
+        from app.routes import learning as learning_route
+        from app.services.openai.client import LLMResponseError
+
+        challenge_id = await create_challenge(client)
+        attempt_id = (
+            await client.post(
+                "/api/learning/attempts", json={"challengeId": challenge_id, "userId": "player-1"}
+            )
+        ).json()["id"]
+
+        working_evaluate = learning_route.evaluate_prompt
+
+        async def failing_evaluate(rubric, prompt):
+            raise LLMResponseError("OpenAI is down")
+
+        monkeypatch.setattr(learning_route, "evaluate_prompt", failing_evaluate)
+        failed = await client.post(
+            f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": STRONG_PROMPT}
+        )
+        assert failed.status_code == 502
+
+        monkeypatch.setattr(learning_route, "evaluate_prompt", working_evaluate)
+        retried = await client.post(
+            f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": STRONG_PROMPT}
+        )
+        assert retried.status_code == 200
+        assert retried.json()["scores"]["promptQuality"] is not None
+        assert retried.json()["generationsRemaining"] == 2
+
+    async def test_failed_submission_finalizes_the_stored_generation(self, client, monkeypatch):
+        from app.routes import learning as learning_route
+
+        challenge_id = await create_challenge(client)
+        attempt_id = (
+            await client.post(
+                "/api/learning/attempts", json={"challengeId": challenge_id, "userId": "player-1"}
+            )
+        ).json()["id"]
+
+        working_submit = learning_route.submit_attempt
+
+        async def failing_submit(_attempt_id):
+            raise RuntimeError("scoring is down")
+
+        monkeypatch.setattr(learning_route, "submit_attempt", failing_submit)
+        with pytest.raises(RuntimeError):
+            await client.post(
+                f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": STRONG_PROMPT}
+            )
+
+        monkeypatch.setattr(learning_route, "submit_attempt", working_submit)
+        retried = await client.post(
+            f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": STRONG_PROMPT}
+        )
+        assert retried.status_code == 200
+        body = retried.json()
+        assert body["status"] == "submitted"
+        assert body["usage"]["generations"] == 1
+        assert body["generationsRemaining"] == 2
+
 
 class TestGameMode:
     async def test_full_game_produces_a_winner(self, client):

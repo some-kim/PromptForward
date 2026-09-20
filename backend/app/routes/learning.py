@@ -1,4 +1,4 @@
-"""Learning Mode: evaluate the prompt first, then generate behind a server-enforced gate."""
+"""Learning Mode: score the prompt, generate whatever it describes, score the image too."""
 
 from __future__ import annotations
 
@@ -91,6 +91,9 @@ async def generate_learning_image(attempt_id: str, body: PromptRequest) -> dict:
     attempt = await _load(attempt_id)
     challenge = await db.challenges().find_one({"_id": attempt["challengeId"]})
 
+    if _awaiting_submission(attempt):
+        return attempt_view(await submit_attempt(attempt["_id"]))
+
     # A weak prompt still generates: the lesson is seeing what it produces, and the score keeps
     # prompt quality and image quality side by side.
     try:
@@ -100,9 +103,10 @@ async def generate_learning_image(attempt_id: str, body: PromptRequest) -> dict:
     except GenerationLimitReached as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
 
-    prompt_evaluation = await _evaluation_for(attempt, challenge, body.prompt)
-
+    # Everything past the reservation shares one refund boundary: a slot is only spent on an
+    # image that actually landed.
     try:
+        prompt_evaluation = await _evaluation_for(attempt, challenge, body.prompt)
         await run_generation(
             attempt=attempt,
             challenge=challenge,
@@ -118,20 +122,41 @@ async def generate_learning_image(attempt_id: str, body: PromptRequest) -> dict:
         # this task is already being torn down.
         release_generation_detached(attempt["_id"], generation_number)
         raise
+    except Exception:
+        await release_generation(attempt["_id"], generation_number)
+        raise
 
     return attempt_view(await submit_attempt(attempt["_id"]))
 
 
-async def _evaluation_for(attempt: dict, challenge: dict, prompt: str) -> PromptEvaluation | None:
-    """The evaluation for exactly this prompt, scoring it now if the client skipped the check."""
+def _awaiting_submission(attempt: dict) -> bool:
+    """An image landed but its scoring never did, so the retry only has to finalize it.
+
+    Every reservation is accounted for by a stored generation here, so nothing is still being
+    generated and pressing generate again would pay for a second image of the same attempt.
+    """
+    generations = attempt.get("generations", [])
+    return (
+        bool(generations)
+        and attempt["status"] != "submitted"
+        and attempt.get("reservedGenerations", 0) == len(generations)
+    )
+
+
+async def _evaluation_for(attempt: dict, challenge: dict, prompt: str) -> PromptEvaluation:
+    """The evaluation for exactly this prompt, scoring it now if the client skipped the check.
+
+    A weak prompt is fine, an unreachable evaluator is not: an image scored against a missing
+    prompt quality would read as zero, so the generation is refused instead.
+    """
     for entry in reversed(attempt.get("promptEvaluations", [])):
         if entry["prompt"] == prompt:
             return _evaluation_model(entry)
 
     try:
         evaluation = await evaluate_prompt(rubric_of(challenge), prompt)
-    except LLMResponseError:
-        return None
+    except LLMResponseError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
     await record_prompt_evaluation(attempt["_id"], prompt, evaluation)
     return evaluation
 

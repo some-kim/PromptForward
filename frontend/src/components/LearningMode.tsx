@@ -71,9 +71,9 @@ export function LearningMode({
         );
       }
     } catch (caught) {
+      // The evaluation survives: the prompt is unchanged, and re-scoring it would count a
+      // second failed evaluation against efficiency.
       setError(caught instanceof ApiError ? caught.message : String(caught));
-      setEvaluation(null);
-      setEvaluatedPrompt(null);
     } finally {
       setBusy(null);
     }

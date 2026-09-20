@@ -86,7 +86,9 @@ the rules below hold in either mode.
    never reuses a number an in-flight generation is writing to.
 2. **Score the prompt** — a weak prompt is never blocked: if the prompt was not evaluated before
    the press, the route evaluates it now, so every generation carries a prompt quality to show
-   beside its image quality.
+   beside its image quality. If the evaluator itself is unreachable the route returns 502 and
+   refunds the slot, rather than spending an image on an attempt that would score zero prompt
+   quality.
 3. **Generate** — Meta Muse Image, text-to-image only; the target image is never sent to the
    generator. The aspect ratio is the supported ratio closest to the target's.
 4. **Store** — the PNG goes to Dropbox and is served back through `/api/images/...`.
@@ -97,9 +99,10 @@ the rules below hold in either mode.
 
 Failure handling: every provider error (generation, storage, result scoring) surfaces as
 `GenerationFailed`, the reserved slot is refunded with `release_generation`, and the route returns
-502 — **a failed generation never costs the player a try**. The exception is a failure *after* the
-image is committed: the image is kept and the player is offered "score my prompt again", which
-does not consume a second generation.
+502 — **a failed generation never costs the player a try**. The refund covers everything after the
+reservation, including a cancelled request and an evaluator outage. The exception is a failure
+*after* the image is committed: pressing generate again finalizes the stored image instead of
+buying a second one, so scoring it does not consume a try.
 
 ---
 
