@@ -5,15 +5,16 @@ import {
   api,
   type Attempt,
   type Challenge,
+  type Battle,
   type Difficulty,
-  type Game,
   type ProblemSet,
   type Session,
   type User,
 } from "./api";
 import { Agent } from "./components/Agent";
 import { Backdrop } from "./components/Backdrop";
-import { GameMode } from "./components/GameMode";
+import { BattleLobby } from "./components/BattleLobby";
+import { BattleMode } from "./components/BattleMode";
 import { Home } from "./components/Home";
 import { LearningMode } from "./components/LearningMode";
 import { LogoMark } from "./components/LogoMark";
@@ -38,7 +39,8 @@ type View =
   | { name: "train" }
   | { name: "problems" }
   | { name: "learning"; challenge: Challenge; attempt: Attempt }
-  | { name: "game"; game: Game };
+  | { name: "lobby" }
+  | { name: "game"; battle: Battle };
 
 const AGENT_LINES: Record<View["name"] | "signIn", string[]> = {
   signIn: [
@@ -62,15 +64,19 @@ const AGENT_LINES: Record<View["name"] | "signIn", string[]> = {
     "Green boxes are details you covered, red pulses are details you missed.",
     "Fewer words for the same coverage means a better efficiency score.",
   ],
+  lobby: [
+    "Host a battle and read out the code, or type the code your opponent gave you.",
+    "Custom battles run one to ten minutes, with two to seven images each.",
+  ],
   game: [
-    "Same target for everyone, one image each. Best quality per token wins.",
-    "Scores stay hidden until both players have finished.",
+    "Both of you prompt every image in the pool, one prompt per image.",
+    "Nothing is scored on screen until the clock stops.",
   ],
 };
 
-function gameIdFromHash(): string | null {
-  const match = location.hash.match(/^#\/game\/(\w+)$/);
-  return match ? match[1] : null;
+function codeFromHash(): string | null {
+  const match = location.hash.match(/^#\/battle\/([A-Za-z0-9]{6})$/);
+  return match ? match[1].toUpperCase() : null;
 }
 
 export default function App() {
@@ -82,7 +88,7 @@ export default function App() {
   const [view, setView] = useState<View>({ name: "home" });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [invitedGameId, setInvitedGameId] = useState(gameIdFromHash);
+  const [invitedCode, setInvitedCode] = useState(codeFromHash);
   const [splashDone, setSplashDone] = useState(false);
   const [problemSet, setProblemSet] = useState<ProblemSet | null>(null);
   // Set while the sign-in form is shown; remembers what the visitor was about to do.
@@ -134,41 +140,41 @@ export default function App() {
   }, [userId, refreshProblems]);
 
   useEffect(() => {
-    const onHashChange = () => setInvitedGameId(gameIdFromHash());
+    const onHashChange = () => setInvitedCode(codeFromHash());
     addEventListener("hashchange", onHashChange);
     return () => removeEventListener("hashchange", onHashChange);
   }, []);
 
   // An invite link needs an account to join with, so it opens on the sign-in form.
   useEffect(() => {
-    if (invitedGameId && !user) setPendingAction({ kind: "browse" });
-  }, [invitedGameId, user]);
+    if (invitedCode && !user) setPendingAction({ kind: "browse" });
+  }, [invitedCode, user]);
 
   useEffect(() => {
     // A ref, not state: StrictMode runs this effect twice and two joins race into a false 409.
     if (
       !user ||
-      !invitedGameId ||
+      !invitedCode ||
       view.name === "game" ||
-      joining.current === invitedGameId
+      joining.current === invitedCode
     )
       return;
-    joining.current = invitedGameId;
+    joining.current = invitedCode;
 
     const started = epoch.current;
     api
-      .joinGame(invitedGameId, playerId, name || "Player")
-      .then((game) => {
+      .joinBattle(invitedCode, playerId, name || "Player")
+      .then((battle) => {
         if (epoch.current !== started) return;
         setError(null);
-        setView({ name: "game", game });
+        setView({ name: "game", battle });
       })
       .catch((caught) => {
         joining.current = null;
         if (epoch.current !== started) return;
         setError(caught instanceof ApiError ? caught.message : String(caught));
       });
-  }, [invitedGameId, name, playerId, user, view.name]);
+  }, [invitedCode, name, playerId, user, view.name]);
 
   const showError = useCallback((message: string) => setError(message), []);
   const openLearnTab = useCallback(
@@ -205,14 +211,14 @@ export default function App() {
     if (!user || !pendingAction) return;
     setPendingAction(null);
     if (pendingAction.kind === "learn") void startLearningAs(pendingAction.challenge);
-    if (pendingAction.kind === "battle") void startBattleAs();
+    if (pendingAction.kind === "battle") openLobby();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs only when the user arrives
   }, [user, pendingAction]);
 
   function requireUser(action: PendingAction) {
     if (user) {
       if (action.kind === "learn") void startLearningAs(action.challenge);
-      if (action.kind === "battle") void startBattleAs();
+      if (action.kind === "battle") openLobby();
     } else setPendingAction(action);
   }
 
@@ -292,32 +298,27 @@ export default function App() {
     requireUser({ kind: "battle" });
   }
 
-  async function startBattleAs() {
-    const started = epoch.current;
-    setBusy(true);
+  function enterBattle(battle: Battle) {
+    joining.current = battle.code;
+    setInvitedCode(battle.code);
+    // The hash is the invite: opening it elsewhere joins by code.
+    location.hash = `#/battle/${battle.code}`;
     setError(null);
-    try {
-      const game = await api.createGame(
-        playerId,
-        name || "Player",
-        undefined,
-        difficulty,
-      );
-      if (epoch.current !== started) return;
-      location.hash = `#/game/${game.id}`;
-      setView({ name: "game", game });
-    } catch (caught) {
-      if (epoch.current !== started) return;
-      setError(caught instanceof ApiError ? caught.message : String(caught));
-    } finally {
-      setBusy(false);
-    }
+    setView({ name: "game", battle });
+  }
+
+  function openLobby() {
+    joining.current = null;
+    setInvitedCode(null);
+    location.hash = "";
+    setError(null);
+    setView({ name: "lobby" });
   }
 
   function exit() {
     joining.current = null;
-    // Clear the invite id with the hash: leaving it set re-joins the game we are leaving.
-    setInvitedGameId(null);
+    // Clear the invite code with the hash: leaving it set re-joins the battle we are leaving.
+    setInvitedCode(null);
     location.hash = "";
     setError(null);
     setPendingAction(null);
@@ -391,7 +392,6 @@ export default function App() {
             busy={busy}
             onLearn={() => setView({ name: "problems" })}
             onBattle={startBattle}
-            skills={problemSet?.skills ?? null}
           />
         )}
 
@@ -430,17 +430,30 @@ export default function App() {
             onNext={() => nextLearning(view.challenge)}
             onExit={() =>
               setView(
-                view.challenge.problem ? { name: "problems" } : { name: "train" },
+                view.challenge.problem
+                  ? { name: "problems" }
+                  : { name: "train" },
               )
             }
           />
         )}
 
+        {user && !signingIn && view.name === "lobby" && (
+          <BattleLobby
+            playerId={playerId}
+            displayName={name || "Player"}
+            onEntered={enterBattle}
+            onExit={exit}
+          />
+        )}
+
         {user && !signingIn && view.name === "game" && (
-          <GameMode
-            game={view.game}
+          <BattleMode
+            key={view.battle.id}
+            battle={view.battle}
             playerId={playerId}
             onScored={scored}
+            onRematch={openLobby}
             onExit={exit}
           />
         )}

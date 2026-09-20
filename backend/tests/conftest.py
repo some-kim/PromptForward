@@ -47,6 +47,7 @@ async def database():
         "challenges",
         "attempts",
         "games",
+        "user_images",
         "users",
         "sessions",
         "progress_events",

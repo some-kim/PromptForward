@@ -134,12 +134,97 @@ export type Attempt = {
   coaching?: Coaching | null;
 };
 
-export type Game = {
-  id: string;
+export type BattleSettings = {
+  durationSeconds: number;
+  imagesPerPlayer: number;
+};
+
+export const BATTLE_LIMITS = {
+  durationSeconds: { min: 60, max: 600, step: 60, default: 180 },
+  imagesPerPlayer: { min: 2, max: 7, default: 3 },
+} as const;
+
+export type RoundScores = {
+  final: number;
+  resultQuality: number;
+  promptQuality: number;
+  efficiency: number;
+};
+
+/** One image, for one player. Scores and the generated image only arrive once the battle ends. */
+export type BattleRound = {
+  index: number;
   challengeId: string;
+  targetImageUrl: string;
+  status: "empty" | "working" | "ready" | "failed";
+  prompt: string | null;
+  error: string | null;
+  attemptId?: string;
+  imageUrl?: string | null;
+  scores?: RoundScores;
+  feedback?: string | null;
+  promptTokens?: number;
+};
+
+export type BattlePlayer = {
+  isYou: boolean;
+  displayName: string;
+  imagesChosen: number;
+  usedDefaults: boolean;
+  ready: boolean;
+  submittedRounds: number;
+  total: number | null;
+  promptTokens: number | null;
+  images: { challengeId: string; imageUrl: string }[];
+  rounds: BattleRound[];
+};
+
+export type Battle = {
+  id: string;
+  code: string;
   status: "waiting" | "active" | "completed";
+  settings: BattleSettings;
+  totalRounds: number;
+  secondsRemaining: number | null;
   winner: "you" | "opponent" | "draw" | null;
-  players: { isYou: boolean; displayName: string; attempt: Attempt }[];
+  players: BattlePlayer[];
+};
+
+export type StandingsEntry = {
+  rank?: number;
+  displayName: string;
+  isYou: boolean;
+  battles: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  winRate: number;
+  averageScore: number;
+  streak: { result: "win" | "loss" | "draw" | null; length: number };
+  currentStreak: number;
+  bestStreak: number;
+  lastPlayedAt: string | null;
+};
+
+export type MatchRecord = {
+  opponent: string;
+  result: "win" | "loss" | "draw";
+  yourScore: number;
+  theirScore: number;
+  playedAt: string | null;
+};
+
+export type Standings = {
+  leaderboard: StandingsEntry[];
+  you: StandingsEntry | null;
+  matches: MatchRecord[];
+};
+
+export type LibraryImage = {
+  id: string;
+  type: string;
+  difficulty: Difficulty;
+  imageUrl: string;
 };
 
 export type Progress = {
@@ -170,10 +255,11 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getToken();
+  const isForm = init?.body instanceof FormData;
   const response = await fetch(path, {
     ...init,
     headers: {
-      "Content-Type": "application/json",
+      ...(isForm ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init?.headers,
     },
@@ -242,29 +328,79 @@ export const api = {
       body: JSON.stringify({ prompt }),
     }),
 
-  createGame: (
+  createBattle: (
     userId: string,
     displayName: string,
-    challengeId?: string,
-    difficulty?: Difficulty,
+    settings: BattleSettings,
+    useDefaultImages: boolean,
   ) =>
-    request<Game>("/api/games", {
+    request<Battle>("/api/games", {
       method: "POST",
-      body: JSON.stringify({ userId, displayName, challengeId, difficulty }),
+      body: JSON.stringify({ userId, displayName, settings, useDefaultImages }),
     }),
 
-  joinGame: (gameId: string, userId: string, displayName: string) =>
-    request<Game>(`/api/games/${gameId}/join`, {
+  joinBattle: (code: string, userId: string, displayName: string) =>
+    request<Battle>("/api/games/join", {
       method: "POST",
-      body: JSON.stringify({ userId, displayName }),
+      body: JSON.stringify({ code, userId, displayName }),
     }),
 
-  getGame: (gameId: string, userId: string) =>
-    request<Game>(`/api/games/${gameId}?userId=${encodeURIComponent(userId)}`),
+  getBattle: (battleId: string, userId: string) =>
+    request<Battle>(
+      `/api/games/${battleId}?userId=${encodeURIComponent(userId)}`,
+    ),
 
-  generateGameImage: (gameId: string, userId: string, prompt: string) =>
-    request<Game>(`/api/games/${gameId}/generate`, {
+  addBattleImage: (battleId: string, userId: string, challengeId: string) =>
+    request<Battle>(`/api/games/${battleId}/images`, {
+      method: "POST",
+      body: JSON.stringify({ userId, challengeId }),
+    }),
+
+  removeBattleImage: (battleId: string, userId: string, challengeId: string) =>
+    request<Battle>(
+      `/api/games/${battleId}/images/${challengeId}?userId=${encodeURIComponent(userId)}`,
+      { method: "DELETE" },
+    ),
+
+  fillBattleWithDefaults: (battleId: string, userId: string) =>
+    request<Battle>(`/api/games/${battleId}/default-images`, {
+      method: "POST",
+      body: JSON.stringify({ userId }),
+    }),
+
+  promptBattleRound: (
+    battleId: string,
+    userId: string,
+    index: number,
+    prompt: string,
+  ) =>
+    request<Battle>(`/api/games/${battleId}/rounds/${index}/prompt`, {
       method: "POST",
       body: JSON.stringify({ userId, prompt }),
     }),
+
+  getStandings: (userId: string) =>
+    request<Standings>(`/api/standings?userId=${encodeURIComponent(userId)}`),
+
+  listLibraryImages: (userId: string) =>
+    request<LibraryImage[]>(
+      `/api/library/images?userId=${encodeURIComponent(userId)}`,
+    ),
+
+  uploadLibraryImage: (userId: string, file: File) => {
+    const body = new FormData();
+    body.append("userId", userId);
+    body.append("image", file);
+    // No Content-Type here: the browser has to set the multipart boundary itself.
+    return request<LibraryImage>("/api/library/images", {
+      method: "POST",
+      body,
+    });
+  },
+
+  deleteLibraryImage: (userId: string, challengeId: string) =>
+    request<void>(
+      `/api/library/images/${challengeId}?userId=${encodeURIComponent(userId)}`,
+      { method: "DELETE" },
+    ),
 };
