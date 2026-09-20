@@ -241,6 +241,22 @@ class TestChallenges:
         second = await create_challenge(client)
         assert first == second
 
+    async def test_a_players_image_joins_training_once_it_is_curated(self, client):
+        player = str(uuid.uuid4())
+        uploaded = await client.post(
+            "/api/library/images",
+            files={"image": ("mine.png", png_bytes(color="purple"), "image/png")},
+            data={"userId": player},
+        )
+        curated = await client.post(
+            "/api/challenges",
+            files={"image": ("seed.png", png_bytes(color="purple"), "image/png")},
+        )
+        assert curated.json()["id"] == uploaded.json()["id"]
+
+        training = await client.get("/api/challenges")
+        assert curated.json()["id"] in {one["id"] for one in training.json()}
+
     async def test_challenge_responses_never_expose_the_rubric(self, client):
         challenge_id = await create_challenge(client)
 
@@ -666,6 +682,15 @@ class TestBattleMode:
         assert mine["rounds"][1]["scores"]["final"] == 0
         assert 0 < mine["total"] < mine["rounds"][0]["scores"]["final"]
 
+    async def test_games_from_before_battle_mode_do_not_block_startup(self, client):
+        from app import db
+
+        await db.games().insert_many([{"status": "completed"}, {"status": "completed"}])
+        await db.ensure_indexes()
+
+        battle = await client.post("/api/games", json={"userId": "kris", "displayName": "Kris"})
+        assert battle.status_code == 201, battle.text
+
     async def test_settings_outside_the_allowed_range_are_rejected(self, client):
         for settings in (
             {"durationSeconds": 30, "imagesPerPlayer": 3},
@@ -817,6 +842,30 @@ class TestBattleImages:
             f"/api/games/{battle_id}/images", json={"userId": player, "challengeId": third}
         )
         assert extra.status_code == 409
+
+    async def test_filling_with_defaults_twice_at_once_never_overfills(self, client):
+        await seed_defaults(client, 8)
+        player = str(uuid.uuid4())
+        battle_id = (
+            await client.post(
+                "/api/games",
+                json={
+                    "userId": player,
+                    "displayName": "Kris",
+                    "settings": {"durationSeconds": 60, "imagesPerPlayer": 4},
+                },
+            )
+        ).json()["id"]
+
+        await asyncio.gather(
+            *[
+                client.post(f"/api/games/{battle_id}/default-images", json={"userId": player})
+                for _ in range(3)
+            ]
+        )
+
+        battle = (await client.get(f"/api/games/{battle_id}", params={"userId": player})).json()
+        assert battle["players"][0]["imagesChosen"] == 4
 
     async def test_oversized_prompts_are_rejected(self, client):
         await seed_defaults(client, 4)

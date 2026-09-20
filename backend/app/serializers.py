@@ -190,7 +190,7 @@ def battle_view(
                 "usedDefaults": player["usedDefaults"],
                 "ready": len(player["challengeIds"]) >= per_player,
                 "submittedRounds": sum(1 for one in rounds if one["status"] == "ready"),
-                "total": outcome.get("total") if completed else None,
+                "total": round(outcome["total"], 1) if completed and outcome else None,
                 "promptTokens": outcome.get("promptTokens") if completed else None,
                 "images": (
                     [

@@ -174,7 +174,8 @@ async def remove_image(
 async def fill_with_defaults(game: dict[str, Any], user_id: str) -> dict[str, Any]:
     """Fill the player's remaining slots from the curated pool."""
     player = _player_of(game, user_id)
-    missing = game["settings"]["imagesPerPlayer"] - len(player["challengeIds"])
+    held = len(player["challengeIds"])
+    missing = game["settings"]["imagesPerPlayer"] - held
     if missing <= 0:
         return game
 
@@ -193,8 +194,13 @@ async def fill_with_defaults(game: dict[str, Any], user_id: str) -> dict[str, An
     if len(sampled) < missing:
         raise BattleError("Not enough images have been seeded to fill the battle")
 
+    # Conditional on the count this fill was computed from, so two fills cannot both append.
     updated = await db.games().find_one_and_update(
-        {"_id": game["_id"], "status": "waiting", "players.userId": user_id},
+        {
+            "_id": game["_id"],
+            "status": "waiting",
+            "players": {"$elemMatch": {"userId": user_id, "challengeIds": {"$size": held}}},
+        },
         {
             "$push": {"players.$.challengeIds": {"$each": [one["_id"] for one in sampled]}},
             "$set": {"players.$.usedDefaults": True},
@@ -202,7 +208,7 @@ async def fill_with_defaults(game: dict[str, Any], user_id: str) -> dict[str, An
         return_document=True,
     )
     if updated is None:
-        raise BattleError("Images can only change before the battle starts")
+        raise BattleError("Your images changed while filling, try again")
     return await start_if_ready(updated)
 
 
@@ -420,7 +426,9 @@ async def finish_if_ready(game_id: ObjectId) -> dict[str, Any]:
     everyone_finished = bool(attempts) and all(
         attempt["status"] == "submitted" for attempt in attempts.values()
     )
-    expired = (seconds_remaining(game) or 0) <= 0
+    # The same deadline `submit_round` accepts against, so a poll cannot close the grace window.
+    ends_at = _aware(game.get("endsAt"))
+    expired = ends_at is not None and now() > ends_at + timedelta(seconds=SUBMIT_GRACE_SECONDS)
     if not everyone_finished and not (expired and rounds_in_flight(game_id) == 0):
         return game
 
@@ -459,8 +467,9 @@ def _player_outcome(player: dict[str, Any], attempts: dict[str, dict[str, Any]])
     count = max(1, len(rounds))
     return {
         "userId": player["userId"],
-        "total": round(sum(score.get("final") or 0 for score in scores) / count, 1),
-        "resultQuality": round(sum(score.get("resultQuality") or 0 for score in scores) / count, 1),
+        # Unrounded: the winner is picked from these, and rounding can collapse a real gap.
+        "total": sum(score.get("final") or 0 for score in scores) / count,
+        "resultQuality": sum(score.get("resultQuality") or 0 for score in scores) / count,
         "promptTokens": sum(
             generation["usage"]["promptTokens"]
             for one in rounds

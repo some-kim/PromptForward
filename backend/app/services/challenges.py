@@ -31,12 +31,15 @@ async def create_challenge(
     """Idempotent: a byte-identical image with a current analysis is returned unchanged.
 
     A player upload (`source="player"`) is stored outside the curated folder and stays out of
-    the training pool, but an image that is already curated keeps its curated standing.
+    the training pool. Curating is one way: an image a player uploaded is promoted into the
+    curated folder and the training pool when it is later seeded as a target.
     """
     image_hash = sha256(image_bytes)
 
     existing = await db.challenges().find_one({"target.imageHash": image_hash})
-    if existing and existing.get("analysis", {}).get("version") == ANALYSIS_VERSION:
+    promoting = bool(existing) and source == "curated" and existing.get("source") == "player"
+    fresh = bool(existing) and existing.get("analysis", {}).get("version") == ANALYSIS_VERSION
+    if fresh and not promoting:
         return existing
 
     meta = read_image_meta(image_bytes)
@@ -51,7 +54,11 @@ async def create_challenge(
     doc: dict[str, Any] = {
         "type": "image",
         "difficulty": difficulty,
-        "source": existing.get("source", "curated") if existing else source,
+        "source": (
+            "curated"
+            if source == "curated" or (existing or {}).get("source") == "curated"
+            else "player"
+        ),
         "target": {
             "dropboxFileId": stored.id,
             "dropboxPath": stored.path,
