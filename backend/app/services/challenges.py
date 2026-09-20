@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from datetime import datetime, timezone
 from typing import Any
 
@@ -11,8 +12,14 @@ from pymongo.errors import DuplicateKeyError
 from app import db
 from app.config import ANALYSIS_VERSION, get_config
 from app.models import DEFAULT_DIFFICULTY, Difficulty, Problem, Rubric
-from app.services.dropbox.image_storage import read_image_meta, store_target_image
+from app.services.dropbox.image_storage import (
+    delete_target_image,
+    read_image_meta,
+    store_target_image,
+)
 from app.services.openai.challenge_analyzer import analyze_challenge
+
+logger = logging.getLogger(__name__)
 
 
 def sha256(image_bytes: bytes) -> str:
@@ -28,7 +35,8 @@ async def create_challenge(
 
     Problem metadata is cheap to change, so it is refreshed without paying for a new analysis.
     A problem's slug is its identity: a new image for a known slug replaces that challenge in
-    place, so progress recorded against it survives. An image already used by a different
+    place, so progress recorded against it survives, and the retired image file is removed so
+    the folder seeder cannot resurrect it as a plain target. An image already used by a different
     challenge cannot be taken over by a slug; that is a `ChallengeConflict`.
     """
     image_hash = sha256(image_bytes)
@@ -75,6 +83,12 @@ async def create_challenge(
 
     if existing:
         await db.challenges().update_one({"_id": existing["_id"]}, {"$set": doc})
+        retired = existing["target"]
+        if retired["dropboxPath"] != stored.path:
+            try:
+                await delete_target_image(retired["dropboxPath"])
+            except Exception:  # noqa: BLE001 - already replaced in the DB; the file is litter
+                logger.warning("Could not remove retired target %s", retired["dropboxPath"])
         return {**existing, **doc}
 
     try:

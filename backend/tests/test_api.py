@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import uuid
 
@@ -126,8 +127,14 @@ async def client(monkeypatch, database):
             ),
         )
 
+    deleted_targets: list[str] = []
+
+    async def fake_delete_target(path: str) -> None:
+        deleted_targets.append(path)
+
     monkeypatch.setattr(challenges_service, "analyze_challenge", fake_analyze)
     monkeypatch.setattr(challenges_service, "store_target_image", fake_store_target)
+    monkeypatch.setattr(challenges_service, "delete_target_image", fake_delete_target)
     monkeypatch.setattr(
         challenges_service,
         "read_image_meta",
@@ -152,6 +159,7 @@ async def client(monkeypatch, database):
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as async_client:
+        async_client.deleted_targets = deleted_targets
         yield async_client
 
 
@@ -822,6 +830,9 @@ class TestProblems:
         assert replaced_id == problem_id
         listed = (await client.get("/api/problems")).json()
         assert [problem["id"] for problem in listed["problems"]] == [problem_id]
+        # The retired file is gone, so the folder seeder cannot bring it back as a plain target.
+        old_hash = hashlib.sha256(png_bytes(color="yellow")).hexdigest()
+        assert client.deleted_targets == [f"/PromptForward/Challenges/easy/{old_hash}.png"]
 
     async def test_a_slug_cannot_take_over_another_challenges_image(self, client):
         plain_id = await create_challenge(client, color="blue")

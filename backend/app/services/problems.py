@@ -60,10 +60,15 @@ async def record_problem_result(user_id: ObjectId, attempt: dict[str, Any]) -> N
     )
 
 
+def is_solved(final: float) -> bool:
+    """Judged on the whole-number score the learner sees, so 69.6 shows 70 and counts as 70."""
+    return round(final) >= SOLVED_SCORE
+
+
 def status_of(entry: dict[str, Any] | None) -> str:
     if entry is None or int(entry.get("attempts", 0)) == 0:
         return "unsolved"
-    return "solved" if float(entry.get("bestScore", 0)) >= SOLVED_SCORE else "attempted"
+    return "solved" if is_solved(float(entry.get("bestScore", 0))) else "attempted"
 
 
 def problem_view(challenge: dict[str, Any], entry: dict[str, Any] | None) -> dict[str, Any]:
@@ -134,7 +139,7 @@ def coaching_view(challenge: dict[str, Any], attempt: dict[str, Any]) -> dict[st
     )
     scores = attempt.get("scores") or {}
     final = scores.get("final")
-    solved = final is not None and final >= SOLVED_SCORE
+    solved = final is not None and is_solved(final)
     spent = len(attempt.get("generations", [])) >= LEARNING_GENERATION_LIMIT
     submitted = attempt["status"] == "submitted"
 

@@ -204,7 +204,7 @@ an attempt that is not yet `submitted` contributes nothing. Reporting the same a
 ```text
 status = unsolved   no attempts yet
          attempted  attempted, bestScore < 70
-         solved     bestScore ≥ 70   (SOLVED_SCORE)
+         solved     round(bestScore) ≥ 70   (SOLVED_SCORE; the shown score decides)
 ```
 
 The skill summary (`solved / attempted / total` per skill) drives the progress bars on Home and
