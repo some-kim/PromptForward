@@ -28,6 +28,11 @@ import { summarize } from "./progress";
 import { getDifficulty, setDifficulty } from "./player";
 import { getToken, setToken } from "./session";
 
+type PendingAction =
+  | { kind: "browse" }
+  | { kind: "learn"; challenge: Challenge }
+  | { kind: "battle" };
+
 type View =
   | { name: "home" }
   | { name: "train" }
@@ -35,10 +40,10 @@ type View =
   | { name: "learning"; challenge: Challenge; attempt: Attempt }
   | { name: "game"; game: Game };
 
-const AGENT_LINES: Record<View["name"] | "signedOut", string[]> = {
-  signedOut: [
-    "Hello. I am Forward, your prompt coach — sign in and I will walk you through it.",
-    "One account keeps your streak, your saved CO\u2082, and your level.",
+const AGENT_LINES: Record<View["name"] | "signIn", string[]> = {
+  signIn: [
+    "Sign in before you start so your streak, saved CO\u2082 and solved problems are kept.",
+    "New here? An account is just a username and a password.",
   ],
   home: [
     "Hello. Learn works through the Problem Set skill by skill, or hands you a random target.",
@@ -80,6 +85,8 @@ export default function App() {
   const [invitedGameId, setInvitedGameId] = useState(gameIdFromHash);
   const [splashDone, setSplashDone] = useState(false);
   const [problemSet, setProblemSet] = useState<ProblemSet | null>(null);
+  // Set while the sign-in form is shown; remembers what the visitor was about to do.
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const joining = useRef<string | null>(null);
 
   const playerId = user?.id ?? "";
@@ -113,9 +120,10 @@ export default function App() {
       .catch(() => undefined);
   }, []);
 
+  // Anonymous visitors see the problem list too, just without their own progress.
   const userId = user?.id ?? null;
   useEffect(() => {
-    if (userId) refreshProblems();
+    refreshProblems();
   }, [userId, refreshProblems]);
 
   useEffect(() => {
@@ -123,6 +131,11 @@ export default function App() {
     addEventListener("hashchange", onHashChange);
     return () => removeEventListener("hashchange", onHashChange);
   }, []);
+
+  // An invite link needs an account to join with, so it opens on the sign-in form.
+  useEffect(() => {
+    if (invitedGameId && !user) setPendingAction({ kind: "browse" });
+  }, [invitedGameId, user]);
 
   useEffect(() => {
     // A ref, not state: StrictMode runs this effect twice and two joins race into a false 409.
@@ -176,6 +189,23 @@ export default function App() {
     setLoadingSession(false);
   }
 
+  // Browsing is open to everyone; anything that creates an attempt needs an account first.
+  // The action is replayed once the user is set so it runs with the real player id.
+  useEffect(() => {
+    if (!user || !pendingAction) return;
+    setPendingAction(null);
+    if (pendingAction.kind === "learn") void startLearningAs(pendingAction.challenge);
+    if (pendingAction.kind === "battle") void startBattleAs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs only when the user arrives
+  }, [user, pendingAction]);
+
+  function requireUser(action: PendingAction) {
+    if (user) {
+      if (action.kind === "learn") void startLearningAs(action.challenge);
+      if (action.kind === "battle") void startBattleAs();
+    } else setPendingAction(action);
+  }
+
   function signOut() {
     api.logOut().catch(() => undefined);
     setToken(null);
@@ -189,7 +219,11 @@ export default function App() {
     setDifficulty(next);
   }
 
-  async function startLearning(challenge: Challenge) {
+  function startLearning(challenge: Challenge) {
+    requireUser({ kind: "learn", challenge });
+  }
+
+  async function startLearningAs(challenge: Challenge) {
     setBusy(true);
     setError(null);
     try {
@@ -237,7 +271,11 @@ export default function App() {
     }
   }
 
-  async function startBattle() {
+  function startBattle() {
+    requireUser({ kind: "battle" });
+  }
+
+  async function startBattleAs() {
     setBusy(true);
     setError(null);
     try {
@@ -262,6 +300,7 @@ export default function App() {
     setInvitedGameId(null);
     location.hash = "";
     setError(null);
+    setPendingAction(null);
     setView({ name: "home" });
   }
 
@@ -274,12 +313,14 @@ export default function App() {
       </>
     );
 
+  const signingIn = !user && pendingAction !== null;
+
   return (
     <>
       <Backdrop />
       <main>
         <header className="app-header">
-          {user && (
+          {user ? (
             <div className="player-chip">
               <button className="link" onClick={signOut}>
                 Log out
@@ -289,6 +330,17 @@ export default function App() {
                 {(name || "P").slice(0, 1).toUpperCase()}
               </span>
             </div>
+          ) : (
+            !signingIn && (
+              <div className="player-chip">
+                <button
+                  className="link"
+                  onClick={() => setPendingAction({ kind: "browse" })}
+                >
+                  Log in
+                </button>
+              </div>
+            )
           )}
           <h1 className="logo">
             <LogoMark />
@@ -300,14 +352,21 @@ export default function App() {
         </header>
 
         <Agent
-          key={user ? view.name : "signedOut"}
+          key={signingIn ? "signIn" : view.name}
           name="Forward"
-          lines={user ? AGENT_LINES[view.name] : AGENT_LINES.signedOut}
+          lines={signingIn ? AGENT_LINES.signIn : AGENT_LINES[view.name]}
         />
 
-        {!user && <SignIn onSignedIn={signedIn} />}
+        {signingIn && (
+          <>
+            <SignIn onSignedIn={signedIn} />
+            <button className="link" onClick={() => setPendingAction(null)}>
+              Back
+            </button>
+          </>
+        )}
 
-        {user && view.name === "home" && (
+        {!signingIn && view.name === "home" && (
           <Home
             busy={busy}
             onLearn={() => setView({ name: "problems" })}
@@ -316,7 +375,7 @@ export default function App() {
           />
         )}
 
-        {user && view.name === "problems" && (
+        {!signingIn && view.name === "problems" && (
           <ProblemList
             problemSet={problemSet}
             busy={busy}
@@ -327,7 +386,7 @@ export default function App() {
           />
         )}
 
-        {user && view.name === "train" && (
+        {!signingIn && view.name === "train" && (
           <TrainingLobby
             key={difficulty}
             difficulty={difficulty}
@@ -341,7 +400,7 @@ export default function App() {
           />
         )}
 
-        {user && view.name === "learning" && (
+        {!signingIn && view.name === "learning" && (
           <LearningMode
             key={view.attempt.id}
             challenge={view.challenge}
@@ -357,7 +416,7 @@ export default function App() {
           />
         )}
 
-        {user && view.name === "game" && (
+        {!signingIn && view.name === "game" && (
           <GameMode
             game={view.game}
             playerId={playerId}
