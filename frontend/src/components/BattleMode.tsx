@@ -86,6 +86,9 @@ export function BattleMode({
     }
   }, [battle, onScored]);
 
+  // Stable, or the intro's countdown restarts on every poll and never reaches zero.
+  const finishIntro = useCallback(() => setIntroDone(true), []);
+
   const me = battle.players.find((player) => player.isYou);
   const opponent = battle.players.find((player) => !player.isYou);
   const showIntro =
@@ -111,7 +114,7 @@ export function BattleMode({
               you={me?.displayName ?? "You"}
               opponent={opponent?.displayName ?? "Opponent"}
               totalRounds={battle.totalRounds}
-              onDone={() => setIntroDone(true)}
+              onDone={finishIntro}
             />
           )}
           <div className="battle-alerts" aria-live="polite">
