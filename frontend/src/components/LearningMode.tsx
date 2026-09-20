@@ -104,7 +104,9 @@ export function LearningMode({
             targetUrl={challenge.imageUrl}
             resultUrl={selected.imageUrl}
           />
-          {attention.length > 0 && (
+          {/* The shown result may be an earlier, higher-scoring generation than the last
+              prompt checked, and coverage for a different prompt would be a lie. */}
+          {attention.length > 0 && selected.prompt === evaluatedPrompt && (
             <AttentionHeatmap
               imageUrl={challenge.imageUrl}
               regions={attention}
