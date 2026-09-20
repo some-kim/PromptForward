@@ -144,8 +144,8 @@ generation limits) is exactly the same as a plain Training target. In the UI bot
 **Learn**: the *Problem Set* tab is the curriculum, the *Random practice* tab is a random target
 at a chosen difficulty. Curriculum targets never appear in Random practice or Battle.
 
-Why the reference prompts currently score below the solve threshold, and the options for fixing
-that, are in `docs/REFERENCE_PROMPTS.md`.
+Reference prompts are written to pass their own rubric, and the seed script re-checks that on
+every run; the reasoning and the alternatives considered are in `docs/REFERENCE_PROMPTS.md`.
 
 ### Problem metadata
 

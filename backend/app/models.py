@@ -80,7 +80,10 @@ SKILL_INFO: dict[str, dict[str, str]] = {
     },
     "concision": {
         "title": "Concision",
-        "lesson": "Say everything that matters and nothing else; filler words cost tokens.",
+        "lesson": (
+            "Say everything that matters and nothing else; filler words cost tokens."
+            " Reference answers here are kept deliberately short."
+        ),
     },
 }
 

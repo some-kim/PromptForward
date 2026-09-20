@@ -132,3 +132,12 @@ could be relabelled "starting point" rather than "reference", which is honest bu
 Option A, with two guards: keep the five `concision` references deliberately short (and say so
 in their lesson text), and add a seed-time check that evaluates each reference against its
 stored rubric so drift is caught the next time the manifest is reseeded.
+
+## Decision and outcome
+
+Option A was chosen and applied. All 40 references in `backend/curriculum/problems.json` were
+rewritten against their stored rubrics. `python -m scripts.seed_curriculum` now scores every
+reference with the prompt evaluator after refreshing metadata (40 cheap `muse-spark-1.3` text
+calls, no analyzer calls; pass `--skip-check` to skip them) and prints a `WARNING` line for any
+reference that would not pass. On the current rubrics all 40 pass: 35 non-concision references
+score 95–100, and the 5 concision references (18–30 words each) score 71–88.
