@@ -7,6 +7,7 @@ import {
   type Challenge,
   type Difficulty,
   type Game,
+  type ProblemSet,
   type Session,
   type User,
 } from "./api";
@@ -16,10 +17,12 @@ import { GameMode } from "./components/GameMode";
 import { Home } from "./components/Home";
 import { LearningMode } from "./components/LearningMode";
 import { LogoMark } from "./components/LogoMark";
+import { ProblemList } from "./components/ProblemList";
 import { SignIn } from "./components/SignIn";
 import { TrainingLobby } from "./components/TrainingLobby";
 import { Splash } from "./components/Splash";
 import { pickRandom } from "./pick";
+import { nextProblem, toChallenge } from "./problems";
 import { summarize } from "./progress";
 import { getDifficulty, setDifficulty } from "./player";
 import { getToken, setToken } from "./session";
@@ -27,6 +30,7 @@ import { getToken, setToken } from "./session";
 type View =
   | { name: "home" }
   | { name: "train" }
+  | { name: "problems" }
   | { name: "learning"; challenge: Challenge; attempt: Attempt }
   | { name: "game"; game: Game };
 
@@ -36,8 +40,12 @@ const AGENT_LINES: Record<View["name"] | "signedOut", string[]> = {
     "One account keeps your streak, your saved CO\u2082, and your level.",
   ],
   home: [
-    "Hello. Pick Prompt Training to practice solo, or Prompt Royale to play head to head.",
-    "New here? Start with Training — I grade your prompt before a single image is generated.",
+    "Hello. Work through the Problem Set skill by skill, or pick Training for a random target.",
+    "New here? Start with the Problem Set — each problem teaches one prompt-writing habit.",
+  ],
+  problems: [
+    "Each problem isolates one skill. Solve it by scoring 70 or better.",
+    "Stuck? A weak prompt unlocks a hint; solving reveals a reference prompt.",
   ],
   train: [
     "Choose a difficulty and I will pull a random target for you.",
@@ -70,6 +78,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [invitedGameId, setInvitedGameId] = useState(gameIdFromHash);
   const [splashDone, setSplashDone] = useState(false);
+  const [problemSet, setProblemSet] = useState<ProblemSet | null>(null);
   const joining = useRef<string | null>(null);
 
   const playerId = user?.id ?? "";
@@ -93,6 +102,20 @@ export default function App() {
       .catch(() => setToken(null))
       .finally(() => setLoadingSession(false));
   }, []);
+
+  // Progress on the problem set belongs to the account, so it reloads with the user and
+  // after every scored attempt.
+  const refreshProblems = useCallback(() => {
+    api
+      .listProblems()
+      .then(setProblemSet)
+      .catch(() => undefined);
+  }, []);
+
+  const userId = user?.id ?? null;
+  useEffect(() => {
+    if (userId) refreshProblems();
+  }, [userId, refreshProblems]);
 
   useEffect(() => {
     const onHashChange = () => setInvitedGameId(gameIdFromHash());
@@ -130,14 +153,15 @@ export default function App() {
     (attemptId: string, score: number, generations: number) => {
       api
         .addProgress(attemptId, score, generations)
-        .then((updated) =>
+        .then((updated) => {
           setUser((current) =>
             current ? { ...current, progress: updated } : current,
-          ),
-        )
+          );
+          refreshProblems();
+        })
         .catch(() => undefined);
     },
-    [],
+    [refreshProblems],
   );
 
   function signedIn(session: Session) {
@@ -150,6 +174,7 @@ export default function App() {
     api.logOut().catch(() => undefined);
     setToken(null);
     setUser(null);
+    setProblemSet(null);
     exit();
   }
 
@@ -179,8 +204,16 @@ export default function App() {
     setBusy(true);
     setError(null);
     try {
-      const pool = await api.listChallenges(difficulty);
-      const next = pickRandom(pool, (one) => one.id === current.id);
+      let next: Challenge | undefined;
+      if (current.problem) {
+        const set = await api.listProblems();
+        setProblemSet(set);
+        const upcoming = nextProblem(set.problems, current.id);
+        next = upcoming ? toChallenge(upcoming) : undefined;
+      } else {
+        const pool = await api.listChallenges(difficulty);
+        next = pickRandom(pool, (one) => one.id === current.id) ?? undefined;
+      }
       if (!next) {
         setError(`No ${difficulty} targets available.`);
         return;
@@ -272,7 +305,19 @@ export default function App() {
           <Home
             busy={busy}
             onTrain={() => setView({ name: "train" })}
+            onProblems={() => setView({ name: "problems" })}
             onBattle={startBattle}
+            skills={problemSet?.skills ?? null}
+          />
+        )}
+
+        {user && view.name === "problems" && (
+          <ProblemList
+            problemSet={problemSet}
+            busy={busy}
+            onStart={startLearning}
+            onExit={exit}
+            progress={progress}
           />
         )}
 
@@ -297,7 +342,11 @@ export default function App() {
             busy={busy}
             onScored={scored}
             onNext={() => nextLearning(view.challenge)}
-            onExit={() => setView({ name: "train" })}
+            onExit={() =>
+              setView(
+                view.challenge.problem ? { name: "problems" } : { name: "train" },
+              )
+            }
           />
         )}
 

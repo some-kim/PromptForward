@@ -4,8 +4,10 @@ import {
   api,
   type Attempt,
   type Challenge,
+  type Coaching,
   type PromptEvaluation,
 } from "../api";
+import { CoachPanel } from "./CoachPanel";
 import { Scoreboard } from "./Scoreboard";
 import { Composer, SendButton } from "./Composer";
 import { EcoPrompt } from "./EcoPrompt";
@@ -36,6 +38,10 @@ export function LearningMode({
   const [evaluatedPrompt, setEvaluatedPrompt] = useState<string | null>(null);
   const [busy, setBusy] = useState<"evaluating" | "generating" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The coach's latest release: every response carries it, so the newest one wins.
+  const [coaching, setCoaching] = useState<Coaching | null>(
+    initialAttempt.coaching ?? null,
+  );
 
   const evaluated = evaluatedPrompt === prompt ? evaluation : null;
   // Any checked prompt may generate; a weak one is a lesson, not a block.
@@ -50,6 +56,7 @@ export function LearningMode({
       const result = await api.evaluatePrompt(attempt.id, prompt);
       setEvaluation(result);
       setEvaluatedPrompt(prompt);
+      if (result.coaching) setCoaching(result.coaching);
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : String(caught));
     } finally {
@@ -63,6 +70,7 @@ export function LearningMode({
     try {
       const scored = await api.generateLearningImage(attempt.id, prompt);
       setAttempt(scored);
+      if (scored.coaching) setCoaching(scored.coaching);
       if (scored.status === "submitted") {
         onScored(
           scored.id,
@@ -88,15 +96,30 @@ export function LearningMode({
     <section className="mode">
       <header className="mode-header">
         <h2>
-          Prompt Training{" "}
+          {coaching ? (
+            <>
+              <span className="problem-order">#{challenge.problem?.order}</span>{" "}
+              {coaching.title}
+            </>
+          ) : (
+            "Prompt Training"
+          )}{" "}
           <span className={`difficulty ${challenge.difficulty}`}>
             {challenge.difficulty}
           </span>
         </h2>
         <button className="link" onClick={onExit}>
-          ← Home
+          {coaching ? "← Problems" : "← Home"}
         </button>
       </header>
+
+      {coaching && (
+        <CoachPanel
+          coaching={coaching}
+          submitted={attempt.status === "submitted"}
+          missed={evaluated?.needsImprovement ?? []}
+        />
+      )}
 
       {selected ? (
         <div className="result-views">
@@ -149,7 +172,11 @@ export function LearningMode({
               </button>
             )}
             <button disabled={switching} onClick={onNext}>
-              {switching ? "Loading…" : "Next target →"}
+              {switching
+                ? "Loading…"
+                : coaching
+                  ? "Next problem →"
+                  : "Next target →"}
             </button>
           </div>
         </div>
@@ -208,7 +235,7 @@ export function LearningMode({
               ) : (
                 <p>Prompt changed — check it again.</p>
               )}
-              {evaluation.needsImprovement.length > 0 && (
+              {!coaching && evaluation.needsImprovement.length > 0 && (
                 <>
                   <p>Needs improvement:</p>
                   <ul>

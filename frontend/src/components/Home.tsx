@@ -1,7 +1,12 @@
+import type { SkillSummary } from "../api";
+import { SkillProgress } from "./SkillProgress";
+
 type HomeProps = {
   busy: boolean;
   onTrain: () => void;
+  onProblems: () => void;
   onBattle: () => void;
+  skills: SkillSummary[] | null;
 };
 
 const LEAVES = [
@@ -87,12 +92,55 @@ function Lightning() {
   );
 }
 
-export function Home({ busy, onTrain, onBattle }: HomeProps) {
+// A stack of rungs: the curriculum climbs one skill at a time.
+function Ladder() {
+  return (
+    <svg
+      className="mode-art ladder"
+      viewBox="0 0 320 160"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <g className="rungs" fill="none" strokeLinecap="round">
+        <path d="M22 150V10M62 150V10" strokeWidth="6" />
+        <path d="M22 36h40M22 66h40M22 96h40M22 126h40" strokeWidth="4" />
+        <path d="M258 150V10M298 150V10" strokeWidth="6" />
+        <path d="M258 36h40M258 66h40M258 96h40M258 126h40" strokeWidth="4" />
+      </g>
+      <g className="checks">
+        <circle cx="42" cy="126" r="5" />
+        <circle cx="42" cy="96" r="5" />
+        <circle cx="278" cy="126" r="5" />
+      </g>
+    </svg>
+  );
+}
+
+export function Home({
+  busy,
+  onTrain,
+  onProblems,
+  onBattle,
+  skills,
+}: HomeProps) {
   return (
     <section className="home">
       <p className="home-kicker">Pick a mode</p>
 
       <div className="marquee">
+        <button
+          className="mode-word solve"
+          disabled={busy}
+          onClick={onProblems}
+          aria-label="Open the problem set"
+        >
+          <span className="word-wrap">
+            <Ladder />
+            <span className="word">SOLVE</span>
+          </span>
+          <span className="sub">Problem Set · curriculum</span>
+        </button>
+
         <button
           className="mode-word train"
           disabled={busy}
@@ -120,7 +168,18 @@ export function Home({ busy, onTrain, onBattle }: HomeProps) {
         </button>
       </div>
 
+      {skills && skills.some((skill) => skill.total > 0) && (
+        <SkillProgress skills={skills} />
+      )}
+
       <dl className="marquee-notes">
+        <div className="note solve">
+          <dt>Problem Set</dt>
+          <dd>
+            Titled problems, each isolating one prompt skill, with hints that
+            unlock as you go. Score 70 to solve.
+          </dd>
+        </div>
         <div className="note train">
           <dt>Training</dt>
           <dd>
