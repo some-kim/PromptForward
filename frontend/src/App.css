@@ -1527,6 +1527,47 @@ button.big:hover:not(:disabled) {
     chatter 0.42s ease-in-out infinite;
 }
 
+/* The ring belongs under a parked robot, so it waits for the fly-in to land. */
+.agent-bot-wrap:has(.agent-bot.flying)::after {
+  opacity: 0;
+  animation-delay: 3.6s;
+}
+
+/* First load only: the robot swoops across the page before parking in its bar. */
+.agent-bot.flying,
+.agent-bot.talking.flying {
+  z-index: 5;
+  animation:
+    fly-in 3.6s cubic-bezier(0.4, 0, 0.2, 1) both,
+    hover-bob 3.4s ease-in-out 3.6s infinite;
+}
+
+@keyframes fly-in {
+  0% {
+    transform: translate(-45vw, 34vh) scale(0.45) rotate(-18deg);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  30% {
+    transform: translate(22vw, 26vh) scale(0.85) rotate(12deg);
+  }
+  52% {
+    transform: translate(34vw, -6vh) scale(1.1) rotate(-8deg);
+  }
+  74% {
+    transform: translate(-16vw, -10vh) scale(1.05) rotate(9deg);
+  }
+  90% {
+    transform: translate(2vw, 2vh) scale(1) rotate(-3deg);
+  }
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+
 .agent-bubble {
   display: grid;
   gap: 0.15rem;
@@ -1602,6 +1643,8 @@ button.big:hover:not(:disabled) {
 @media (prefers-reduced-motion: reduce) {
   .agent-bot,
   .agent-bot.talking,
+  .agent-bot.flying,
+  .agent-bot.talking.flying,
   .agent-bot-wrap::after,
   .agent-caret,
   .backdrop-grid,
