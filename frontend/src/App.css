@@ -2415,11 +2415,12 @@ button.big:hover:not(:disabled) {
 .battle-cinema {
   position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   justify-items: center;
   gap: 1rem;
   min-height: 60vh;
   align-content: center;
-  padding: 1.5rem;
+  padding: clamp(0.75rem, 4vw, 1.5rem);
   overflow: hidden;
   background: var(--surface);
   border: 1px solid var(--line);
@@ -2458,8 +2459,8 @@ button.big:hover:not(:disabled) {
 
 .reveal-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(120px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(0.4rem, 2vw, 1rem);
   align-items: center;
   width: min(100%, 720px);
   animation: rise 0.4s ease both;
@@ -2483,6 +2484,9 @@ button.big:hover:not(:disabled) {
 .reveal-card {
   display: grid;
   justify-items: center;
+  min-width: 0;
+  text-align: center;
+  overflow-wrap: anywhere;
   gap: 0.2rem;
   padding: 0.6rem;
   border: 1px solid var(--line);
@@ -2514,6 +2518,7 @@ button.big:hover:not(:disabled) {
 }
 
 .reveal-card .who {
+  max-width: 100%;
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.14em;
@@ -2569,8 +2574,11 @@ button.big:hover:not(:disabled) {
 
 .cinema-verdict {
   margin: 0;
+  max-width: 100%;
+  text-align: center;
+  overflow-wrap: anywhere;
   font-family: var(--display);
-  font-size: clamp(3rem, 16vw, 8rem);
+  font-size: clamp(2rem, 13vw, 8rem);
   line-height: 0.9;
   animation: count-slam 0.7s ease both;
 }
@@ -2589,15 +2597,23 @@ button.big:hover:not(:disabled) {
 
 .cinema-totals {
   display: flex;
-  gap: 2rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 100%;
+  gap: clamp(0.8rem, 4vw, 2rem);
 }
 
 .cinema-totals div {
   display: grid;
   justify-items: center;
+  min-width: 0;
+  max-width: 100%;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .cinema-totals .who {
+  max-width: 100%;
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.16em;
