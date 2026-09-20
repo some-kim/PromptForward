@@ -122,6 +122,8 @@ export type Attempt = {
   mode: "learning" | "game";
   status: "in_progress" | "submitted";
   latestEvaluation: PromptEvaluation | null;
+  /** Evaluation of the prompt a generate call just used, with its attention regions. */
+  promptEvaluation?: PromptEvaluation & { prompt: string };
   generations?: Generation[];
   generationsRemaining?: number;
   selectedGeneration?: number | null;
