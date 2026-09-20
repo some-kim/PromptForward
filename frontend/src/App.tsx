@@ -186,9 +186,11 @@ export default function App() {
 
   const scored = useCallback(
     (attemptId: string, score: number, generations: number) => {
+      const started = epoch.current;
       api
         .addProgress(attemptId, score, generations)
         .then((updated) => {
+          if (epoch.current !== started) return;
           setUser((current) =>
             current ? { ...current, progress: updated } : current,
           );
@@ -273,6 +275,7 @@ export default function App() {
         next = upcoming ? toChallenge(upcoming) : undefined;
       } else {
         const pool = await api.listChallenges(difficulty);
+        if (epoch.current !== started) return;
         next = pickRandom(pool, (one) => one.id === current.id) ?? undefined;
       }
       if (!next) {
