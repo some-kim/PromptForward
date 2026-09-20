@@ -28,13 +28,12 @@ async def create_challenge(
 
     Problem metadata is cheap to change, so it is refreshed without paying for a new analysis.
     A problem's slug is its identity: a new image for a known slug replaces that challenge in
-    place, so progress recorded against it survives.
+    place, so progress recorded against it survives. An image already used by a different
+    challenge cannot be taken over by a slug; that is a `ChallengeConflict`.
     """
     image_hash = sha256(image_bytes)
 
-    existing = await db.challenges().find_one({"target.imageHash": image_hash})
-    if existing is None and problem is not None:
-        existing = await db.challenges().find_one({"problem.slug": problem.slug})
+    existing = await _find_owner(image_hash, problem)
     if (
         existing is not None
         and existing["target"]["imageHash"] == image_hash
@@ -81,9 +80,33 @@ async def create_challenge(
     try:
         result = await db.challenges().insert_one({**doc, "createdAt": now})
     except DuplicateKeyError:
-        return await db.challenges().find_one({"target.imageHash": image_hash})
+        # Lost a race with an identical upload (same image or same slug): adopt the winner.
+        winner = await _find_owner(image_hash, problem)
+        if winner is None:
+            raise
+        return winner
 
     return {"_id": result.inserted_id, **doc, "createdAt": now}
+
+
+class ChallengeConflict(ValueError):
+    """The image belongs to one challenge and the slug to another."""
+
+
+async def _find_owner(image_hash: str, problem: Problem | None) -> dict[str, Any] | None:
+    """The one challenge this upload may update: the slug's owner, else the image's owner."""
+    by_image = await db.challenges().find_one({"target.imageHash": image_hash})
+    if problem is None:
+        return by_image
+    by_slug = await db.challenges().find_one({"problem.slug": problem.slug})
+    if by_slug is None:
+        return by_image
+    if by_image is not None and by_image["_id"] != by_slug["_id"]:
+        raise ChallengeConflict(
+            f"Image is already used by challenge {by_image['_id']}; "
+            f"problem '{problem.slug}' is challenge {by_slug['_id']}"
+        )
+    return by_slug
 
 
 def rubric_of(challenge: dict[str, Any]) -> Rubric:

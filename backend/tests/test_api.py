@@ -823,6 +823,19 @@ class TestProblems:
         listed = (await client.get("/api/problems")).json()
         assert [problem["id"] for problem in listed["problems"]] == [problem_id]
 
+    async def test_a_slug_cannot_take_over_another_challenges_image(self, client):
+        plain_id = await create_challenge(client, color="blue")
+        problem_id = await create_problem(client, color="yellow")
+        response = await client.post(
+            "/api/challenges",
+            files={"image": ("target.png", png_bytes(color="blue"), "image/png")},
+            data={"difficulty": "easy", "problem": json.dumps(PROBLEM)},
+        )
+        assert response.status_code == 409
+        listed = (await client.get("/api/problems")).json()
+        assert [problem["id"] for problem in listed["problems"]] == [problem_id]
+        assert (await client.get(f"/api/challenges/{plain_id}")).json()["problem"] is None
+
     async def test_progress_marks_problems_solved_per_account(self, client):
         problem_id = await create_problem(client)
         attempt_id = (

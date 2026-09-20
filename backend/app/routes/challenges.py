@@ -10,7 +10,7 @@ from app import db
 from app.config import get_config
 from app.models import DEFAULT_DIFFICULTY, Difficulty, Problem, Skill
 from app.serializers import challenge_summary, challenge_view, object_id
-from app.services.challenges import create_challenge
+from app.services.challenges import ChallengeConflict, create_challenge
 from app.services.dropbox.image_storage import download_image
 
 router = APIRouter(prefix="/api/challenges", tags=["challenges"])
@@ -65,7 +65,11 @@ async def upload_challenge(
     if len(image_bytes) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="Target images are limited to 10 MB")
 
-    return challenge_view(await create_challenge(image_bytes, difficulty, metadata))
+    try:
+        challenge = await create_challenge(image_bytes, difficulty, metadata)
+    except ChallengeConflict as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    return challenge_view(challenge)
 
 
 async def _load(challenge_id: str) -> dict:
