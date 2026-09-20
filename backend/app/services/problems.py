@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from bson import ObjectId
-from pymongo import ReturnDocument
 
 from app import db
 from app.models import SKILL_INFO, SKILLS, SOLVED_SCORE, Problem
@@ -25,26 +24,32 @@ async def progress_for(user_id: ObjectId | None) -> dict[str, dict[str, Any]]:
     return {str(entry["challengeId"]): entry async for entry in cursor}
 
 
-async def record_problem_result(
-    user_id: ObjectId, attempt: dict[str, Any], score: float, *, first_report: bool
-) -> None:
-    """Folds one scored attempt into the account's record for that problem.
+async def record_problem_result(user_id: ObjectId, attempt: dict[str, Any]) -> None:
+    """Folds one submitted attempt into the account's record for that problem.
 
-    The attempt count only moves on the first report of an attempt; a retry that raises the
-    score only raises the best.
+    The score is the one the server computed for the attempt, never the client's. Each attempt
+    is counted once no matter how often it is reported: `attemptIds` remembers which attempts
+    already count, so a report that failed halfway can simply be repeated.
     """
+    if attempt.get("status") != "submitted":
+        return
+    final = (attempt.get("scores") or {}).get("final")
+    if final is None:
+        return
+
     challenge_id = attempt["challengeId"]
-    update: dict[str, Any] = {
-        "$max": {"bestScore": round(score)},
-        "$setOnInsert": {"userId": user_id, "challengeId": challenge_id},
-    }
-    if first_report:
-        update["$inc"] = {"attempts": 1}
-    await db.problem_progress().find_one_and_update(
-        {"_id": f"{user_id}:{challenge_id}"},
-        update,
+    key = {"_id": f"{user_id}:{challenge_id}"}
+    await db.problem_progress().update_one(
+        key,
+        {
+            "$max": {"bestScore": round(final)},
+            "$setOnInsert": {"userId": user_id, "challengeId": challenge_id},
+        },
         upsert=True,
-        return_document=ReturnDocument.AFTER,
+    )
+    await db.problem_progress().update_one(
+        {**key, "attemptIds": {"$ne": attempt["_id"]}},
+        {"$inc": {"attempts": 1}, "$push": {"attemptIds": attempt["_id"]}},
     )
 
 

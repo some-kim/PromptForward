@@ -237,9 +237,10 @@ async def _pick_challenge(
             raise HTTPException(status_code=404, detail="Challenge not found")
         return challenge
 
-    pipeline: list[dict[str, Any]] = [{"$sample": {"size": 1}}]
+    match: dict[str, Any] = {"problem": None}
     if difficulty:
-        pipeline.insert(0, {"$match": {"difficulty": difficulty}})
+        match["difficulty"] = difficulty
+    pipeline: list[dict[str, Any]] = [{"$match": match}, {"$sample": {"size": 1}}]
     sampled = await db.challenges().aggregate(pipeline).to_list(1)
     if not sampled:
         detail = (

@@ -50,7 +50,9 @@ def problem_progress() -> AsyncIOMotorCollection:
 
 async def ensure_indexes() -> None:
     await problem_progress().create_index("userId")
-    await challenges().create_index("problem.slug", sparse=True)
+    await challenges().create_index(
+        "problem.slug", name="problem_slug_unique", unique=True, sparse=True
+    )
     await challenges().create_index("target.imageHash", unique=True)
     await attempts().create_index("challengeId")
     await attempts().create_index("gameId")

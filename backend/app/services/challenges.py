@@ -27,11 +27,19 @@ async def create_challenge(
     """Idempotent: a byte-identical image with a current analysis is returned unchanged.
 
     Problem metadata is cheap to change, so it is refreshed without paying for a new analysis.
+    A problem's slug is its identity: a new image for a known slug replaces that challenge in
+    place, so progress recorded against it survives.
     """
     image_hash = sha256(image_bytes)
 
     existing = await db.challenges().find_one({"target.imageHash": image_hash})
-    if existing and existing.get("analysis", {}).get("version") == ANALYSIS_VERSION:
+    if existing is None and problem is not None:
+        existing = await db.challenges().find_one({"problem.slug": problem.slug})
+    if (
+        existing is not None
+        and existing["target"]["imageHash"] == image_hash
+        and existing.get("analysis", {}).get("version") == ANALYSIS_VERSION
+    ):
         if problem is None:
             return existing
         labels = {"problem": problem.model_dump(), "difficulty": difficulty}

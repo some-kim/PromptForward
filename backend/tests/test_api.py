@@ -810,6 +810,19 @@ class TestProblems:
         assert coaching["solved"] is True
         assert coaching["referencePrompt"] == STRONG_PROMPT
 
+    async def test_problems_stay_out_of_the_training_pool(self, client):
+        plain_id = await create_challenge(client, color="blue", difficulty="easy")
+        await create_problem(client)
+        listed = (await client.get("/api/challenges", params={"difficulty": "easy"})).json()
+        assert [challenge["id"] for challenge in listed] == [plain_id]
+
+    async def test_a_new_image_for_a_slug_replaces_the_problem_in_place(self, client):
+        problem_id = await create_problem(client, color="yellow")
+        replaced_id = await create_problem(client, color="blue")
+        assert replaced_id == problem_id
+        listed = (await client.get("/api/problems")).json()
+        assert [problem["id"] for problem in listed["problems"]] == [problem_id]
+
     async def test_progress_marks_problems_solved_per_account(self, client):
         problem_id = await create_problem(client)
         attempt_id = (
@@ -822,25 +835,44 @@ class TestProblems:
         )
         headers = {"Authorization": f"Bearer {signup.json()['token']}"}
 
+        # An attempt that has not been scored yet earns nothing, whatever the client claims.
         await client.post(
             "/api/auth/progress",
-            json={"attemptId": attempt_id, "score": 55, "generations": 1},
+            json={"attemptId": attempt_id, "score": 99, "generations": 1},
             headers=headers,
         )
         listed = (await client.get("/api/problems", headers=headers)).json()
-        assert listed["problems"][0]["status"] == "attempted"
-        assert listed["problems"][0]["bestScore"] == 55
+        assert listed["problems"][0]["status"] == "unsolved"
+
+        weak = await client.post(
+            f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": WEAK_PROMPT}
+        )
+        weak_final = round(weak.json()["scores"]["final"])
+        await client.post(
+            "/api/auth/progress",
+            json={"attemptId": attempt_id, "score": 99, "generations": 1},
+            headers=headers,
+        )
+        listed = (await client.get("/api/problems", headers=headers)).json()
+        assert listed["problems"][0]["status"] == ("solved" if weak_final >= 70 else "attempted")
+        assert listed["problems"][0]["bestScore"] == weak_final
         assert listed["problems"][0]["attempts"] == 1
 
         # A retry of the same attempt raises the best score without counting twice.
-        await client.post(
-            "/api/auth/progress",
-            json={"attemptId": attempt_id, "score": 84, "generations": 2},
-            headers=headers,
+        strong = await client.post(
+            f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": STRONG_PROMPT}
         )
+        strong_final = round(strong.json()["scores"]["final"])
+        assert strong_final >= 70
+        for _ in range(2):
+            await client.post(
+                "/api/auth/progress",
+                json={"attemptId": attempt_id, "score": strong_final, "generations": 2},
+                headers=headers,
+            )
         listed = (await client.get("/api/problems", headers=headers)).json()
         assert listed["problems"][0]["status"] == "solved"
-        assert listed["problems"][0]["bestScore"] == 84
+        assert listed["problems"][0]["bestScore"] == max(weak_final, strong_final)
         assert listed["problems"][0]["attempts"] == 1
         setting = next(skill for skill in listed["skills"] if skill["skill"] == "setting")
         assert setting["solved"] == 1

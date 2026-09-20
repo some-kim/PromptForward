@@ -27,6 +27,8 @@ async def list_challenges(
         query["difficulty"] = difficulty
     if skill:
         query["problem.skill"] = skill
+    else:
+        query["problem"] = None
     cursor = db.challenges().find(query, {"target": 1, "type": 1, "difficulty": 1, "problem": 1})
     return [challenge_summary(challenge) async for challenge in cursor]
 

@@ -187,13 +187,14 @@ row in the skill panel), and **Continue** opens the first unsolved problem in or
 `problem_progress` holds one document per `{userId, challengeId}`:
 
 ```text
-bestScore   $max of every reported combined score
-attempts    +1 the first time each attempt is reported (re-reports never double count)
-solvedAt    set the first time bestScore ≥ 70
+bestScore   $max of the server-computed `scores.final` of every reported, submitted attempt
+attempts    +1 per distinct attempt (`attemptIds` remembers which ones already count)
 ```
 
-It is written from the same `POST /api/auth/progress` call that updates XP and streak, and reuses
-the `progress_events` idempotency key, so the two never disagree.
+It is written from the same `POST /api/auth/progress` call that updates XP and streak, but the
+client's `score` is only used for XP: problem progress reads the attempt's own stored scores, and
+an attempt that is not yet `submitted` contributes nothing. Reporting the same attempt again
+(a retry, or a request that failed halfway) is safe.
 
 ```text
 status = unsolved   no attempts yet
@@ -231,8 +232,12 @@ cd backend && python -m scripts.seed_curriculum        # or pass another manifes
 For each entry the image is downloaded at 1280px, stored in `/Challenges/{difficulty}/` by hash,
 analyzed once, and saved with its `problem`. Re-running is free: an image whose analysis is
 current only gets its metadata refreshed, so editing titles, hints, or reference prompts in the
-manifest never costs an analyzer call. Swapping an image does. `scripts/seed_challenges.py` still
-seeds plain, un-tagged targets from Dropbox for Training and Battle.
+manifest never costs an analyzer call. Swapping an image does — the slug's existing challenge is
+replaced in place (slugs are unique), so progress recorded against it survives.
+
+Curriculum challenges are not part of the random pools: `GET /api/challenges` without a `skill`
+and Battle's random pick only consider untagged targets, which `scripts/seed_challenges.py` still
+seeds from Dropbox for Training and Battle.
 
 ---
 
