@@ -1062,6 +1062,31 @@ class TestBattleImages:
         assert chosen <= set(seeded)
         assert uploaded not in chosen
 
+    async def test_defaults_skip_the_learn_curriculum(self, client):
+        from app import db
+
+        seeded = await seed_defaults(client, 3)
+        curriculum = ObjectId(seeded[0])
+        await db.challenges().update_one(
+            {"_id": curriculum},
+            {"$set": {"problem": {"skill": "subject", "order": 1, "title": "One subject"}}},
+        )
+        host = str(uuid.uuid4())
+
+        created = await client.post(
+            "/api/games",
+            json={
+                "userId": host,
+                "displayName": "Kris",
+                "settings": {"durationSeconds": 60, "imagesPerPlayer": 2},
+                "useDefaultImages": True,
+            },
+        )
+
+        assert created.status_code == 201
+        game = await db.games().find_one({"_id": ObjectId(created.json()["id"])})
+        assert curriculum not in game["players"][0]["challengeIds"]
+
     async def test_defaults_match_lowercased_dropbox_paths(self, client):
         from app import db
 
