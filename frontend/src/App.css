@@ -1287,6 +1287,17 @@ button.send svg {
   margin: 1rem 0;
 }
 
+.result-views {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.result-views .image-row {
+  margin: 1rem 0;
+}
+
 .xray-frame {
   position: relative;
   border: 1px solid var(--line);

@@ -99,10 +99,18 @@ export function LearningMode({
       </header>
 
       {selected ? (
-        <XraySlider
-          targetUrl={challenge.imageUrl}
-          resultUrl={selected.imageUrl}
-        />
+        <div className="result-views">
+          <XraySlider
+            targetUrl={challenge.imageUrl}
+            resultUrl={selected.imageUrl}
+          />
+          {attention.length > 0 && (
+            <AttentionHeatmap
+              imageUrl={challenge.imageUrl}
+              regions={attention}
+            />
+          )}
+        </div>
       ) : attention.length > 0 ? (
         <AttentionHeatmap imageUrl={challenge.imageUrl} regions={attention} />
       ) : (
