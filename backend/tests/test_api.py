@@ -393,7 +393,7 @@ class TestLearningMode:
         assert "yellow umbrella" not in evaluation.text
 
         generated = await client.post(
-            f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": WEAK_PROMPT}
+            f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": f"  {WEAK_PROMPT}\n"}
         )
         assert generated.status_code == 200
         scores = generated.json()["scores"]
@@ -401,9 +401,10 @@ class TestLearningMode:
         assert scores["resultQuality"] is not None
         assert scores["final"] is not None
 
-        # The failed check did not save an image call: the weak prompt was generated anyway.
+        # The failed check did not save an image call: the weak prompt (give or take
+        # whitespace) was generated anyway.
         stats = (await client.get("/api/stats/savings")).json()
-        assert stats["promptChecks"] == 1
+        assert stats["promptChecks"] == 2
         assert stats["blockedGenerations"] == 0
         assert stats["generations"] == 1
 

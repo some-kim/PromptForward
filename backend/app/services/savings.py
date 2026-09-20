@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from app import db
+from app.services.evaluation_cache import normalize_prompt
 
 
 async def _sum(collection, expression: dict[str, Any]) -> int:
@@ -26,30 +27,17 @@ async def savings(*, generation_cost: float, evaluation_cost: float) -> dict[str
     prompt_checks = await _sum(attempts, {"$size": {"$ifNull": ["$promptEvaluations", []]}})
     # A failed check only saved an image call if that prompt was never generated anyway
     # (Learning mode lets a learner generate a weak prompt after seeing the verdict).
-    blocked_generations = await _sum(
-        attempts,
-        {
-            "$size": {
-                "$filter": {
-                    "input": {"$ifNull": ["$promptEvaluations", []]},
-                    "as": "e",
-                    "cond": {
-                        "$and": [
-                            {"$ne": ["$$e.passed", True]},
-                            {
-                                "$not": {
-                                    "$in": [
-                                        "$$e.prompt",
-                                        {"$ifNull": ["$generations.prompt", []]},
-                                    ]
-                                }
-                            },
-                        ]
-                    },
-                }
-            }
-        },
-    )
+    blocked_generations = 0
+    async for attempt in attempts.find(
+        {"promptEvaluations": {"$elemMatch": {"passed": {"$ne": True}}}},
+        {"promptEvaluations.passed": 1, "promptEvaluations.prompt": 1, "generations.prompt": 1},
+    ):
+        generated = {normalize_prompt(g["prompt"]) for g in attempt.get("generations", [])}
+        blocked_generations += sum(
+            1
+            for e in attempt.get("promptEvaluations", [])
+            if e.get("passed") is not True and normalize_prompt(e["prompt"]) not in generated
+        )
     generations = await _sum(attempts, {"$size": {"$ifNull": ["$generations", []]}})
     cached_evaluations = await evaluations.count_documents({})
     cache_hits = await _sum(evaluations, {"$ifNull": ["$hits", 0]})
