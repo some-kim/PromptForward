@@ -68,7 +68,11 @@ async def _replace_index(collection: AsyncIOMotorCollection, key: str, **options
     except OperationFailure as failure:
         if failure.code not in (85, 86):  # IndexOptionsConflict, IndexKeySpecsConflict
             raise
-        await collection.drop_index(f"{key}_1")
+        try:
+            await collection.drop_index(f"{key}_1")
+        except OperationFailure as dropped:
+            if dropped.code != 27:  # IndexNotFound: another instance migrated it first
+                raise
         await collection.create_index(key, **options)
 
 

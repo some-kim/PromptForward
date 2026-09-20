@@ -84,6 +84,15 @@ async def create_challenge(
     try:
         result = await db.challenges().insert_one({**doc, "createdAt": now})
     except DuplicateKeyError:
+        # A concurrent upload won the race; curating still has to promote what it inserted.
+        if source == "curated":
+            promoted = await db.challenges().find_one_and_update(
+                {"target.imageHash": image_hash, "source": "player"},
+                {"$set": {"source": "curated", "target": doc["target"], "updatedAt": now}},
+                return_document=True,
+            )
+            if promoted is not None:
+                return promoted
         return await db.challenges().find_one({"target.imageHash": image_hash})
 
     return {"_id": result.inserted_id, **doc, "createdAt": now}
