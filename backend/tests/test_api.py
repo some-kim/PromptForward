@@ -261,6 +261,25 @@ class TestChallenges:
         training = await client.get("/api/challenges")
         assert curated.json()["id"] in {one["id"] for one in training.json()}
 
+    async def test_reuploading_a_stale_curated_image_leaves_it_curated(self, client):
+        from app import db
+
+        challenge_id = await create_challenge(client, color="brown")
+        # A re-analysis is forced, which is the path that rewrites where the image is stored.
+        await db.challenges().update_one(
+            {"_id": ObjectId(challenge_id)}, {"$set": {"analysis.version": "stale"}}
+        )
+
+        await client.post(
+            "/api/library/images",
+            files={"image": ("mine.png", png_bytes(color="brown"), "image/png")},
+            data={"userId": str(uuid.uuid4())},
+        )
+
+        challenge = await db.challenges().find_one({"_id": ObjectId(challenge_id)})
+        assert challenge["source"] == "curated"
+        assert challenge["target"]["dropboxPath"].startswith("/PromptForward/Challenges/")
+
     async def test_challenge_responses_never_expose_the_rubric(self, client):
         challenge_id = await create_challenge(client)
 

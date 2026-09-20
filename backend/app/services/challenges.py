@@ -42,11 +42,19 @@ async def create_challenge(
     if fresh and not promoting:
         return existing
 
+    # An image that is already curated stays curated, and so stays in the curated folder: a
+    # player uploading the same bytes must not move it out of the pool defaults are dealt from.
+    effective_source: ChallengeSource = (
+        "curated"
+        if source == "curated" or (existing or {}).get("source") == "curated"
+        else "player"
+    )
+
     meta = read_image_meta(image_bytes)
     rubric: Rubric = await analyze_challenge(image_bytes, meta.mimeType)
     stored = (
         await store_user_image(image_bytes, image_hash, meta.mimeType)
-        if source == "player"
+        if effective_source == "player"
         else await store_target_image(image_bytes, image_hash, meta.mimeType, difficulty)
     )
 
@@ -54,11 +62,7 @@ async def create_challenge(
     doc: dict[str, Any] = {
         "type": "image",
         "difficulty": difficulty,
-        "source": (
-            "curated"
-            if source == "curated" or (existing or {}).get("source") == "curated"
-            else "player"
-        ),
+        "source": effective_source,
         "target": {
             "dropboxFileId": stored.id,
             "dropboxPath": stored.path,
