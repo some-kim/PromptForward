@@ -61,13 +61,21 @@ async def _records(viewer_id: str) -> tuple[dict[str, _Record], list[dict[str, A
     """Walk every completed battle oldest first, tallying both players as it goes.
 
     The same walk collects the viewer's own battles, newest last, as their match history.
+
+    Only battles count: a pre-Battle game kept its scores on the attempts, so counting one
+    would add a battle worth zero to both players' averages.
     """
     records: dict[str, _Record] = {}
     history: list[dict[str, Any]] = []
     cursor = (
         db.games()
         .find(
-            {"status": "completed", "players.1": {"$exists": True}},
+            {
+                "status": "completed",
+                "players.1": {"$exists": True},
+                "code": {"$type": "string"},
+                "scoreboard": {"$type": "array"},
+            },
             {
                 "players.userId": 1,
                 "players.displayName": 1,

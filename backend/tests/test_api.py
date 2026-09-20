@@ -1268,6 +1268,35 @@ class TestStandings:
         assert after["you"]["battles"] == 1
         assert len(after["leaderboard"]) == 2
 
+    async def test_a_game_played_before_battle_mode_is_not_counted(self, client):
+        from app import db
+        from app.services.battles import now
+
+        kris, sam = str(uuid.uuid4()), str(uuid.uuid4())
+        # Scores lived on the attempts back then, so counting it would average in a zero.
+        await db.games().insert_one(
+            {
+                "players": [
+                    {"userId": kris, "displayName": "Kris", "attemptId": "a1"},
+                    {"userId": sam, "displayName": "Sam", "attemptId": "a2"},
+                ],
+                "status": "completed",
+                "winnerUserId": kris,
+                "completedAt": now() - timedelta(hours=1),
+            }
+        )
+        await completed_battle(
+            players=[(kris, "Kris"), (sam, "Sam")],
+            totals={kris: 60, sam: 80},
+            winner=sam,
+            finished_at=now(),
+        )
+
+        standings = (await client.get("/api/standings", params={"userId": kris})).json()
+        assert standings["you"]["battles"] == 1
+        assert standings["you"]["averageScore"] == 60
+        assert [one["opponent"] for one in standings["matches"]] == ["Sam"]
+
 
 class TestAccounts:
     async def test_signup_login_and_progress(self, client):

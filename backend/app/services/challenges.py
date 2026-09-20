@@ -102,7 +102,7 @@ async def create_challenge(
     if existing:
         await db.challenges().update_one({"_id": existing["_id"]}, {"$set": doc})
         retired = existing["target"]
-        if retired["imageHash"] != image_hash and retired["dropboxPath"] != stored.path:
+        if retired["dropboxPath"] != stored.path:
             try:
                 await delete_target_image(retired["dropboxPath"])
             except Exception:  # noqa: BLE001 - already replaced in the DB; the file is litter
