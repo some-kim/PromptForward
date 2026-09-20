@@ -165,6 +165,7 @@ export default function App() {
       })
       .catch((caught) => {
         joining.current = null;
+        if (epoch.current !== started) return;
         setError(caught instanceof ApiError ? caught.message : String(caught));
       });
   }, [invitedGameId, name, playerId, user, view.name]);
@@ -245,6 +246,7 @@ export default function App() {
       if (epoch.current !== started) return;
       setView({ name: "learning", challenge, attempt });
     } catch (caught) {
+      if (epoch.current !== started) return;
       setError(caught instanceof ApiError ? caught.message : String(caught));
     } finally {
       setBusy(false);
@@ -259,6 +261,7 @@ export default function App() {
       let next: Challenge | undefined;
       if (current.problem) {
         const set = await api.listProblems();
+        if (epoch.current !== started) return;
         setProblemSet(set);
         const upcoming = nextProblem(set.problems, current.id);
         next = upcoming ? toChallenge(upcoming) : undefined;
@@ -278,6 +281,7 @@ export default function App() {
       if (epoch.current !== started) return;
       setView({ name: "learning", challenge: next, attempt });
     } catch (caught) {
+      if (epoch.current !== started) return;
       setError(caught instanceof ApiError ? caught.message : String(caught));
     } finally {
       setBusy(false);
@@ -303,6 +307,7 @@ export default function App() {
       location.hash = `#/game/${game.id}`;
       setView({ name: "game", game });
     } catch (caught) {
+      if (epoch.current !== started) return;
       setError(caught instanceof ApiError ? caught.message : String(caught));
     } finally {
       setBusy(false);
