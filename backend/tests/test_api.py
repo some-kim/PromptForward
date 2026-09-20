@@ -401,6 +401,12 @@ class TestLearningMode:
         assert scores["resultQuality"] is not None
         assert scores["final"] is not None
 
+        # The failed check did not save an image call: the weak prompt was generated anyway.
+        stats = (await client.get("/api/stats/savings")).json()
+        assert stats["promptChecks"] == 1
+        assert stats["blockedGenerations"] == 0
+        assert stats["generations"] == 1
+
     async def test_an_unchecked_prompt_is_evaluated_while_generating(self, client):
         challenge_id = await create_challenge(client)
         attempt_id = (

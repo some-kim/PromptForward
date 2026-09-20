@@ -24,6 +24,8 @@ async def savings(*, generation_cost: float, evaluation_cost: float) -> dict[str
     evaluations = db.prompt_evaluations()
 
     prompt_checks = await _sum(attempts, {"$size": {"$ifNull": ["$promptEvaluations", []]}})
+    # A failed check only saved an image call if that prompt was never generated anyway
+    # (Learning mode lets a learner generate a weak prompt after seeing the verdict).
     blocked_generations = await _sum(
         attempts,
         {
@@ -31,7 +33,19 @@ async def savings(*, generation_cost: float, evaluation_cost: float) -> dict[str
                 "$filter": {
                     "input": {"$ifNull": ["$promptEvaluations", []]},
                     "as": "e",
-                    "cond": {"$ne": ["$$e.passed", True]},
+                    "cond": {
+                        "$and": [
+                            {"$ne": ["$$e.passed", True]},
+                            {
+                                "$not": {
+                                    "$in": [
+                                        "$$e.prompt",
+                                        {"$ifNull": ["$generations.prompt", []]},
+                                    ]
+                                }
+                            },
+                        ]
+                    },
                 }
             }
         },
