@@ -74,6 +74,68 @@ a draw.
 
 ---
 
+## 1b. Difficulty levels: easy, medium, hard
+
+Difficulty is a label on the **target image**, not on the scoring. Every challenge is analyzed,
+evaluated, and scored with exactly the rules above; what changes between levels is how much a
+prompt has to cover to earn those points.
+
+### How a challenge gets its level
+
+`scripts/seed_challenges.py` walks `DROPBOX_CHALLENGES_FOLDER`. The subfolder an image sits in
+becomes its difficulty; an image directly in the root (or in any other folder) is stored as
+`medium`, the default.
+
+```text
+/Challenges/easy/    → easy
+/Challenges/medium/  → medium
+/Challenges/hard/    → hard
+/Challenges/*.jpg    → medium (default)
+```
+
+The level is written once on the challenge document and travels to the client as
+`challenge.difficulty`. Uploading through `POST /api/challenges` takes the same `difficulty` form
+field.
+
+### What each level asks of the player
+
+| Level | Target image | What a passing prompt needs |
+|---|---|---|
+| **Easy** | One clear subject on a plain background (e.g. a single apple). | Name the subject and its obvious attributes — colour, a simple setting. Few rubric criteria carry most of the weight, so a short prompt can reach `promptQuality ≥ 70`. |
+| **Medium** | A subject in a setting with specific lighting. | Cover subject **and** environment **and** lighting/mood. Weight is spread over more criteria, so a subject-only prompt usually lands `partial`/`missing` on setting and light and fails the 70 gate. |
+| **Hard** | Many subjects, an unusual style or medium, and precise composition. | Cover every subject, the style, and where things sit in the frame (`spatialClarity` matters). Hard rubrics have more criteria and more of them are `critical`, so missing any one of them fails the prompt regardless of score. |
+
+The blurbs shown in the Training lobby say the same thing in one line each ("One clear subject." /
+"A subject, a setting, specific lighting." / "Many subjects, unusual style, precise composition."),
+next to an example image from `frontend/public/examples/{level}.jpg`.
+
+### Where the level is chosen
+
+- **Training** — the difficulty tabs in the lobby pick the level; it is remembered in
+  `localStorage` (`promptforward.difficulty`, default `easy`). "Start" and "Next target →" both draw
+  a random challenge at that level via `GET /api/challenges?difficulty=…`.
+- **Battle** — the host's current level is sent with `POST /api/games` (`difficulty`), and the
+  server picks one random challenge at that level for both players. If no challenge has been
+  seeded at the requested level the request fails with
+  `No {level} challenges have been seeded yet`.
+
+### Why harder feels harder without different math
+
+Because the scores are built from the rubric, a harder target raises the bar on its own:
+
+- **Prompt Quality** — more criteria and more `critical` flags mean more ways to miss coverage,
+  and more text is needed, which pushes token count up.
+- **Efficiency** — the 50-token baseline is the same at every level, so the longer prompts hard
+  targets require start eating the token penalty (−1 per 5 tokens over, capped at 15), and a
+  weak image (`resultQuality < 60`) still zeroes efficiency.
+- **Result Quality** — the generator has to hit more criteria at once, so image quality tends to
+  drop as the level rises.
+
+Progress and Battle winners use the same combined formula at every level; there is no level
+multiplier.
+
+---
+
 ## 2. Image generation route
 
 `POST /api/learning/attempts/{id}/generate` (Learning) and
