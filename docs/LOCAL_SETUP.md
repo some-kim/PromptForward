@@ -5,7 +5,7 @@ terminal). Takes about ten minutes the first time.
 
 ## What you need
 
-- Git, Python 3.10+, Node 20+, Docker (for MongoDB).
+- Git, Python 3.10+, Node 20.19.x or 22.12+, Docker (for MongoDB).
 - The team's credentials for `backend/.env` (ask the project owner; they are
   never committed). One Meta key covers both the evaluators and image
   generation. Dropbox is a single shared account behind the backend — nobody
@@ -93,8 +93,8 @@ Open http://localhost:5173. The UI proxies `/api` to port 8000.
 ## 5. Checks
 
 ```bash
-cd backend  && PYTHONPATH=. pytest -q && ruff check .
-cd frontend && npx tsc -b && npm run lint && npm run build
+(cd backend  && PYTHONPATH=. pytest -q && ruff check .)
+(cd frontend && npx tsc -b && npm run lint && npm run build)
 ```
 
 ## Troubleshooting
