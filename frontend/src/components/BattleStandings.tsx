@@ -8,13 +8,14 @@ import {
 
 type Props = { playerId: string };
 
-const STREAK_LETTER = { win: "W", loss: "L", draw: "D" } as const;
 const RESULT_LABEL = { win: "Won", loss: "Lost", draw: "Drew" } as const;
 
-/** The run they are on now, whichever way it is going: W3, L2, D1. */
+/** The run they are on now, signed by which way it is going: +3, -2, D1. */
 function streakLabel({ streak }: StandingsEntry) {
   if (!streak.result) return "—";
-  return `${STREAK_LETTER[streak.result]}${streak.length} streak`;
+  if (streak.result === "draw") return `D${streak.length} streak`;
+  const sign = streak.result === "win" ? "+" : "-";
+  return `${sign}${streak.length} streak`;
 }
 
 function overall(you: StandingsEntry) {
