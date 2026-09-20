@@ -1,11 +1,7 @@
-import type { SkillSummary } from "../api";
-import { SkillProgress } from "./SkillProgress";
-
 type HomeProps = {
   busy: boolean;
   onLearn: () => void;
   onBattle: () => void;
-  skills: SkillSummary[] | null;
 };
 
 const LEAVES = [
@@ -91,13 +87,7 @@ function Lightning() {
   );
 }
 
-
-export function Home({
-  busy,
-  onLearn,
-  onBattle,
-  skills,
-}: HomeProps) {
+export function Home({ busy, onLearn, onBattle }: HomeProps) {
   return (
     <section className="home">
       <p className="home-kicker">Pick a mode</p>
@@ -129,10 +119,6 @@ export function Home({
           <span className="sub">Prompt Royale · join with a code</span>
         </button>
       </div>
-
-      {skills && skills.some((skill) => skill.total > 0) && (
-        <SkillProgress skills={skills} />
-      )}
 
       <dl className="marquee-notes">
         <div className="note train">

@@ -316,7 +316,6 @@ export default function App() {
             busy={busy}
             onLearn={() => setView({ name: "problems" })}
             onBattle={openLobby}
-            skills={problemSet?.skills ?? null}
           />
         )}
 
@@ -355,7 +354,9 @@ export default function App() {
             onNext={() => nextLearning(view.challenge)}
             onExit={() =>
               setView(
-                view.challenge.problem ? { name: "problems" } : { name: "train" },
+                view.challenge.problem
+                  ? { name: "problems" }
+                  : { name: "train" },
               )
             }
           />
