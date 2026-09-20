@@ -215,8 +215,8 @@ export function LearningMode({
           {busy && (
             <p className="hint">
               {busy === "evaluating"
-                ? "Checking your prompt…"
-                : "Generating… this takes a while."}
+                ? "Checking your prompt… the evaluator can take up to ~30 s."
+                : "Generating and scoring… this can take a minute."}
             </p>
           )}
 

@@ -160,7 +160,7 @@ export function GameMode({
             />
           </div>
           {generating && (
-            <p className="hint">Generating… this takes a while.</p>
+            <p className="hint">Generating and scoring… this can take a minute.</p>
           )}
           {needsScore ? (
             <p className="hint">
