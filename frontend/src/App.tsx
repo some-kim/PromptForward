@@ -29,6 +29,11 @@ import { summarize } from "./progress";
 import { getDifficulty, setDifficulty } from "./player";
 import { getToken, setToken } from "./session";
 
+type PendingAction =
+  | { kind: "browse" }
+  | { kind: "learn"; challenge: Challenge }
+  | { kind: "battle" };
+
 type View =
   | { name: "home" }
   | { name: "train" }
@@ -37,10 +42,10 @@ type View =
   | { name: "lobby" }
   | { name: "game"; battle: Battle };
 
-const AGENT_LINES: Record<View["name"] | "signedOut", string[]> = {
-  signedOut: [
-    "Hello. I am Forward, your prompt coach — sign in and I will walk you through it.",
-    "One account keeps your streak, your saved CO\u2082, and your level.",
+const AGENT_LINES: Record<View["name"] | "signIn", string[]> = {
+  signIn: [
+    "Sign in before you start so your streak, saved CO\u2082 and solved problems are kept.",
+    "New here? An account is just a username and a password.",
   ],
   home: [
     "Hello. Learn works through the Problem Set skill by skill, or hands you a random target.",
@@ -86,7 +91,12 @@ export default function App() {
   const [invitedCode, setInvitedCode] = useState(codeFromHash);
   const [splashDone, setSplashDone] = useState(false);
   const [problemSet, setProblemSet] = useState<ProblemSet | null>(null);
+  // Set while the sign-in form is shown; remembers what the visitor was about to do.
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const joining = useRef<string | null>(null);
+  // Bumped whenever the account changes so responses started under the old identity are
+  // dropped instead of overwriting the new one.
+  const epoch = useRef(0);
 
   const playerId = user?.id ?? "";
   const name = user?.displayName ?? "";
@@ -113,15 +123,20 @@ export default function App() {
   // Progress on the problem set belongs to the account, so it reloads with the user and
   // after every scored attempt.
   const refreshProblems = useCallback(() => {
+    const started = epoch.current;
     api
       .listProblems()
-      .then(setProblemSet)
+      .then((set) => {
+        if (epoch.current === started) setProblemSet(set);
+      })
       .catch(() => undefined);
   }, []);
 
+  // Anonymous visitors see the problem list too, just without their own progress.
   const userId = user?.id ?? null;
   useEffect(() => {
-    if (userId) refreshProblems();
+    epoch.current += 1;
+    refreshProblems();
   }, [userId, refreshProblems]);
 
   useEffect(() => {
@@ -129,6 +144,11 @@ export default function App() {
     addEventListener("hashchange", onHashChange);
     return () => removeEventListener("hashchange", onHashChange);
   }, []);
+
+  // An invite link needs an account to join with, so it opens on the sign-in form.
+  useEffect(() => {
+    if (invitedCode && !user) setPendingAction({ kind: "browse" });
+  }, [invitedCode, user]);
 
   useEffect(() => {
     // A ref, not state: StrictMode runs this effect twice and two joins race into a false 409.
@@ -141,14 +161,17 @@ export default function App() {
       return;
     joining.current = invitedCode;
 
+    const started = epoch.current;
     api
       .joinBattle(invitedCode, playerId, name || "Player")
       .then((battle) => {
+        if (epoch.current !== started) return;
         setError(null);
         setView({ name: "game", battle });
       })
       .catch((caught) => {
         joining.current = null;
+        if (epoch.current !== started) return;
         setError(caught instanceof ApiError ? caught.message : String(caught));
       });
   }, [invitedCode, name, playerId, user, view.name]);
@@ -163,9 +186,11 @@ export default function App() {
 
   const scored = useCallback(
     (attemptId: string, score: number, generations: number) => {
+      const started = epoch.current;
       api
         .addProgress(attemptId, score, generations)
         .then((updated) => {
+          if (epoch.current !== started) return;
           setUser((current) =>
             current ? { ...current, progress: updated } : current,
           );
@@ -182,6 +207,23 @@ export default function App() {
     setLoadingSession(false);
   }
 
+  // Browsing is open to everyone; anything that creates an attempt needs an account first.
+  // The action is replayed once the user is set so it runs with the real player id.
+  useEffect(() => {
+    if (!user || !pendingAction) return;
+    setPendingAction(null);
+    if (pendingAction.kind === "learn") void startLearningAs(pendingAction.challenge);
+    if (pendingAction.kind === "battle") openLobby();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs only when the user arrives
+  }, [user, pendingAction]);
+
+  function requireUser(action: PendingAction) {
+    if (user) {
+      if (action.kind === "learn") void startLearningAs(action.challenge);
+      if (action.kind === "battle") openLobby();
+    } else setPendingAction(action);
+  }
+
   function signOut() {
     api.logOut().catch(() => undefined);
     setToken(null);
@@ -195,7 +237,12 @@ export default function App() {
     setDifficulty(next);
   }
 
-  async function startLearning(challenge: Challenge) {
+  function startLearning(challenge: Challenge) {
+    requireUser({ kind: "learn", challenge });
+  }
+
+  async function startLearningAs(challenge: Challenge) {
+    const started = epoch.current;
     setBusy(true);
     setError(null);
     try {
@@ -204,8 +251,10 @@ export default function App() {
         playerId,
         name || "Player",
       );
+      if (epoch.current !== started) return;
       setView({ name: "learning", challenge, attempt });
     } catch (caught) {
+      if (epoch.current !== started) return;
       setError(caught instanceof ApiError ? caught.message : String(caught));
     } finally {
       setBusy(false);
@@ -213,17 +262,20 @@ export default function App() {
   }
 
   async function nextLearning(current: Challenge) {
+    const started = epoch.current;
     setBusy(true);
     setError(null);
     try {
       let next: Challenge | undefined;
       if (current.problem) {
         const set = await api.listProblems();
+        if (epoch.current !== started) return;
         setProblemSet(set);
         const upcoming = nextProblem(set.problems, current.id);
         next = upcoming ? toChallenge(upcoming) : undefined;
       } else {
         const pool = await api.listChallenges(difficulty);
+        if (epoch.current !== started) return;
         next = pickRandom(pool, (one) => one.id === current.id) ?? undefined;
       }
       if (!next) {
@@ -235,12 +287,18 @@ export default function App() {
         playerId,
         name || "Player",
       );
+      if (epoch.current !== started) return;
       setView({ name: "learning", challenge: next, attempt });
     } catch (caught) {
+      if (epoch.current !== started) return;
       setError(caught instanceof ApiError ? caught.message : String(caught));
     } finally {
       setBusy(false);
     }
+  }
+
+  function startBattle() {
+    requireUser({ kind: "battle" });
   }
 
   function enterBattle(battle: Battle) {
@@ -266,6 +324,7 @@ export default function App() {
     setInvitedCode(null);
     location.hash = "";
     setError(null);
+    setPendingAction(null);
     setView({ name: "home" });
   }
 
@@ -278,12 +337,14 @@ export default function App() {
       </>
     );
 
+  const signingIn = !user && pendingAction !== null;
+
   return (
     <>
       <Backdrop />
       <main>
         <header className="app-header">
-          {user && (
+          {user ? (
             <div className="player-chip">
               <button className="link" onClick={signOut}>
                 Log out
@@ -293,6 +354,17 @@ export default function App() {
                 {(name || "P").slice(0, 1).toUpperCase()}
               </span>
             </div>
+          ) : (
+            !signingIn && (
+              <div className="player-chip">
+                <button
+                  className="link"
+                  onClick={() => setPendingAction({ kind: "browse" })}
+                >
+                  Log in
+                </button>
+              </div>
+            )
           )}
           <h1 className="logo">
             <LogoMark />
@@ -304,22 +376,29 @@ export default function App() {
         </header>
 
         <Agent
-          key={user ? view.name : "signedOut"}
+          key={signingIn ? "signIn" : view.name}
           name="Forward"
-          lines={user ? AGENT_LINES[view.name] : AGENT_LINES.signedOut}
+          lines={signingIn ? AGENT_LINES.signIn : AGENT_LINES[view.name]}
         />
 
-        {!user && <SignIn onSignedIn={signedIn} />}
+        {signingIn && (
+          <>
+            <SignIn onSignedIn={signedIn} />
+            <button className="link" onClick={() => setPendingAction(null)}>
+              Back
+            </button>
+          </>
+        )}
 
-        {user && view.name === "home" && (
+        {!signingIn && view.name === "home" && (
           <Home
             busy={busy}
             onLearn={() => setView({ name: "problems" })}
-            onBattle={openLobby}
+            onBattle={startBattle}
           />
         )}
 
-        {user && view.name === "problems" && (
+        {!signingIn && view.name === "problems" && (
           <ProblemList
             problemSet={problemSet}
             busy={busy}
@@ -330,7 +409,7 @@ export default function App() {
           />
         )}
 
-        {user && view.name === "train" && (
+        {!signingIn && view.name === "train" && (
           <TrainingLobby
             key={difficulty}
             difficulty={difficulty}
@@ -344,7 +423,7 @@ export default function App() {
           />
         )}
 
-        {user && view.name === "learning" && (
+        {user && !signingIn && view.name === "learning" && (
           <LearningMode
             key={view.attempt.id}
             challenge={view.challenge}
@@ -362,7 +441,7 @@ export default function App() {
           />
         )}
 
-        {user && view.name === "lobby" && (
+        {user && !signingIn && view.name === "lobby" && (
           <BattleLobby
             playerId={playerId}
             displayName={name || "Player"}
@@ -371,7 +450,7 @@ export default function App() {
           />
         )}
 
-        {user && view.name === "game" && (
+        {user && !signingIn && view.name === "game" && (
           <BattleMode
             key={view.battle.id}
             battle={view.battle}
