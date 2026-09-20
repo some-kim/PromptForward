@@ -60,6 +60,8 @@ async def parse_structured(
                 ],
                 response_format=schema,
             )
+            if not completion.choices:
+                raise LLMResponseError("Model returned no choices")
             parsed = completion.choices[0].message.parsed
             if parsed is None:
                 raise LLMResponseError("Model returned no parsed content")
