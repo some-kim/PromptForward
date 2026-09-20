@@ -1216,7 +1216,7 @@ class TestStandings:
         assert standings["you"]["streak"] == {"result": "draw", "length": 2}
         assert (standings["you"]["currentStreak"], standings["you"]["bestStreak"]) == (0, 0)
 
-    async def test_head_to_head_is_read_from_the_viewers_side(self, client):
+    async def test_match_history_is_read_from_the_viewers_side(self, client):
         from app.services.battles import now
 
         kris, sam, ada = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
@@ -1234,23 +1234,17 @@ class TestStandings:
             finished_at=finished + timedelta(minutes=1),
         )
 
+        # Newest first, and only the viewer's own battles.
         mine = (await client.get("/api/standings", params={"userId": kris})).json()
-        assert {one["opponent"]: (one["wins"], one["losses"]) for one in mine["headToHead"]} == {
-            "Sam": (1, 0),
-            "Ada": (0, 1),
-        }
+        assert [(one["opponent"], one["result"]) for one in mine["matches"]] == [
+            ("Ada", "loss"),
+            ("Sam", "win"),
+        ]
+        assert (mine["matches"][0]["yourScore"], mine["matches"][0]["theirScore"]) == (30, 90)
 
         theirs = (await client.get("/api/standings", params={"userId": sam})).json()
-        assert theirs["headToHead"] == [
-            {
-                "opponent": "Kris",
-                "wins": 0,
-                "losses": 1,
-                "draws": 0,
-                "lastResult": "loss",
-                "lastPlayedAt": theirs["headToHead"][0]["lastPlayedAt"],
-            }
-        ]
+        assert [one["opponent"] for one in theirs["matches"]] == ["Kris"]
+        assert theirs["matches"][0]["result"] == "loss"
 
     async def test_a_battle_counts_once_it_has_finished(self, client):
         from app.services.battles import now

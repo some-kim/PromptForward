@@ -1,4 +1,4 @@
-"""Battle standings: the leaderboard, head-to-head records, and win streaks.
+"""Battle standings: the leaderboard, the viewer's match history, and win streaks.
 
 Everything here is derived from completed battles rather than kept in a running tally, so a
 battle that is finished, replayed, or removed never leaves the records disagreeing with the
@@ -7,7 +7,7 @@ games they are counted from.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Literal
 
@@ -30,8 +30,6 @@ class _Record:
     streak_length: int = 0
     best_streak: int = 0
     last_played_at: datetime | None = None
-    # Keyed by opponent id: the same walk builds the head-to-head records.
-    opponents: dict[str, _Head] = field(default_factory=dict)
 
     @property
     def battles(self) -> int:
@@ -52,26 +50,6 @@ class _Record:
         self.last_played_at = played_at or self.last_played_at
 
 
-@dataclass
-class _Head:
-    display_name: str
-    wins: int = 0
-    losses: int = 0
-    draws: int = 0
-    last_result: Result | None = None
-    last_played_at: datetime | None = None
-
-    def add(self, result: Result, played_at: datetime | None) -> None:
-        if result == "win":
-            self.wins += 1
-        elif result == "loss":
-            self.losses += 1
-        else:
-            self.draws += 1
-        self.last_result = result
-        self.last_played_at = played_at or self.last_played_at
-
-
 def _result_of(game: dict[str, Any], user_id: str) -> Result:
     winner = game.get("winnerUserId")
     if winner is None:
@@ -79,9 +57,13 @@ def _result_of(game: dict[str, Any], user_id: str) -> Result:
     return "win" if winner == user_id else "loss"
 
 
-async def _records() -> dict[str, _Record]:
-    """Walk every completed battle oldest first, tallying both players as it goes."""
+async def _records(viewer_id: str) -> tuple[dict[str, _Record], list[dict[str, Any]]]:
+    """Walk every completed battle oldest first, tallying both players as it goes.
+
+    The same walk collects the viewer's own battles, newest last, as their match history.
+    """
     records: dict[str, _Record] = {}
+    history: list[dict[str, Any]] = []
     cursor = (
         db.games()
         .find(
@@ -109,14 +91,20 @@ async def _records() -> dict[str, _Record]:
             result = _result_of(game, user_id)
             record.add(result, totals.get(user_id, 0), played_at)
 
-            for other in players:
-                if other["userId"] == user_id:
-                    continue
-                head = record.opponents.setdefault(other["userId"], _Head(other["displayName"]))
-                head.display_name = other["displayName"]
-                head.add(result, played_at)
+            if user_id != viewer_id:
+                continue
+            opponent = next(one for one in players if one["userId"] != user_id)
+            history.append(
+                {
+                    "opponent": opponent["displayName"],
+                    "result": result,
+                    "yourScore": round(totals.get(user_id, 0), 1),
+                    "theirScore": round(totals.get(opponent["userId"], 0), 1),
+                    "playedAt": played_at,
+                }
+            )
 
-    return records
+    return records, history
 
 
 def _win_rate(record: _Record) -> float:
@@ -141,11 +129,11 @@ def _entry(record: _Record, *, is_you: bool) -> dict[str, Any]:
 
 
 async def standings(viewer_id: str, limit: int) -> dict[str, Any]:
-    """The leaderboard plus, for the viewer, their record against everyone they have played.
+    """The leaderboard plus, for the viewer, the battles they have played, newest first.
 
     Player ids stay on the server: a player is published by display name only.
     """
-    records = await _records()
+    records, history = await _records(viewer_id)
 
     # Names break any remaining tie so the same battles always produce the same order.
     by_name = sorted(records.items(), key=lambda pair: pair[1].display_name.lower())
@@ -165,24 +153,10 @@ async def standings(viewer_id: str, limit: int) -> dict[str, Any]:
     ]
 
     you = records.get(viewer_id)
-    head_to_head = sorted(
-        (
-            {
-                "opponent": head.display_name,
-                "wins": head.wins,
-                "losses": head.losses,
-                "draws": head.draws,
-                "lastResult": head.last_result,
-                "lastPlayedAt": head.last_played_at,
-            }
-            for head in (you.opponents.values() if you else ())
-        ),
-        key=lambda one: (-(one["wins"] + one["losses"] + one["draws"]), one["opponent"].lower()),
-    )
 
     return {
         "leaderboard": leaderboard,
         # Carries the viewer's rank even when they sit below the published cut.
         "you": {"rank": ranks[viewer_id], **_entry(you, is_you=True)} if you else None,
-        "headToHead": head_to_head,
+        "matches": list(reversed(history))[:limit],
     }

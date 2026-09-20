@@ -83,9 +83,7 @@ export function BattleResults({ battle, playerId, onRematch, onExit }: Props) {
             </div>
           ))}
         </div>
-        {opponent && (
-          <BattleSeries playerId={playerId} opponent={opponent.displayName} />
-        )}
+        <BattleSeries playerId={playerId} />
       </div>
 
       <div className="round-results">

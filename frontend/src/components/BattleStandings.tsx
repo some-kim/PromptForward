@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   api,
-  type HeadToHead,
+  type MatchRecord,
   type Standings,
   type StandingsEntry,
 } from "../api";
@@ -9,6 +9,7 @@ import {
 type Props = { playerId: string };
 
 const STREAK_LETTER = { win: "W", loss: "L", draw: "D" } as const;
+const RESULT_LABEL = { win: "Won", loss: "Lost", draw: "Drew" } as const;
 
 /** The run they are on now, whichever way it is going: W3, L2, D1. */
 function streakLabel({ streak }: StandingsEntry) {
@@ -16,42 +17,19 @@ function streakLabel({ streak }: StandingsEntry) {
   return `${STREAK_LETTER[streak.result]}${streak.length} streak`;
 }
 
-function record(one: HeadToHead) {
-  return `${one.wins}-${one.losses}${one.draws ? `-${one.draws}` : ""}`;
+function overall(you: StandingsEntry) {
+  return `${you.wins}–${you.losses}${you.draws > 0 ? `–${you.draws}` : ""}`;
 }
 
-/** The series so far against the player just battled, read after the result is in. */
-export function BattleSeries({
-  playerId,
-  opponent,
-}: Props & { opponent: string }) {
-  const [standings, setStandings] = useState<Standings | null>(null);
-
-  useEffect(() => {
-    let live = true;
-    api
-      .getStandings(playerId)
-      .then((next) => live && setStandings(next))
-      .catch(() => undefined);
-    return () => {
-      live = false;
-    };
-  }, [playerId]);
-
-  const series = standings?.headToHead.find((one) => one.opponent === opponent);
-  if (!standings?.you || !series) return null;
-
-  return (
-    <p className="series">
-      <span>
-        vs {opponent} <strong>{record(series)}</strong>
-      </span>
-      <span>{streakLabel(standings.you)}</span>
-    </p>
-  );
+function playedOn(match: MatchRecord) {
+  if (!match.playedAt) return "";
+  return new Date(match.playedAt).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
 }
 
-export function BattleStandings({ playerId }: Props) {
+function useStandings(playerId: string) {
   const [standings, setStandings] = useState<Standings | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -66,77 +44,95 @@ export function BattleStandings({ playerId }: Props) {
     };
   }, [playerId]);
 
-  if (failed || !standings) return null;
+  return failed ? null : standings;
+}
 
-  const { leaderboard, you, headToHead } = standings;
+/** The viewer's record so far, read on the results screen once the battle is in. */
+export function BattleSeries({ playerId }: Props) {
+  const standings = useStandings(playerId);
+  const you = standings?.you;
+  if (!you) return null;
+
+  return (
+    <p className="series">
+      <span>
+        Record <strong>{overall(you)}</strong>
+      </span>
+      <span>{streakLabel(you)}</span>
+    </p>
+  );
+}
+
+export function BattleStandings({ playerId }: Props) {
+  const standings = useStandings(playerId);
+  if (!standings) return null;
+
+  const { leaderboard, you, matches } = standings;
   if (leaderboard.length === 0) return null;
 
   return (
     <div className="standings">
       <div className="standings-card">
         <h3>Leaderboard</h3>
-        <table className="standings-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Player</th>
-              <th>W–L</th>
-              <th>Win %</th>
-              <th>Avg</th>
-              <th>Streak</th>
-            </tr>
-          </thead>
-          <tbody>
-            {leaderboard.map((entry) => (
-              <tr
-                key={`${entry.rank}-${entry.displayName}`}
-                className={entry.isYou ? "is-you" : undefined}
-              >
-                <td>{entry.rank}</td>
-                <td>{entry.displayName}</td>
-                <td>
-                  {entry.wins}–{entry.losses}
-                  {entry.draws > 0 ? `–${entry.draws}` : ""}
-                </td>
-                <td>{entry.winRate}%</td>
-                <td>{entry.averageScore}</td>
-                <td className={`streak ${entry.streak.result ?? ""}`}>
-                  {streakLabel(entry)}
-                </td>
+        <div className="standings-scroll">
+          <table className="standings-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Player</th>
+                <th>W–L</th>
+                <th className="col-rate">Win %</th>
+                <th>Avg</th>
+                <th>Streak</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {leaderboard.map((entry) => (
+                <tr
+                  key={`${entry.rank}-${entry.displayName}`}
+                  className={entry.isYou ? "is-you" : undefined}
+                >
+                  <td>{entry.rank}</td>
+                  <td className="player">{entry.displayName}</td>
+                  <td>
+                    {entry.wins}–{entry.losses}
+                    {entry.draws > 0 ? `–${entry.draws}` : ""}
+                  </td>
+                  <td className="col-rate">{entry.winRate}%</td>
+                  <td>{entry.averageScore}</td>
+                  <td className={`streak ${entry.streak.result ?? ""}`}>
+                    {streakLabel(entry)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="standings-card">
-        <h3>Head to head</h3>
+        <h3>Match history</h3>
         {you && (
           <p className="hint">
-            {you.wins}–{you.losses}
-            {you.draws > 0 ? `–${you.draws}` : ""} overall · {streakLabel(you)}
+            {overall(you)} overall · {streakLabel(you)}
           </p>
         )}
-        {headToHead.length === 0 ? (
+        {matches.length === 0 ? (
           <p className="hint">
             No battles yet — host one and read out the code.
           </p>
         ) : (
-          <ul className="head-to-head">
-            {headToHead.map((one) => (
-              <li key={one.opponent}>
-                <span className="opponent">vs {one.opponent}</span>
-                <span
-                  className={`h2h-record ${
-                    one.wins > one.losses
-                      ? "leading"
-                      : one.wins < one.losses
-                        ? "trailing"
-                        : "level"
-                  }`}
-                >
-                  {record(one)}
+          <ul className="match-history">
+            {matches.map((match, index) => (
+              <li key={`${match.playedAt ?? index}-${match.opponent}`}>
+                <span className={`outcome ${match.result}`}>
+                  {RESULT_LABEL[match.result]}
                 </span>
+                <span className="opponent">vs {match.opponent}</span>
+                <span className="match-score">
+                  {match.yourScore}–{match.theirScore}
+                </span>
+                <span className="played">{playedOn(match)}</span>
               </li>
             ))}
           </ul>

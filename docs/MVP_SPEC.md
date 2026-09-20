@@ -604,12 +604,12 @@ Highest average final score wins. Tie-breaks in order: higher Result Quality, th
 
 ### Standings
 
-`GET /api/standings?userId=&limit=` returns the leaderboard, the viewer's own line, and the viewer's head-to-head record against every player they have battled.
+`GET /api/standings?userId=&limit=` returns the leaderboard, the viewer's own line, and the viewer's match history: their completed battles, newest first.
 
 - Derived from the completed games themselves, walked oldest first, rather than a running tally kept elsewhere — a battle that is replayed or removed can never leave the records disagreeing with the games behind them.
 - Per player: battles, W–L–D, win rate, average final score, the run they are currently on (`streak: {result, length}` — `W3`, `L2`, `D1`), and the best win streak.
 - Leaderboard order: wins, then win rate, then average score, then display name.
-- Head-to-head is only ever the viewer's own, and like every other battle response it names players by display name: `userId`s stay on the server.
+- Match history is only ever the viewer's own — opponent, result, both totals, and when it finished — and like every other battle response it names players by display name: `userId`s stay on the server.
 
 ---
 

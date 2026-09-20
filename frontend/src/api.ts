@@ -206,19 +206,18 @@ export type StandingsEntry = {
   lastPlayedAt: string | null;
 };
 
-export type HeadToHead = {
+export type MatchRecord = {
   opponent: string;
-  wins: number;
-  losses: number;
-  draws: number;
-  lastResult: "win" | "loss" | "draw" | null;
-  lastPlayedAt: string | null;
+  result: "win" | "loss" | "draw";
+  yourScore: number;
+  theirScore: number;
+  playedAt: string | null;
 };
 
 export type Standings = {
   leaderboard: StandingsEntry[];
   you: StandingsEntry | null;
-  headToHead: HeadToHead[];
+  matches: MatchRecord[];
 };
 
 export type LibraryImage = {

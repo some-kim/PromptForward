@@ -1795,6 +1795,7 @@ button.big:hover:not(:disabled) {
   display: grid;
   gap: 0.7rem;
   align-content: start;
+  min-width: 0;
   padding: 1.1rem;
   background: var(--surface);
   border: 1px solid var(--line);
@@ -1805,8 +1806,13 @@ button.big:hover:not(:disabled) {
   margin: 0;
 }
 
+.standings-scroll {
+  overflow-x: auto;
+}
+
 .standings-table {
   width: 100%;
+  white-space: nowrap;
   border-collapse: collapse;
   font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
@@ -1827,6 +1833,12 @@ button.big:hover:not(:disabled) {
   border-top: 1px solid var(--line);
 }
 
+.standings-table td.player {
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .standings-table .is-you td {
   font-weight: 700;
 }
@@ -1839,38 +1851,63 @@ button.big:hover:not(:disabled) {
   color: var(--red);
 }
 
-.head-to-head {
+.match-history {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
   gap: 0.4rem;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
-.head-to-head li {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
+.match-history li {
+  display: grid;
+  grid-template-columns: 3.2rem minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 0.6rem;
   padding-top: 0.4rem;
   border-top: 1px solid var(--line);
 }
 
-.h2h-record {
+.match-history .opponent {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.match-history .outcome {
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+}
+
+.match-history .outcome.win {
+  color: var(--green);
+}
+
+.match-history .outcome.loss {
+  color: var(--red);
+}
+
+.match-history .outcome.draw {
+  color: var(--muted);
+}
+
+.match-history .match-score {
   font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
 
-.h2h-record.leading {
-  color: var(--green);
-}
-
-.h2h-record.trailing {
-  color: var(--red);
-}
-
-.h2h-record.level {
+.match-history .played {
   color: var(--muted);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 640px) {
+  .standings-table .col-rate {
+    display: none;
+  }
 }
 
 .setting {

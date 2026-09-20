@@ -1,4 +1,4 @@
-"""Battle standings routes: leaderboard, head-to-head records, and win streaks."""
+"""Battle standings routes: leaderboard, match history, and win streaks."""
 
 from __future__ import annotations
 
