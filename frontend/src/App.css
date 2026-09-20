@@ -257,7 +257,8 @@ body::after {
 main {
   max-width: 1040px;
   margin: 2.5rem auto;
-  padding: 2.25rem 2.75rem 3rem;
+  padding: clamp(1rem, 5vw, 2.25rem) clamp(1rem, 6vw, 2.75rem)
+    clamp(1.5rem, 6vw, 3rem);
   background: rgb(255 255 255 / 72%);
   border: 1px solid var(--line);
   border-radius: 2px;
@@ -290,10 +291,14 @@ h2 {
 
 .logo {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
+  min-width: 0;
+  overflow-wrap: anywhere;
   gap: 0.5rem;
   font-family: var(--display);
-  font-size: 2.2rem;
+  font-size: clamp(1.5rem, 9vw, 2.2rem);
   font-weight: 400;
   letter-spacing: -0.02em;
 }
@@ -367,6 +372,7 @@ button.link {
 
 .mode-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
@@ -420,6 +426,8 @@ button.link {
 .player-name {
   font-weight: 600;
   font-size: 1.05rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .sign-in {
@@ -1105,6 +1113,7 @@ figcaption {
 .prompt-panel {
   display: grid;
   gap: 0.75rem;
+  min-width: 0;
 }
 
 .results {
@@ -1426,6 +1435,7 @@ button.big:hover:not(:disabled) {
 .hint,
 .prompt-text {
   color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
 .scoreboard {
@@ -1766,12 +1776,13 @@ button.big:hover:not(:disabled) {
 /* ---- Battle Mode: lobby, arena, and the reveal ---- */
 .lobby-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
   gap: 1rem;
 }
 
 .lobby-card {
   display: grid;
+  min-width: 0;
   gap: 0.9rem;
   align-content: start;
   padding: 1.1rem;
@@ -1786,7 +1797,7 @@ button.big:hover:not(:disabled) {
 
 .standings {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
   gap: 1rem;
   margin-top: 1rem;
 }
@@ -1940,10 +1951,12 @@ button.big:hover:not(:disabled) {
 .battle-results {
   display: grid;
   gap: 1rem;
+  min-width: 0;
 }
 
 .battle-code {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: center;
   gap: 0.8rem;
@@ -1972,6 +1985,10 @@ button.big:hover:not(:disabled) {
 
 .setup-players li {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
   justify-content: space-between;
   padding: 0.5rem 0.8rem;
   border: 1px solid var(--line);
@@ -2059,6 +2076,10 @@ button.big:hover:not(:disabled) {
 
 .arena-progress {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  text-align: center;
+  overflow-wrap: anywhere;
   gap: 1.2rem;
   font-family:
     "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
@@ -2085,7 +2106,8 @@ button.big:hover:not(:disabled) {
 
 .round-panel {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  min-width: 0;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
   gap: 1rem;
   align-items: start;
 }
@@ -2107,6 +2129,7 @@ button.big:hover:not(:disabled) {
 /* The reveal. Everything above stays quiet until this screen. */
 .verdict {
   display: grid;
+  min-width: 0;
   gap: 0.8rem;
   justify-items: center;
   padding: 1.4rem 1rem;
@@ -2147,6 +2170,8 @@ button.big:hover:not(:disabled) {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
+  min-width: 0;
+  max-width: 100%;
   gap: 1.5rem;
 }
 
@@ -2165,6 +2190,10 @@ button.big:hover:not(:disabled) {
 .total {
   display: grid;
   justify-items: center;
+  min-width: 0;
+  max-width: 100%;
+  text-align: center;
+  overflow-wrap: anywhere;
   padding: 0.6rem 1.4rem;
   border: 1px solid var(--line);
   border-radius: 2px;
@@ -2194,12 +2223,16 @@ button.big:hover:not(:disabled) {
 
 .round-results {
   display: grid;
+  min-width: 0;
   gap: 1rem;
 }
 
 .round-result {
   display: grid;
-  grid-template-columns: minmax(120px, 0.7fr) repeat(2, minmax(200px, 1fr));
+  min-width: 0;
+  grid-template-columns:
+    minmax(min(120px, 100%), 0.7fr)
+    repeat(2, minmax(min(200px, 100%), 1fr));
   gap: 0.9rem;
   padding: 0.9rem;
   border: 1px solid var(--line);
@@ -2224,6 +2257,7 @@ button.big:hover:not(:disabled) {
 
 .side {
   display: grid;
+  min-width: 0;
   gap: 0.5rem;
 }
 
@@ -2242,7 +2276,9 @@ button.big:hover:not(:disabled) {
 
 .side-scores {
   display: grid;
+  min-width: 0;
   gap: 0.2rem;
+  overflow-wrap: anywhere;
 }
 
 .side-scores .who {
@@ -2261,6 +2297,7 @@ button.big:hover:not(:disabled) {
 .side-scores dl {
   margin: 0.2rem 0 0;
   display: flex;
+  flex-wrap: wrap;
   gap: 0.9rem;
   font-size: 0.75rem;
   color: var(--muted);
@@ -2298,7 +2335,12 @@ button.big:hover:not(:disabled) {
 
 .intro-versus {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  text-align: center;
+  overflow-wrap: anywhere;
   gap: 1.2rem;
   font-family: var(--display);
   font-size: clamp(1.6rem, 6vw, 3.2rem);
@@ -2339,6 +2381,7 @@ button.big:hover:not(:disabled) {
 
 .intro-count.go {
   color: var(--green);
+  font-size: clamp(2.4rem, 12vw, 6rem);
 }
 
 .intro-skip {
@@ -2347,8 +2390,9 @@ button.big:hover:not(:disabled) {
 
 .battle-alerts {
   position: fixed;
-  top: 1rem;
+  bottom: 1rem;
   right: 1rem;
+  max-width: min(22rem, calc(100vw - 2rem));
   z-index: 30;
   display: grid;
   gap: 0.4rem;
