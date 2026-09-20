@@ -4,41 +4,64 @@ type HomeProps = {
   onBattle: () => void;
 };
 
-// Roots are drawn as dashed strokes, so the growth is a dashoffset sweep down each branch.
-function Roots() {
+const LEAVES = [
+  { cx: 44, cy: 54, r: 13 },
+  { cx: 22, cy: 86, r: 10 },
+  { cx: 72, cy: 30, r: 11 },
+  { cx: 276, cy: 54, r: 13 },
+  { cx: 298, cy: 86, r: 10 },
+  { cx: 248, cy: 30, r: 11 },
+  { cx: 160, cy: 18, r: 12 },
+  { cx: 112, cy: 20, r: 9 },
+  { cx: 208, cy: 20, r: 9 },
+];
+
+// A tree grows out of the word: brown trunk and limbs arcing around it, leaves last.
+function Tree() {
   return (
-    <svg className="roots" viewBox="0 0 220 90" aria-hidden="true">
-      <g fill="none" strokeLinecap="round" strokeWidth="3">
-        <path d="M110 0v34" />
-        <path d="M110 34c-14 6-24 18-30 34" />
-        <path d="M110 34c14 6 24 18 30 34" />
-        <path d="M110 34c-4 14-4 30-2 48" />
-        <path d="M86 56c-12 2-22 8-30 18" strokeWidth="2" />
-        <path d="M134 56c12 2 22 8 30 18" strokeWidth="2" />
-        <path d="M108 70c-8 4-14 10-18 18" strokeWidth="2" />
+    <svg
+      className="mode-art tree"
+      viewBox="0 0 320 160"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <g className="limbs" fill="none" strokeLinecap="round">
+        <path d="M160 158v-18" strokeWidth="9" />
+        <path d="M160 142c-34 0-62-8-80-26-18-18-24-42-28-70" strokeWidth="7" />
+        <path d="M160 142c34 0 62-8 80-26 18-18 24-42 28-70" strokeWidth="7" />
+        <path d="M66 96c-12 2-22 10-30 22" strokeWidth="4.5" />
+        <path d="M254 96c12 2 22 10 30 22" strokeWidth="4.5" />
+        <path d="M52 46c8-12 20-20 34-24" strokeWidth="4.5" />
+        <path d="M268 46c-8-12-20-20-34-24" strokeWidth="4.5" />
+        <path d="M120 128c-6-10-6-22-2-32" strokeWidth="4" />
+        <path d="M200 128c6-10 6-22 2-32" strokeWidth="4" />
+      </g>
+      <g className="leaves">
+        {LEAVES.map((leaf) => (
+          <circle key={`${leaf.cx}-${leaf.cy}`} {...leaf} />
+        ))}
       </g>
     </svg>
   );
 }
 
-// The bolt runs down the blade, so the sword reads as struck rather than merely drawn.
-function LightningSword() {
+// Bolts strike down both sides of the word rather than sitting under it.
+function Lightning() {
   return (
-    <svg className="sword" viewBox="0 0 220 90" aria-hidden="true">
-      <g className="blade" strokeLinejoin="round" strokeWidth="3">
-        <path d="M32 78 44 66 150 14l14 14L112 66 96 78z" />
-        <path d="M84 62 68 78" strokeWidth="4" />
-        <path d="M60 60 44 76" strokeWidth="6" />
+    <svg
+      className="mode-art lightning"
+      viewBox="0 0 320 160"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <g className="bolts">
+        <path d="M34 2 6 70h20L10 158l44-102H32z" />
+        <path d="M286 2l28 68h-20l16 88-44-102h22z" />
       </g>
-      <path
-        className="bolt"
-        d="M150 18 122 46h16l-22 30 40-34h-16z"
-        strokeWidth="2"
-      />
       <g className="sparks">
-        <circle cx="166" cy="24" r="3" />
-        <circle cx="140" cy="54" r="2.4" />
-        <circle cx="106" cy="72" r="2" />
+        <circle cx="62" cy="26" r="3" />
+        <circle cx="258" cy="132" r="3" />
+        <circle cx="160" cy="8" r="2.4" />
       </g>
     </svg>
   );
@@ -47,7 +70,8 @@ function LightningSword() {
 export function Home({ busy, onTrain, onBattle }: HomeProps) {
   return (
     <section className="home">
-      {/* The two words tilt toward each other so the pair reads as one big V. */}
+      <p className="home-kicker">Pick a mode</p>
+
       <div className="marquee">
         <button
           className="mode-word train"
@@ -55,9 +79,10 @@ export function Home({ busy, onTrain, onBattle }: HomeProps) {
           onClick={onTrain}
           aria-label="Start prompt training"
         >
-          <span className="index">01</span>
-          <span className="word">LEARN</span>
-          <Roots />
+          <span className="word-wrap">
+            <Tree />
+            <span className="word">LEARN</span>
+          </span>
           <span className="sub">Prompt Training · solo</span>
         </button>
 
@@ -67,9 +92,10 @@ export function Home({ busy, onTrain, onBattle }: HomeProps) {
           onClick={onBattle}
           aria-label="Enter prompt royale"
         >
-          <span className="index">02</span>
-          <span className="word">BATTLE</span>
-          <LightningSword />
+          <span className="word-wrap">
+            <Lightning />
+            <span className="word">BATTLE</span>
+          </span>
           <span className="sub">Prompt Royale · head to head</span>
         </button>
       </div>
@@ -90,11 +116,6 @@ export function Home({ busy, onTrain, onBattle }: HomeProps) {
           </dd>
         </div>
       </dl>
-
-      <p className="hint how">
-        Score = how close your image is to the target, how well your prompt
-        describes it, and how few words and tries you needed.
-      </p>
     </section>
   );
 }
