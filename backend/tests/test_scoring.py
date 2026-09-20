@@ -392,3 +392,28 @@ class TestProviderImageUrls:
         assert not _is_provider_url("http://169.254.169.254/latest/meta-data/")
         assert not _is_provider_url("file:///etc/passwd")
         assert not _is_provider_url("https://meta.test.evil.example/1.png")
+
+
+class TestSolvedThreshold:
+    def test_status_matches_the_rounded_score_the_learner_sees(self):
+        from app.services.problems import is_solved, problem_view, status_of
+
+        assert is_solved(69.6) and is_solved(70.0) and not is_solved(69.4)
+        challenge = {
+            "_id": "c1",
+            "difficulty": "easy",
+            "problem": {
+                "slug": "red-apple",
+                "title": "Red apple",
+                "skill": "subject",
+                "tests": "Name the subject.",
+                "order": 1,
+                "hints": [],
+                "referencePrompt": "A red apple.",
+            },
+        }
+        for best in (69.4, 69.6, 70.0):
+            entry = {"attempts": 1, "bestScore": best}
+            view = problem_view(challenge, entry)
+            assert view["status"] == status_of(entry)
+            assert (view["status"] == "solved") == (view["bestScore"] >= 70)

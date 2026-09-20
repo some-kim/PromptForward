@@ -31,6 +31,13 @@ promptQuality     0.70 × targetCoverage + 0.30 × craftsmanship
 ```
 
 A prompt **passes** when `promptQuality ≥ 70` **and** no criterion marked `critical` is `missing`.
+
+Prompt evaluations are cached (`services/evaluation_cache.py`, collection `prompt_evaluations`):
+the key is the challenge, its analysis version, the evaluator model, and the prompt with
+whitespace collapsed. Resubmitting the same prompt on the same target therefore returns the
+identical score instantly and costs no model call; the evaluator runs at temperature 0 but still
+drifts by ~1 point between identical calls, and generated images vary far more than that.
+
 A failing prompt is returned with `needsImprovement`: category-level hints only
 (e.g. "describe the main subject"), never the rubric wording.
 
@@ -71,6 +78,178 @@ prompt-quality and image-quality it is built from.
 
 Winner: highest `final`; ties break on `resultQuality`, then on fewer prompt tokens; a full tie is
 a draw.
+
+---
+
+## 1b. Difficulty levels: easy, medium, hard
+
+Difficulty is a label on the **target image**, not on the scoring. Every challenge is analyzed,
+evaluated, and scored with exactly the rules above; what changes between levels is how much a
+prompt has to cover to earn those points.
+
+### How a challenge gets its level
+
+`scripts/seed_challenges.py` walks `DROPBOX_CHALLENGES_FOLDER`. The subfolder an image sits in
+becomes its difficulty; an image directly in the root (or in any other folder) is stored as
+`medium`, the default.
+
+```text
+/Challenges/easy/    → easy
+/Challenges/medium/  → medium
+/Challenges/hard/    → hard
+/Challenges/*.jpg    → medium (default)
+```
+
+The level is written once on the challenge document and travels to the client as
+`challenge.difficulty`. Uploading through `POST /api/challenges` takes the same `difficulty` form
+field.
+
+### What each level asks of the player
+
+| Level | Target image | What a passing prompt needs |
+|---|---|---|
+| **Easy** | One clear subject on a plain background (e.g. a single apple). | Name the subject and its obvious attributes — colour, a simple setting. Few rubric criteria carry most of the weight, so a short prompt can reach `promptQuality ≥ 70`. |
+| **Medium** | A subject in a setting with specific lighting. | Cover subject **and** environment **and** lighting/mood. Weight is spread over more criteria, so a subject-only prompt usually lands `partial`/`missing` on setting and light and fails the 70 gate. |
+| **Hard** | Many subjects, an unusual style or medium, and precise composition. | Cover every subject, the style, and where things sit in the frame (`spatialClarity` matters). Hard rubrics have more criteria and more of them are `critical`, so missing any one of them fails the prompt regardless of score. |
+
+The blurbs shown in the Training lobby say the same thing in one line each ("One clear subject." /
+"A subject, a setting, specific lighting." / "Many subjects, unusual style, precise composition."),
+next to an example image from `frontend/public/examples/{level}.jpg`.
+
+### Where the level is chosen
+
+- **Training** — the difficulty tabs in the lobby pick the level; it is remembered in
+  `localStorage` (`promptforward.difficulty`, default `easy`). "Start" and "Next target →" both draw
+  a random challenge at that level via `GET /api/challenges?difficulty=…`.
+- **Battle** — the host's current level is sent with `POST /api/games` (`difficulty`), and the
+  server picks one random challenge at that level for both players. If no challenge has been
+  seeded at the requested level the request fails with
+  `No {level} challenges have been seeded yet`.
+
+### Why harder feels harder without different math
+
+Because the scores are built from the rubric, a harder target raises the bar on its own:
+
+- **Prompt Quality** — more criteria and more `critical` flags mean more ways to miss coverage,
+  and more text is needed, which pushes token count up.
+- **Efficiency** — the 50-token baseline is the same at every level, so the longer prompts hard
+  targets require start eating the token penalty (−1 per 5 tokens over, capped at 15), and a
+  weak image (`resultQuality < 60`) still zeroes efficiency.
+- **Result Quality** — the generator has to hit more criteria at once, so image quality tends to
+  drop as the level rises.
+
+Progress and Battle winners use the same combined formula at every level; there is no level
+multiplier.
+
+---
+
+## 1c. Problem Set: the LeetCode-style curriculum
+
+Difficulty says how much a target demands; the **Problem Set** says *what it teaches*. A problem
+is a challenge with extra metadata attached at seed time; everything else (rubric, scoring,
+generation limits) is exactly the same as a plain Training target. In the UI both live under
+**Learn**: the *Problem Set* tab is the curriculum, the *Random practice* tab is a random target
+at a chosen difficulty. Curriculum targets never appear in Random practice or Battle.
+
+Reference prompts are written to pass their own rubric, and the seed script re-checks that on
+every run; the reasoning and the alternatives considered are in `docs/REFERENCE_PROMPTS.md`.
+
+### Problem metadata
+
+```text
+problem.slug             stable id, e.g. "snowy-owl"
+problem.title            shown in the list and the Learning header ("#4 · Species, Not Category")
+problem.skill            one of the eight skills below
+problem.order            position in the curriculum (1 = first)
+problem.tests            one line: what this problem exercises
+problem.hints            two progressive hints (server-gated, see Coaching)
+problem.referencePrompt  a model answer (server-gated, see Coaching)
+```
+
+Only `slug`, `title`, `skill`, `skillTitle` and `order` are sent with the challenge summary.
+Hints and the reference prompt never appear in `GET /api/problems` or `GET /api/challenges`;
+they are released one at a time through the attempt's `coaching` view.
+
+### Skills
+
+The curriculum is eight skills, five problems each, ordered fundamentals → composition:
+
+| Skill | Lesson |
+|---|---|
+| `subject` — Subject specificity | Name exactly what is in the frame. |
+| `attributes` — Attributes & materials | Colour, texture, material, age. |
+| `setting` — Setting & environment | Surface, background, place. |
+| `lighting` — Lighting & mood | Time of day, light direction, weather. |
+| `style` — Style & medium | Photo, watercolour, pixel art, oil paint. |
+| `composition` — Composition & framing | Camera angle, distance, placement. |
+| `multi_subject` — Multi-subject scenes | Each subject described and related. |
+| `concision` — Concision | Everything that matters, nothing else. |
+
+Lesson text lives in `SKILL_INFO` (`backend/app/models.py`) so the client never hard-codes it.
+
+### Problem list (`GET /api/problems`)
+
+Returns every seeded problem in curriculum order plus a per-skill summary. The token is optional:
+signed out you get the list with every status `unsolved`; signed in each row carries your status,
+best score and attempt count. The Problems page filters by difficulty (tabs) and by skill (click a
+row in the skill panel), and **Continue** opens the first unsolved problem in order.
+
+### Per-user progress
+
+`problem_progress` holds one document per `{userId, challengeId}`:
+
+```text
+bestScore   $max of the server-computed `scores.final` of every reported, submitted attempt
+attempts    +1 per distinct attempt (`attemptIds` remembers which ones already count)
+```
+
+It is written from the same `POST /api/auth/progress` call that updates XP and streak, but the
+client's `score` is only used for XP: problem progress reads the attempt's own stored scores, and
+an attempt that is not yet `submitted` contributes nothing. Reporting the same attempt again
+(a retry, or a request that failed halfway) is safe.
+
+```text
+status = unsolved   no attempts yet
+         attempted  attempted, bestScore < 70
+         solved     round(bestScore) ≥ 70   (SOLVED_SCORE; the shown score decides)
+```
+
+The skill summary (`solved / attempted / total` per skill) drives the progress bars on Home and
+the Problems page; a skill with every problem solved is marked **mastered**.
+
+### Coaching (hints, misses, reference)
+
+Every Learning response for a problem includes `coaching`, computed server-side per attempt:
+
+- **Lesson + "this problem tests"** — always shown.
+- **Hints** — one unlocks per *weak* prompt evaluation (`passed = false`). Two hints total; the
+  remaining count is shown as locked rows so the player knows help is coming.
+- **What you missed** — the evaluator's `needsImprovement` categories for the current prompt,
+  shown in the coach panel instead of under the composer.
+- **Reference prompt** — released only once the attempt is `submitted` **and** either the combined
+  score is ≥ 70 (solved) or all three generations are spent. Until then it is `null`.
+
+After a problem is scored, "Next problem →" moves to the next unsolved problem in curriculum order
+(wrapping around), and "Problems" returns to the list.
+
+### Seeding the curriculum
+
+`backend/curriculum/problems.json` is the manifest: 40 entries, each with the metadata above, a
+`difficulty`, and a `source.commons` Wikimedia Commons file title (all CC-BY/CC-BY-SA/CC0/PD).
+
+```bash
+cd backend && python -m scripts.seed_curriculum        # or pass another manifest path
+```
+
+For each entry the image is downloaded at 1280px, stored in `/Challenges/{difficulty}/` by hash,
+analyzed once, and saved with its `problem`. Re-running is free: an image whose analysis is
+current only gets its metadata refreshed, so editing titles, hints, or reference prompts in the
+manifest never costs an analyzer call. Swapping an image does — the slug's existing challenge is
+replaced in place (slugs are unique), so progress recorded against it survives.
+
+Curriculum challenges are not part of the random pools: `GET /api/challenges` without a `skill`
+and Battle's random pick only consider untagged targets, which `scripts/seed_challenges.py` still
+seeds from Dropbox for Training and Battle.
 
 ---
 

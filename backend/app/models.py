@@ -30,6 +30,86 @@ DEFAULT_DIFFICULTY: Difficulty = "medium"
 # only ever appear in the battles their owner brings them to.
 ChallengeSource = Literal["curated", "player"]
 
+# A skill names the prompt-writing habit a problem isolates. Problems are the curriculum;
+# an unlabeled challenge is still a valid random target.
+Skill = Literal[
+    "subject",
+    "attributes",
+    "setting",
+    "lighting",
+    "style",
+    "composition",
+    "multi_subject",
+    "concision",
+]
+SKILLS: tuple[Skill, ...] = (
+    "subject",
+    "attributes",
+    "setting",
+    "lighting",
+    "style",
+    "composition",
+    "multi_subject",
+    "concision",
+)
+
+SKILL_INFO: dict[str, dict[str, str]] = {
+    "subject": {
+        "title": "Subject specificity",
+        "lesson": "Name exactly what is in the frame. 'A dog' loses to 'a golden retriever puppy'.",
+    },
+    "attributes": {
+        "title": "Attributes & materials",
+        "lesson": "Colour, texture, material and age are what make a subject recognisable.",
+    },
+    "setting": {
+        "title": "Setting & environment",
+        "lesson": "Where the subject is matters as much as what it is: surface, background, place.",
+    },
+    "lighting": {
+        "title": "Lighting & mood",
+        "lesson": "Time of day, light direction and weather decide the whole feel of an image.",
+    },
+    "style": {
+        "title": "Style & medium",
+        "lesson": "Photo, watercolour, pixel art or oil paint: say it, or the model will guess.",
+    },
+    "composition": {
+        "title": "Composition & framing",
+        "lesson": "Camera angle, distance and where the subject sits in the frame.",
+    },
+    "multi_subject": {
+        "title": "Multi-subject scenes",
+        "lesson": "Every subject needs its own description and its relation to the others.",
+    },
+    "concision": {
+        "title": "Concision",
+        "lesson": (
+            "Say everything that matters and nothing else; filler words cost tokens."
+            " Reference answers here are kept deliberately short."
+        ),
+    },
+}
+
+# A problem is solved once its combined score clears this bar.
+SOLVED_SCORE = 70
+
+
+class Problem(BaseModel):
+    """Curriculum metadata attached to a challenge."""
+
+    slug: str
+    title: str
+    skill: Skill
+    order: int
+    # One line on what a prompt must get right to pass this problem.
+    tests: str
+    # Revealed one at a time after each weak prompt.
+    hints: list[str]
+    # Revealed once the problem is solved or every generation is spent.
+    referencePrompt: str
+
+
 CATEGORY_HINTS: dict[str, str] = {
     "subject": "Describe the main subject",
     "action": "Describe what is happening",

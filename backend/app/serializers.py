@@ -7,7 +7,7 @@ from urllib.parse import quote
 
 from bson import ObjectId
 
-from app.models import CATEGORY_HINTS, DEFAULT_DIFFICULTY, CoverageJudgment, Rubric
+from app.models import CATEGORY_HINTS, DEFAULT_DIFFICULTY, SKILL_INFO, CoverageJudgment, Rubric
 from app.services.attempts import resource_usage
 
 
@@ -17,11 +17,24 @@ def object_id(value: str) -> ObjectId | None:
 
 def challenge_summary(challenge: dict[str, Any]) -> dict[str, Any]:
     challenge_id = str(challenge["_id"])
+    problem = challenge.get("problem")
     return {
         "id": challenge_id,
         "type": challenge["type"],
         "difficulty": challenge.get("difficulty", DEFAULT_DIFFICULTY),
         "imageUrl": f"/api/challenges/{challenge_id}/image",
+        # Hints and the reference prompt stay server-side until the coach releases them.
+        "problem": (
+            {
+                "slug": problem["slug"],
+                "title": problem["title"],
+                "skill": problem["skill"],
+                "skillTitle": SKILL_INFO[problem["skill"]]["title"],
+                "order": problem["order"],
+            }
+            if problem
+            else None
+        ),
     }
 
 

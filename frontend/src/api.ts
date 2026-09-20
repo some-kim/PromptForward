@@ -4,6 +4,27 @@ export const DIFFICULTIES = ["easy", "medium", "hard"] as const;
 
 export type Difficulty = (typeof DIFFICULTIES)[number];
 
+export const SKILLS = [
+  "subject",
+  "attributes",
+  "setting",
+  "lighting",
+  "style",
+  "composition",
+  "multi_subject",
+  "concision",
+] as const;
+
+export type Skill = (typeof SKILLS)[number];
+
+export type ProblemTag = {
+  slug: string;
+  title: string;
+  skill: Skill;
+  skillTitle: string;
+  order: number;
+};
+
 export type Challenge = {
   id: string;
   type: string;
@@ -11,6 +32,47 @@ export type Challenge = {
   imageUrl: string;
   width?: number;
   height?: number;
+  problem?: ProblemTag | null;
+};
+
+export type ProblemStatus = "unsolved" | "attempted" | "solved";
+
+export type Problem = ProblemTag & {
+  id: string;
+  lesson: string;
+  tests: string;
+  difficulty: Difficulty;
+  imageUrl: string;
+  hintCount: number;
+  status: ProblemStatus;
+  bestScore: number | null;
+  attempts: number;
+};
+
+export type SkillSummary = {
+  skill: Skill;
+  title: string;
+  lesson: string;
+  total: number;
+  solved: number;
+  attempted: number;
+};
+
+export type ProblemSet = { problems: Problem[]; skills: SkillSummary[] };
+
+// What the coach has released for one attempt: hints unlock per weak prompt, the reference
+// prompt once the problem is solved or every generation is spent.
+export type Coaching = {
+  slug: string;
+  title: string;
+  skill: Skill;
+  skillTitle: string;
+  lesson: string;
+  tests: string;
+  hints: string[];
+  hintsRemaining: number;
+  solved: boolean;
+  referencePrompt: string | null;
 };
 
 export type AttentionRegion = {
@@ -32,6 +94,7 @@ export type PromptEvaluation = {
   attention?: AttentionRegion[];
   promptTokens: number | null;
   generationsRemaining?: number;
+  coaching?: Coaching | null;
 };
 
 export type Generation = {
@@ -68,6 +131,7 @@ export type Attempt = {
     promptEvaluations: number;
     generations: number;
   };
+  coaching?: Coaching | null;
 };
 
 export type BattleSettings = {
@@ -240,6 +304,8 @@ export const api = {
         ? `/api/challenges?difficulty=${difficulty}`
         : "/api/challenges",
     ),
+
+  listProblems: () => request<ProblemSet>("/api/problems"),
 
   createLearningAttempt: (
     challengeId: string,
