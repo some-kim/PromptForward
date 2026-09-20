@@ -11,6 +11,7 @@ import {
   type User,
 } from "./api";
 import { Agent } from "./components/Agent";
+import { Backdrop } from "./components/Backdrop";
 import { GameMode } from "./components/GameMode";
 import { Home } from "./components/Home";
 import { LearningMode } from "./components/LearningMode";
@@ -226,82 +227,91 @@ export default function App() {
   }
 
   // The splash holds the first paint, then the app or the login form takes over.
-  if (!splashDone || loadingSession) return <Splash onDone={endSplash} />;
+  if (!splashDone || loadingSession)
+    return (
+      <>
+        <Backdrop />
+        <Splash onDone={endSplash} />
+      </>
+    );
 
   return (
-    <main>
-      <header className="app-header">
-        {user && (
-          <div className="player-chip">
-            <button className="link" onClick={signOut}>
-              Log out
-            </button>
-            <span className="player-name">{name}</span>
-            <span className="avatar">
-              {(name || "P").slice(0, 1).toUpperCase()}
+    <>
+      <Backdrop />
+      <main>
+        <header className="app-header">
+          {user && (
+            <div className="player-chip">
+              <button className="link" onClick={signOut}>
+                Log out
+              </button>
+              <span className="player-name">{name}</span>
+              <span className="avatar">
+                {(name || "P").slice(0, 1).toUpperCase()}
+              </span>
+            </div>
+          )}
+          <h1 className="logo">
+            <LogoMark />
+            <span>
+              Prompt<span className="logo-accent">Forward</span>
             </span>
-          </div>
+          </h1>
+          <p>Write better prompts with fewer wasted generations.</p>
+        </header>
+
+        <Agent
+          key={user ? view.name : "signedOut"}
+          name="Forward"
+          lines={user ? AGENT_LINES[view.name] : AGENT_LINES.signedOut}
+        />
+
+        {!user && <SignIn onSignedIn={signedIn} />}
+
+        {user && view.name === "home" && (
+          <Home
+            busy={busy}
+            onTrain={() => setView({ name: "train" })}
+            onBattle={startBattle}
+          />
         )}
-        <h1 className="logo">
-          <LogoMark />
-          <span>
-            Prompt<span className="logo-accent">Forward</span>
-          </span>
-        </h1>
-        <p>Write better prompts with fewer wasted generations.</p>
-      </header>
 
-      <Agent
-        key={user ? view.name : "signedOut"}
-        name="Forward"
-        lines={user ? AGENT_LINES[view.name] : AGENT_LINES.signedOut}
-      />
+        {user && view.name === "train" && (
+          <TrainingLobby
+            key={difficulty}
+            difficulty={difficulty}
+            onDifficultyChange={changeDifficulty}
+            busy={busy}
+            onStart={startLearning}
+            onExit={exit}
+            onError={showError}
+            progress={progress}
+          />
+        )}
 
-      {!user && <SignIn onSignedIn={signedIn} />}
+        {user && view.name === "learning" && (
+          <LearningMode
+            key={view.attempt.id}
+            challenge={view.challenge}
+            attempt={view.attempt}
+            busy={busy}
+            onScored={scored}
+            onNext={() => nextLearning(view.challenge)}
+            onExit={() => setView({ name: "train" })}
+          />
+        )}
 
-      {user && view.name === "home" && (
-        <Home
-          busy={busy}
-          onTrain={() => setView({ name: "train" })}
-          onBattle={startBattle}
-        />
-      )}
+        {user && view.name === "game" && (
+          <GameMode
+            game={view.game}
+            playerId={playerId}
+            onScored={scored}
+            onExit={exit}
+          />
+        )}
 
-      {user && view.name === "train" && (
-        <TrainingLobby
-          key={difficulty}
-          difficulty={difficulty}
-          onDifficultyChange={changeDifficulty}
-          busy={busy}
-          onStart={startLearning}
-          onExit={exit}
-          onError={showError}
-          progress={progress}
-        />
-      )}
-
-      {user && view.name === "learning" && (
-        <LearningMode
-          key={view.attempt.id}
-          challenge={view.challenge}
-          attempt={view.attempt}
-          busy={busy}
-          onScored={scored}
-          onNext={() => nextLearning(view.challenge)}
-          onExit={() => setView({ name: "train" })}
-        />
-      )}
-
-      {user && view.name === "game" && (
-        <GameMode
-          game={view.game}
-          playerId={playerId}
-          onScored={scored}
-          onExit={exit}
-        />
-      )}
-
-      {error && <p className="error">{error}</p>}
-    </main>
+        {error && <p className="error">{error}</p>}
+      </main>
+    </>
   );
 }

@@ -40,8 +40,16 @@ body {
     sans-serif;
 }
 
-/* Drifting wire grid plus the two glows that breathe behind the content. */
-body::before,
+.backdrop {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Drifting wire grid plus the glows that breathe behind the content. */
+.backdrop-grid,
 body::after {
   content: "";
   position: fixed;
@@ -50,7 +58,7 @@ body::after {
   z-index: -1;
 }
 
-body::before {
+.backdrop-grid {
   background: url("/grid.svg") repeat;
   background-size: 40px 40px;
   animation: grid-drift 24s linear infinite;
@@ -94,6 +102,143 @@ body::after {
   50% {
     opacity: 1;
     transform: scale(1.06);
+  }
+}
+
+.backdrop-circuit {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.backdrop-circuit .trace {
+  fill: none;
+  stroke: #163a5e;
+  stroke-width: 1.5;
+}
+
+/* A short bright dash chasing along the same path reads as current in the trace. */
+.backdrop-circuit .trace-pulse {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 90 1600;
+  filter: drop-shadow(0 0 6px var(--accent));
+  animation: trace-run 9s linear infinite;
+}
+
+@keyframes trace-run {
+  from {
+    stroke-dashoffset: 1690;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.backdrop-particles {
+  position: absolute;
+  inset: 0;
+}
+
+.particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px 2px rgb(76 195 255 / 60%);
+  opacity: 0;
+  animation: float-up 18s linear infinite;
+}
+
+.particle.p0 {
+  left: 6%;
+  animation-duration: 21s;
+}
+
+.particle.p1 {
+  left: 19%;
+  animation-duration: 16s;
+  animation-delay: -4s;
+}
+
+.particle.p2 {
+  left: 33%;
+  animation-duration: 24s;
+  animation-delay: -9s;
+}
+
+.particle.p3 {
+  left: 48%;
+  animation-duration: 19s;
+  animation-delay: -14s;
+}
+
+.particle.p4 {
+  left: 64%;
+  animation-duration: 26s;
+  animation-delay: -6s;
+}
+
+.particle.p5 {
+  left: 79%;
+  animation-duration: 17s;
+  animation-delay: -11s;
+}
+
+.particle.p6 {
+  left: 92%;
+  animation-duration: 23s;
+  animation-delay: -2s;
+}
+
+.particle:nth-child(even) {
+  width: 3px;
+  height: 3px;
+  background: #7fd8ff;
+  animation-delay: -8s;
+}
+
+@keyframes float-up {
+  0% {
+    transform: translateY(105vh) scale(0.6);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.9;
+  }
+  90% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(-10vh) scale(1.2);
+    opacity: 0;
+  }
+}
+
+.backdrop-scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 40vh;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgb(76 195 255 / 7%),
+    transparent
+  );
+  animation: scan-sweep 11s ease-in-out infinite;
+}
+
+@keyframes scan-sweep {
+  0% {
+    transform: translateY(-45vh);
+  }
+  100% {
+    transform: translateY(105vh);
   }
 }
 
@@ -1459,8 +1604,16 @@ button.big:hover:not(:disabled) {
   .agent-bot.talking,
   .agent-bot-wrap::after,
   .agent-caret,
-  body::before,
+  .backdrop-grid,
+  .backdrop-circuit .trace-pulse,
+  .particle,
+  .backdrop-scan,
   body::after {
     animation: none;
+  }
+
+  .backdrop-scan,
+  .particle {
+    display: none;
   }
 }
