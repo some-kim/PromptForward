@@ -169,14 +169,15 @@ async def run_generation(
     target = challenge["target"]
 
     try:
+        # Fetch the target before spending on the provider: if it is unavailable (or was just
+        # retired by a curriculum replacement) we fail before anything is paid for or stored.
+        target_bytes = await download_image(target["dropboxPath"])
         generated = await generate_image(
             prompt, closest_aspect_ratio(target["width"], target["height"])
         )
         stored = await store_generated_image(
             str(attempt["_id"]), generation_number, generated.imageBytes, generated.mimeType
         )
-
-        target_bytes = await download_image(target["dropboxPath"])
         result_evaluation: ResultEvaluation = await evaluate_result(
             rubric,
             target_bytes,
