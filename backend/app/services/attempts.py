@@ -43,11 +43,14 @@ async def create_attempt(
     display_name: str | None,
     mode: str,
     game_id: ObjectId | None = None,
+    account_id: ObjectId | None = None,
 ) -> dict[str, Any]:
     doc: dict[str, Any] = {
         "challengeId": challenge_id,
         "gameId": game_id,
         "userId": user_id,
+        # The signed-in account that opened the attempt, fixed at creation from the bearer token.
+        "accountId": account_id,
         "displayName": display_name,
         "mode": mode,
         "status": "in_progress",

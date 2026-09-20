@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import asyncio
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app import db
 from app.models import PromptEvaluation
+from app.routes.auth import optional_user
 from app.serializers import attempt_view, attention_view, object_id, prompt_evaluation_view
 from app.services.attempts import (
     LEARNING_GENERATION_LIMIT,
@@ -45,7 +46,9 @@ class PromptRequest(BaseModel):
 
 
 @router.post("/attempts", status_code=201)
-async def create_learning_attempt(body: CreateAttemptRequest) -> dict:
+async def create_learning_attempt(
+    body: CreateAttemptRequest, user: dict | None = Depends(optional_user)
+) -> dict:
     challenge_id = object_id(body.challengeId)
     challenge = await db.challenges().find_one({"_id": challenge_id}) if challenge_id else None
     if challenge is None:
@@ -56,6 +59,7 @@ async def create_learning_attempt(body: CreateAttemptRequest) -> dict:
         user_id=body.userId,
         display_name=body.displayName,
         mode="learning",
+        account_id=user["_id"] if user else None,
     )
     return _coached_view(attempt, challenge)
 

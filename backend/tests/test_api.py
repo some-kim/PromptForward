@@ -846,6 +846,7 @@ class TestProblems:
             await client.post(
                 "/api/learning/attempts",
                 json={"challengeId": problem_id, "userId": signup.json()["user"]["id"]},
+                headers=headers,
             )
         ).json()["id"]
 
@@ -903,11 +904,12 @@ class TestProblems:
         headers = {"Authorization": f"Bearer {signup.json()['token']}"}
         me = signup.json()["user"]["id"]
 
-        async def solved_attempt(challenge_id: str, user_id: str) -> str:
+        async def solved_attempt(challenge_id: str, auth: dict[str, str]) -> str:
             attempt_id = (
                 await client.post(
                     "/api/learning/attempts",
-                    json={"challengeId": challenge_id, "userId": user_id},
+                    json={"challengeId": challenge_id, "userId": me},
+                    headers=auth,
                 )
             ).json()["id"]
             response = await client.post(
@@ -916,9 +918,9 @@ class TestProblems:
             assert response.json()["scores"]["final"] >= 70
             return attempt_id
 
-        # Someone else's attempt on the problem, and my own attempt on a random target.
-        theirs = await solved_attempt(problem_id, "someone-else")
-        random_practice = await solved_attempt(plain_id, me)
+        # An anonymous attempt claiming my id on the problem, and my own attempt on a random target.
+        theirs = await solved_attempt(problem_id, {})
+        random_practice = await solved_attempt(plain_id, headers)
         for attempt_id in (theirs, random_practice):
             await client.post(
                 "/api/auth/progress",
@@ -929,7 +931,7 @@ class TestProblems:
         assert listed["problems"][0]["status"] == "unsolved"
         assert listed["problems"][0]["attempts"] == 0
 
-        mine = await solved_attempt(problem_id, me)
+        mine = await solved_attempt(problem_id, headers)
         await client.post(
             "/api/auth/progress",
             json={"attemptId": mine, "score": 90, "generations": 1},

@@ -35,7 +35,7 @@ async def record_problem_result(user_id: ObjectId, attempt: dict[str, Any]) -> N
     """
     if attempt.get("status") != "submitted" or attempt.get("mode") != "learning":
         return
-    if attempt.get("userId") != str(user_id):
+    if attempt.get("accountId") != user_id:
         return
     final = (attempt.get("scores") or {}).get("final")
     if final is None:
@@ -135,7 +135,7 @@ def coaching_view(challenge: dict[str, Any], attempt: dict[str, Any]) -> dict[st
     scores = attempt.get("scores") or {}
     final = scores.get("final")
     solved = final is not None and final >= SOLVED_SCORE
-    spent = attempt.get("reservedGenerations", 0) >= LEARNING_GENERATION_LIMIT
+    spent = len(attempt.get("generations", [])) >= LEARNING_GENERATION_LIMIT
     submitted = attempt["status"] == "submitted"
 
     return {
