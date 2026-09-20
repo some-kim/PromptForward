@@ -12,6 +12,7 @@ export function Home({ busy, onTrain, onBattle }: HomeProps) {
       <div className="panels">
         <article className="panel training">
           <header>
+            <span className="panel-kicker">Mode 01 · Solo</span>
             <h2>Prompt Training</h2>
             <p>
               Practice alone. Your prompt is reviewed before it is used, the
@@ -40,6 +41,7 @@ export function Home({ busy, onTrain, onBattle }: HomeProps) {
 
         <article className="panel royale">
           <header>
+            <span className="panel-kicker">Mode 02 · Party</span>
             <h2>Prompt Royale</h2>
             <p>
               Head to head. Everyone describes the same target, one image each,

@@ -38,6 +38,8 @@ export function Backdrop() {
         ))}
       </div>
       <div className="backdrop-scan" />
+      <div className="backdrop-scanlines" />
+      <div className="backdrop-vignette" />
     </div>
   );
 }

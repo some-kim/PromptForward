@@ -242,6 +242,29 @@ body::after {
   }
 }
 
+/* Retro CRT finish over the whole scene: fine scanlines plus a soft tube vignette. */
+.backdrop-scanlines {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    180deg,
+    rgb(0 0 0 / 16%) 0 1px,
+    transparent 1px 3px
+  );
+  opacity: 0.7;
+  animation: scanlines-roll 8s linear infinite;
+}
+
+.backdrop-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    120% 90% at 50% 45%,
+    transparent 45%,
+    rgb(0 0 0 / 55%) 100%
+  );
+}
+
 main {
   max-width: 920px;
   margin: 2rem auto;
@@ -709,63 +732,141 @@ button.link {
   align-items: stretch;
 }
 
+/* Both modes share one cabinet: same frame, same type, only --mode changes. */
 .panel {
+  --mode: var(--accent);
+
+  position: relative;
   display: grid;
   grid-template-rows: auto 1fr auto;
   gap: 0.9rem;
   padding: 1.1rem;
+  background: linear-gradient(170deg, #0a1728, #060d18 72%);
   border: 1px solid var(--line);
   border-radius: 2px;
+  box-shadow: inset 0 0 40px rgb(76 195 255 / 4%);
   transition:
     transform 0.18s ease,
-    border-color 0.18s ease;
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+/* Corner brackets, drawn as four small gradient patches in the panel corners. */
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--mode), var(--mode)) 0 0 / 14px 1px no-repeat,
+    linear-gradient(var(--mode), var(--mode)) 0 0 / 1px 14px no-repeat,
+    linear-gradient(var(--mode), var(--mode)) 100% 0 / 14px 1px no-repeat,
+    linear-gradient(var(--mode), var(--mode)) 100% 0 / 1px 14px no-repeat,
+    linear-gradient(var(--mode), var(--mode)) 0 100% / 14px 1px no-repeat,
+    linear-gradient(var(--mode), var(--mode)) 0 100% / 1px 14px no-repeat,
+    linear-gradient(var(--mode), var(--mode)) 100% 100% / 14px 1px no-repeat,
+    linear-gradient(var(--mode), var(--mode)) 100% 100% / 1px 14px no-repeat;
+  opacity: 0.55;
+  animation: bracket-breathe 4.5s ease-in-out infinite;
 }
 
 .panel:hover {
   transform: translateY(-3px);
-  border-color: var(--accent);
+  border-color: var(--mode);
+  box-shadow: inset 0 0 40px rgb(76 195 255 / 7%);
+}
+
+.panel-kicker {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--mode);
+  font-family:
+    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
 }
 
 .panel h2 {
   margin: 0 0 0.3rem;
   font-family: Fredoka, "Plus Jakarta Sans", system-ui, sans-serif;
   font-size: 1.4rem;
+  color: var(--mode);
+  text-shadow: 0 0 18px rgb(76 195 255 / 25%);
 }
 
 .panel header p {
   margin: 0;
   font-size: 0.9rem;
   line-height: 1.5;
+  color: var(--muted);
+}
+
+@keyframes bracket-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.75;
+  }
 }
 
 .panel .big {
   width: 100%;
+  box-sizing: border-box;
 }
 
+/* Each preview is a little CRT: phosphor tint, scanlines, and a slow flicker. */
 .preview {
+  position: relative;
   display: grid;
   gap: 0.5rem;
   align-content: start;
   padding: 0.7rem;
+  border: 1px solid var(--line);
   border-radius: 2px;
   overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgb(76 195 255 / 8%), transparent 70%),
+    rgb(4 10 20 / 85%);
+  animation: crt-flicker 6s ease-in-out infinite;
+}
+
+.preview::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    180deg,
+    rgb(0 0 0 / 22%) 0 1px,
+    transparent 1px 3px
+  );
+  animation: scanlines-roll 8s linear infinite;
+}
+
+@keyframes crt-flicker {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  47% {
+    filter: brightness(1.04);
+  }
+  52% {
+    filter: brightness(0.97);
+  }
+}
+
+@keyframes scanlines-roll {
+  to {
+    background-position: 0 30px;
+  }
 }
 
 .panel.training {
-  background: linear-gradient(160deg, #0b182c, #060c17);
-}
-
-.panel.training h2 {
-  color: var(--text);
-}
-
-.panel.training header p {
-  color: var(--muted);
-}
-
-.training-preview {
-  background: rgb(4 10 20 / 80%);
-  border: 1px solid var(--line);
+  --mode: var(--blue);
 }
 
 .preview-target {
@@ -787,6 +888,8 @@ button.link {
 .preview-chips {
   display: flex;
   gap: 0.3rem;
+  font-family:
+    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
   font-size: 0.7rem;
 }
 
@@ -809,6 +912,8 @@ button.link {
 }
 
 .preview-composer {
+  font-family:
+    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -833,27 +938,17 @@ button.link {
 }
 
 .panel.royale {
-  background: linear-gradient(160deg, #0d2b4a, #060c17);
-  border-color: #1d4f7d;
-}
-
-.panel.royale h2 {
-  color: var(--accent);
-  letter-spacing: 0.02em;
-}
-
-.panel.royale header p {
-  color: #a8c6e6;
+  --mode: var(--accent);
 }
 
 .royale-preview {
   justify-items: center;
-  background: rgb(9 28 50 / 80%);
-  border: 1px solid #1d4f7d;
   text-align: center;
 }
 
 .royale-round {
+  font-family:
+    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -874,9 +969,34 @@ button.link {
   background: #0a1a2e;
   border: 1px solid var(--accent);
   color: var(--accent);
-  font-family: Fredoka, "Plus Jakarta Sans", system-ui, sans-serif;
+  font-family:
+    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
   font-size: 1.3rem;
   font-weight: 600;
+  text-shadow: 0 0 10px rgb(76 195 255 / 60%);
+  animation: pin-glow 2.8s ease-in-out infinite;
+}
+
+.pin span:nth-child(2) {
+  animation-delay: 0.35s;
+}
+
+.pin span:nth-child(3) {
+  animation-delay: 0.7s;
+}
+
+.pin span:nth-child(4) {
+  animation-delay: 1.05s;
+}
+
+@keyframes pin-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgb(76 195 255 / 0%);
+  }
+  50% {
+    box-shadow: 0 0 14px rgb(76 195 255 / 35%);
+  }
 }
 
 .royale-players {
@@ -931,14 +1051,30 @@ button.big small {
   opacity: 0.8;
 }
 
-button.big.learning {
-  background: var(--blue);
-  color: #fff;
+/* Arcade-cabinet buttons: dim phosphor plate that lights up on hover, same shape both sides. */
+.panel .big {
+  background: linear-gradient(
+    180deg,
+    rgb(76 195 255 / 12%),
+    rgb(76 195 255 / 4%)
+  );
+  border-color: var(--mode);
+  color: var(--mode);
+  text-shadow: 0 0 14px rgb(76 195 255 / 35%);
+  letter-spacing: 0.02em;
+  transition:
+    background 0.25s ease,
+    box-shadow 0.25s ease,
+    transform 0.15s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
-button.big.battle {
-  background: var(--accent);
-  color: #04121f;
+.panel .big:hover:not(:disabled) {
+  background: linear-gradient(
+    180deg,
+    rgb(76 195 255 / 24%),
+    rgb(76 195 255 / 10%)
+  );
+  box-shadow: 0 0 22px rgb(76 195 255 / 22%);
 }
 
 .image-row img,
@@ -1670,6 +1806,11 @@ button.big:hover:not(:disabled) {
   .backdrop-circuit .trace-pulse,
   .particle,
   .backdrop-scan,
+  .backdrop-scanlines,
+  .preview,
+  .preview::after,
+  .panel::before,
+  .pin span,
   body::after {
     animation: none;
   }
