@@ -136,6 +136,106 @@ multiplier.
 
 ---
 
+## 1c. Problem Set: the LeetCode-style curriculum
+
+Difficulty says how much a target demands; the **Problem Set** says *what it teaches*. A problem
+is a challenge with extra metadata attached at seed time; everything else (rubric, scoring,
+generation limits) is exactly the same as a plain Training target.
+
+### Problem metadata
+
+```text
+problem.slug             stable id, e.g. "snowy-owl"
+problem.title            shown in the list and the Learning header ("#4 · Species, Not Category")
+problem.skill            one of the eight skills below
+problem.order            position in the curriculum (1 = first)
+problem.tests            one line: what this problem exercises
+problem.hints            two progressive hints (server-gated, see Coaching)
+problem.referencePrompt  a model answer (server-gated, see Coaching)
+```
+
+Only `slug`, `title`, `skill`, `skillTitle` and `order` are sent with the challenge summary.
+Hints and the reference prompt never appear in `GET /api/problems` or `GET /api/challenges`;
+they are released one at a time through the attempt's `coaching` view.
+
+### Skills
+
+The curriculum is eight skills, five problems each, ordered fundamentals → composition:
+
+| Skill | Lesson |
+|---|---|
+| `subject` — Subject specificity | Name exactly what is in the frame. |
+| `attributes` — Attributes & materials | Colour, texture, material, age. |
+| `setting` — Setting & environment | Surface, background, place. |
+| `lighting` — Lighting & mood | Time of day, light direction, weather. |
+| `style` — Style & medium | Photo, watercolour, pixel art, oil paint. |
+| `composition` — Composition & framing | Camera angle, distance, placement. |
+| `multi_subject` — Multi-subject scenes | Each subject described and related. |
+| `concision` — Concision | Everything that matters, nothing else. |
+
+Lesson text lives in `SKILL_INFO` (`backend/app/models.py`) so the client never hard-codes it.
+
+### Problem list (`GET /api/problems`)
+
+Returns every seeded problem in curriculum order plus a per-skill summary. The token is optional:
+signed out you get the list with every status `unsolved`; signed in each row carries your status,
+best score and attempt count. The Problems page filters by difficulty (tabs) and by skill (click a
+row in the skill panel), and **Continue** opens the first unsolved problem in order.
+
+### Per-user progress
+
+`problem_progress` holds one document per `{userId, challengeId}`:
+
+```text
+bestScore   $max of every reported combined score
+attempts    +1 the first time each attempt is reported (re-reports never double count)
+solvedAt    set the first time bestScore ≥ 70
+```
+
+It is written from the same `POST /api/auth/progress` call that updates XP and streak, and reuses
+the `progress_events` idempotency key, so the two never disagree.
+
+```text
+status = unsolved   no attempts yet
+         attempted  attempted, bestScore < 70
+         solved     bestScore ≥ 70   (SOLVED_SCORE)
+```
+
+The skill summary (`solved / attempted / total` per skill) drives the progress bars on Home and
+the Problems page; a skill with every problem solved is marked **mastered**.
+
+### Coaching (hints, misses, reference)
+
+Every Learning response for a problem includes `coaching`, computed server-side per attempt:
+
+- **Lesson + "this problem tests"** — always shown.
+- **Hints** — one unlocks per *weak* prompt evaluation (`passed = false`). Two hints total; the
+  remaining count is shown as locked rows so the player knows help is coming.
+- **What you missed** — the evaluator's `needsImprovement` categories for the current prompt,
+  shown in the coach panel instead of under the composer.
+- **Reference prompt** — released only once the attempt is `submitted` **and** either the combined
+  score is ≥ 70 (solved) or all three generations are spent. Until then it is `null`.
+
+After a problem is scored, "Next problem →" moves to the next unsolved problem in curriculum order
+(wrapping around), and "Problems" returns to the list.
+
+### Seeding the curriculum
+
+`backend/curriculum/problems.json` is the manifest: 40 entries, each with the metadata above, a
+`difficulty`, and a `source.commons` Wikimedia Commons file title (all CC-BY/CC-BY-SA/CC0/PD).
+
+```bash
+cd backend && python -m scripts.seed_curriculum        # or pass another manifest path
+```
+
+For each entry the image is downloaded at 1280px, stored in `/Challenges/{difficulty}/` by hash,
+analyzed once, and saved with its `problem`. Re-running is free: an image whose analysis is
+current only gets its metadata refreshed, so editing titles, hints, or reference prompts in the
+manifest never costs an analyzer call. Swapping an image does. `scripts/seed_challenges.py` still
+seeds plain, un-tagged targets from Dropbox for Training and Battle.
+
+---
+
 ## 2. Image generation route
 
 `POST /api/learning/attempts/{id}/generate` (Learning) and

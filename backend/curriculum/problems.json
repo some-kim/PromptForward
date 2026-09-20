@@ -1,0 +1,682 @@
+[
+  {
+    "slug": "one-red-apple",
+    "title": "One Red Apple",
+    "skill": "subject",
+    "difficulty": "easy",
+    "tests": "Naming a single, plain subject precisely.",
+    "hints": [
+      "There is exactly one thing in the frame. Name it, then say how many.",
+      "Fruit has a variety and a colour; 'apple' alone is a guess."
+    ],
+    "referencePrompt": "A single red apple on a white background, studio photo.",
+    "source": {
+      "commons": "File:Apple With White Background.jpg",
+      "license": "CC BY-SA 4.0"
+    },
+    "order": 1
+  },
+  {
+    "slug": "golden-retriever-puppy",
+    "title": "Not Just a Dog",
+    "skill": "subject",
+    "difficulty": "easy",
+    "tests": "Breed- and age-level specificity for a living subject.",
+    "hints": [
+      "Which breed is it? Breed names carry colour, size and coat in one word.",
+      "Puppy or adult changes proportions; say which."
+    ],
+    "referencePrompt": "A cream golden retriever puppy on a leash sitting on green grass.",
+    "source": {
+      "commons": "File:Golden Retriever Puppy.JPG",
+      "license": "CC BY-SA 4.0"
+    },
+    "order": 2
+  },
+  {
+    "slug": "red-double-decker",
+    "title": "Name the Vehicle",
+    "skill": "subject",
+    "difficulty": "easy",
+    "tests": "Identifying the exact kind of a familiar object.",
+    "hints": [
+      "'A bus' matches thousands of buses. Which city is this bus famous in?",
+      "Count the decks, name the colour, and say it is night."
+    ],
+    "referencePrompt": "A red London double-decker bus on Regent Street at night, shop lights glowing.",
+    "source": {
+      "commons": "File:2016-02 red double-decker bus london 02.jpg",
+      "license": "CC BY-SA 4.0"
+    },
+    "order": 3
+  },
+  {
+    "slug": "snowy-owl",
+    "title": "Species, Not Category",
+    "skill": "subject",
+    "difficulty": "medium",
+    "tests": "Species-level naming plus one distinguishing trait.",
+    "hints": [
+      "'Bird' and even 'owl' are too broad; this one is named for its colour.",
+      "Mention the eyes: the model uses them to pick the species."
+    ],
+    "referencePrompt": "A snowy owl with white feathers and yellow eyes perched on a dead tree trunk against a deep blue sky.",
+    "source": {
+      "commons": "File:Snowy owl (53546219962).jpg",
+      "license": "Public domain"
+    },
+    "order": 4
+  },
+  {
+    "slug": "vintage-typewriter",
+    "title": "Era Words",
+    "skill": "subject",
+    "difficulty": "medium",
+    "tests": "Using era and type words to pin down an object.",
+    "hints": [
+      "Is it modern or old? One era word changes the whole design.",
+      "Name the mechanism: keys, paper, ribbon."
+    ],
+    "referencePrompt": "An antique black Underwood manual typewriter with round keys, isolated on white.",
+    "source": {
+      "commons": "File:Underwood Standard Typewriter No. 5 (colored).jpg",
+      "license": "Public domain"
+    },
+    "order": 5
+  },
+  {
+    "slug": "rusty-blue-door",
+    "title": "Colour and Wear",
+    "skill": "attributes",
+    "difficulty": "easy",
+    "tests": "Describing colour plus condition of a surface.",
+    "hints": [
+      "Colour first, then age: is the paint fresh or peeling?",
+      "The material behind the paint matters: wood, metal, stone."
+    ],
+    "referencePrompt": "An old wooden double door with peeling bright blue paint set in a whitewashed stone wall, Greek island.",
+    "source": {
+      "commons": "File:Santorin (GR), Pirgos Kallistis -- 2017 -- 2902.jpg",
+      "license": "CC BY-SA 4.0"
+    },
+    "order": 6
+  },
+  {
+    "slug": "knitted-wool-sweater",
+    "title": "Texture Talk",
+    "skill": "attributes",
+    "difficulty": "easy",
+    "tests": "Naming texture and material of fabric.",
+    "hints": [
+      "How was it made? 'Knitted' and 'cable pattern' tell the model what texture to draw.",
+      "Wool, cotton and silk look different. Which is this, and what colour?"
+    ],
+    "referencePrompt": "A cream Aran knitted wool cardigan with cable patterns laid flat on a wooden surface.",
+    "source": {
+      "commons": "File:Aran cardigan.jpg",
+      "license": "CC BY 2.0"
+    },
+    "order": 7
+  },
+  {
+    "slug": "copper-kettle",
+    "title": "Materials Have Shine",
+    "skill": "attributes",
+    "difficulty": "medium",
+    "tests": "Specifying metal type and surface finish.",
+    "hints": [
+      "Not all metal is silver. What colour does this one reflect?",
+      "Polished or dull? Finish is an attribute too."
+    ],
+    "referencePrompt": "An antique copper kettle with a curved spout and handle, photographed outdoors on the ground in sunlight.",
+    "source": {
+      "commons": "File:DAE GG copper kettle early 1800s presumably Swedish.jpg",
+      "license": "CC BY 4.0"
+    },
+    "order": 8
+  },
+  {
+    "slug": "weathered-fishing-boat",
+    "title": "Weathered",
+    "skill": "attributes",
+    "difficulty": "medium",
+    "tests": "Layering several attributes (colour, material, condition) on one subject.",
+    "hints": [
+      "List at least three attributes: colour, material, condition.",
+      "Where does the boat sit? Water, sand or dry dock changes the picture."
+    ],
+    "referencePrompt": "A small weathered wooden fishing boat with faded white paint, beached on sand under a blue sky.",
+    "source": {
+      "commons": "File:A day of fishing aground.jpg",
+      "license": "CC0"
+    },
+    "order": 9
+  },
+  {
+    "slug": "cracked-desert-earth",
+    "title": "Surface Detail",
+    "skill": "attributes",
+    "difficulty": "hard",
+    "tests": "Describing pattern and texture of a surface with no clear subject.",
+    "hints": [
+      "There is no 'thing' here, only a surface. Describe its pattern.",
+      "Dry things crack into polygons; name the shape and the colour of the soil."
+    ],
+    "referencePrompt": "Close-up of dry cracked grey mud broken into polygonal plates, top-down view, harsh sunlight.",
+    "source": {
+      "commons": "File:Desiccation-cracks hg.jpg",
+      "license": "CC BY-SA 2.5"
+    },
+    "order": 10
+  },
+  {
+    "slug": "cat-on-windowsill",
+    "title": "Where Is It?",
+    "skill": "setting",
+    "difficulty": "easy",
+    "tests": "Adding a location to a simple subject.",
+    "hints": [
+      "The subject is easy; the setting is the test. Where exactly is the cat sitting?",
+      "What is behind the cat: a wall, a window, a garden?"
+    ],
+    "referencePrompt": "A grey tabby cat with green eyes lying on a white windowsill next to an open window with trees outside.",
+    "source": {
+      "commons": "File:Kitty cat in a window sill perch.jpg",
+      "license": "CC0"
+    },
+    "order": 11
+  },
+  {
+    "slug": "coffee-on-wooden-table",
+    "title": "The Surface Underneath",
+    "skill": "setting",
+    "difficulty": "easy",
+    "tests": "Describing the surface a subject rests on.",
+    "hints": [
+      "What is the cup standing on? Material and colour of the table matter.",
+      "Is it a cafe, a kitchen or a desk? One word sets the scene."
+    ],
+    "referencePrompt": "A tall glass of latte on a white saucer on a rustic wooden table, overhead view.",
+    "source": {
+      "commons": "File:The cup of coffee on a wooden table (47939081677).jpg",
+      "license": "CC BY 2.0"
+    },
+    "order": 12
+  },
+  {
+    "slug": "lighthouse-rocky-coast",
+    "title": "Foreground and Background",
+    "skill": "setting",
+    "difficulty": "medium",
+    "tests": "Describing the environment around a landmark.",
+    "hints": [
+      "The lighthouse is only part of it; describe the ground it stands on.",
+      "Sea state and sky are part of the setting: calm, stormy, clear?"
+    ],
+    "referencePrompt": "A white lighthouse on dark volcanic cliffs above the sea, waves below, cloudy sky, Iceland.",
+    "source": {
+      "commons": "File:Lighthouse Malarrif at Snæfellsnes peninsula.jpg",
+      "license": "CC BY-SA 3.0"
+    },
+    "order": 13
+  },
+  {
+    "slug": "bike-cobblestone-alley",
+    "title": "Street Scene",
+    "skill": "setting",
+    "difficulty": "medium",
+    "tests": "Placing an object in a specific kind of street.",
+    "hints": [
+      "What is the road made of? Cobblestones look nothing like asphalt.",
+      "Mention the buildings on either side: old, narrow, colourful?"
+    ],
+    "referencePrompt": "A bicycle leaning against a wall in a narrow cobblestone alley of an old Mediterranean town with stone steps and an archway.",
+    "source": {
+      "commons": "File:Piran Kogojeva ulica to Trubarjeva ulica-1540.jpg",
+      "license": "CC BY-SA 4.0"
+    },
+    "order": 14
+  },
+  {
+    "slug": "cabin-in-snowy-forest",
+    "title": "Full Environment",
+    "skill": "setting",
+    "difficulty": "hard",
+    "tests": "Combining terrain, vegetation, season and weather.",
+    "hints": [
+      "Season and weather are both setting words: which season, and is it snowing?",
+      "Name the trees. Pine forests and birch forests look different."
+    ],
+    "referencePrompt": "A small log cabin with a chimney in a snow-dusted pine forest, overcast winter day, snowy path leading to the door.",
+    "source": {
+      "commons": "File:Whaleback Snow Survey Cabin topographic - Rogue River NF Oregon.jpg",
+      "license": "CC BY-SA 4.0"
+    },
+    "order": 15
+  },
+  {
+    "slug": "sunset-silhouette",
+    "title": "Golden Hour",
+    "skill": "lighting",
+    "difficulty": "easy",
+    "tests": "Naming time of day and its effect on the subject.",
+    "hints": [
+      "Where is the sun? Low sun makes subjects dark against the sky.",
+      "The word 'silhouette' tells the model the subject is backlit."
+    ],
+    "referencePrompt": "Silhouette of a bare dead tree against an orange sunset sky, sun low on the horizon.",
+    "source": {
+      "commons": "File:Silhouetted tree at sunset.jpg",
+      "license": "CC BY-SA 4.0"
+    },
+    "order": 16
+  },
+  {
+    "slug": "candlelit-table",
+    "title": "Warm Light Source",
+    "skill": "lighting",
+    "difficulty": "easy",
+    "tests": "Identifying a visible light source and its colour.",
+    "hints": [
+      "What is lighting the scene? Name the source, not just 'dark'.",
+      "Candlelight is warm and orange against black; say both."
+    ],
+    "referencePrompt": "A single white burning candle with a warm flame against a black background.",
+    "source": {
+      "commons": "File:Burning candle black.jpg",
+      "license": "CC BY 3.0"
+    },
+    "order": 17
+  },
+  {
+    "slug": "foggy-morning-forest",
+    "title": "Weather as Light",
+    "skill": "lighting",
+    "difficulty": "medium",
+    "tests": "Using weather words to set mood and contrast.",
+    "hints": [
+      "Fog flattens colour and hides distance. Say 'fog' or 'mist'.",
+      "Time of day still matters: dawn fog is blue, midday fog is white."
+    ],
+    "referencePrompt": "Tall pine trunks in a forest at dawn, sun rays breaking through thick morning fog, soft diffused light.",
+    "source": {
+      "commons": "File:Mortimer Forest morning fog - geograph.org.uk - 3911418.jpg",
+      "license": "CC BY-SA 2.0"
+    },
+    "order": 18
+  },
+  {
+    "slug": "neon-rainy-street",
+    "title": "Artificial Light at Night",
+    "skill": "lighting",
+    "difficulty": "medium",
+    "tests": "Describing coloured artificial light and reflections.",
+    "hints": [
+      "Night alone is not enough; name what is glowing and in what colours.",
+      "Wet ground doubles every light. Say the street is wet."
+    ],
+    "referencePrompt": "A rainy Shanghai street at night crowded with umbrellas, lit by colourful neon signs with Chinese characters.",
+    "source": {
+      "commons": "File:Advertising and Rain - Flickr - @yakobusan Jakob Montrasio.jpg",
+      "license": "CC BY 2.0"
+    },
+    "order": 19
+  },
+  {
+    "slug": "window-light-portrait",
+    "title": "Direction of Light",
+    "skill": "lighting",
+    "difficulty": "hard",
+    "tests": "Specifying the direction and softness of light on a face.",
+    "hints": [
+      "Which side of the face is lit? Say 'from the left' or 'from the right'.",
+      "Window light is soft; say 'soft' and name the window."
+    ],
+    "referencePrompt": "Portrait of a young woman in a blue top sitting beside a small round window, soft side light from the left, half her face in shadow, dark room.",
+    "source": {
+      "commons": "File:Window light portrait using a small window that raises the contrast - taken in the Streckenwärterhaus in the market town of Feucht.jpg",
+      "license": "CC BY-SA 4.0"
+    },
+    "order": 20
+  },
+  {
+    "slug": "watercolour-flowers",
+    "title": "Say the Medium",
+    "skill": "style",
+    "difficulty": "easy",
+    "tests": "Naming the artistic medium of a painted image.",
+    "hints": [
+      "This is not a photo. What was it painted with?",
+      "Watercolour bleeds and leaves white paper showing; mention that."
+    ],
+    "referencePrompt": "A watercolour painting of pink, red and white flowers with green leaves, loose brushwork on white paper.",
+    "source": {
+      "commons": "File:Pink and white flowers with leaves. Watercolour. Wellcome V0043480.jpg",
+      "license": "CC BY 4.0"
+    },
+    "order": 21
+  },
+  {
+    "slug": "pixel-art-landscape",
+    "title": "Digital Style",
+    "skill": "style",
+    "difficulty": "easy",
+    "tests": "Recognising and naming a digital art style.",
+    "hints": [
+      "Look at the edges. Blocky squares have a name.",
+      "Say 'pixel art' and describe the skyline and the lit windows."
+    ],
+    "referencePrompt": "Pixel art of a city skyline at night, dark green sky, yellow lit windows, 8-bit video game style.",
+    "source": {
+      "commons": "File:Upscaled pixel art of a city at night.png",
+      "license": "CC0"
+    },
+    "order": 22
+  },
+  {
+    "slug": "ukiyo-e-wave",
+    "title": "Art-History Style",
+    "skill": "style",
+    "difficulty": "medium",
+    "tests": "Naming a historical art tradition.",
+    "hints": [
+      "This is a woodblock print from a specific country and era.",
+      "Say 'Japanese ukiyo-e woodblock print' and describe the wave."
+    ],
+    "referencePrompt": "A Japanese ukiyo-e woodblock print of a giant wave with white foam curling over small boats, Mount Fuji in the distance.",
+    "source": {
+      "commons": "File:Great Wave off Kanagawa2.jpg",
+      "license": "Public domain"
+    },
+    "order": 23
+  },
+  {
+    "slug": "charcoal-sketch-hands",
+    "title": "Monochrome Media",
+    "skill": "style",
+    "difficulty": "medium",
+    "tests": "Describing a black-and-white drawing medium.",
+    "hints": [
+      "Not every black-and-white image is a photo. What was it drawn with?",
+      "Charcoal is smudgy and rough; pencil is fine and clean. Which is this?"
+    ],
+    "referencePrompt": "An 18th-century chalk and charcoal study of folded hands on grey-toned paper, soft shading.",
+    "source": {
+      "commons": "File:Drawing, Drawing- A study of folded hands, ca. 1760 (CH 18118545).jpg",
+      "license": "Public domain"
+    },
+    "order": 24
+  },
+  {
+    "slug": "impressionist-garden",
+    "title": "Painterly Movement",
+    "skill": "style",
+    "difficulty": "hard",
+    "tests": "Naming an art movement and its brushwork.",
+    "hints": [
+      "Look at the brushstrokes: short, visible dabs of colour belong to one movement.",
+      "Say 'impressionist oil painting' and describe the garden."
+    ],
+    "referencePrompt": "An impressionist oil painting of water lilies floating on a pond with reflections of sky, short visible brushstrokes, greens, blues and pinks.",
+    "source": {
+      "commons": "File:Claude Monet - Seerosen.jpg",
+      "license": "Public domain"
+    },
+    "order": 25
+  },
+  {
+    "slug": "close-up-eye",
+    "title": "Extreme Close-Up",
+    "skill": "composition",
+    "difficulty": "easy",
+    "tests": "Naming shot distance for a macro subject.",
+    "hints": [
+      "How much of the frame does the subject fill? Say 'extreme close-up' or 'macro'.",
+      "Colour of the iris and the reflection in it are worth a word each."
+    ],
+    "referencePrompt": "Extreme close-up macro photo of a human eye with a blue-green iris, eyelashes and eyebrow visible.",
+    "source": {
+      "commons": "File:A close up of a blue-green human iris (with visible freckle)..jpg",
+      "license": "CC BY-SA 4.0"
+    },
+    "order": 26
+  },
+  {
+    "slug": "aerial-road-forest",
+    "title": "Camera Angle",
+    "skill": "composition",
+    "difficulty": "medium",
+    "tests": "Specifying a top-down / aerial viewpoint.",
+    "hints": [
+      "Where is the camera? This was shot from directly above.",
+      "Say 'aerial top-down view' and describe how the road cuts the frame."
+    ],
+    "referencePrompt": "Aerial top-down drone view of a road curving through a dense green pine forest.",
+    "source": {
+      "commons": "File:Poland forests.jpg",
+      "license": "CC BY-SA 4.0"
+    },
+    "order": 27
+  },
+  {
+    "slug": "long-corridor-symmetry",
+    "title": "Symmetry and Depth",
+    "skill": "composition",
+    "difficulty": "medium",
+    "tests": "Describing symmetric, centred, vanishing-point framing.",
+    "hints": [
+      "The camera sits dead centre. Say 'symmetrical' and 'centred'.",
+      "Lines converging in the distance have a name: vanishing point."
+    ],
+    "referencePrompt": "A long symmetrical colonnaded corridor with repeating arches on both sides converging to a central vanishing point, warm stone.",
+    "source": {
+      "commons": "File:Corridor of Vizianagaram Hall, University of Allahabad, Prayagraj, India.jpg",
+      "license": "CC BY 4.0"
+    },
+    "order": 28
+  },
+  {
+    "slug": "rule-of-thirds-boat",
+    "title": "Rule of Thirds",
+    "skill": "composition",
+    "difficulty": "hard",
+    "tests": "Placing a small subject off-centre in a large empty space.",
+    "hints": [
+      "The subject is tiny and off to one side. Say which side and how small.",
+      "Negative space is the point: describe the empty water and sky."
+    ],
+    "referencePrompt": "A single moored sailboat in dense fog on a calm grey lake, placed right of centre, minimalist with lots of negative space.",
+    "source": {
+      "commons": "File:Moored - Flickr - laijos.jpg",
+      "license": "CC BY 2.0"
+    },
+    "order": 29
+  },
+  {
+    "slug": "low-angle-skyscraper",
+    "title": "Low Angle",
+    "skill": "composition",
+    "difficulty": "hard",
+    "tests": "Describing an upward-looking, converging-lines viewpoint.",
+    "hints": [
+      "The camera is on the ground looking up. Say 'low angle, looking up'.",
+      "Buildings seen from below lean inward; mention the converging lines."
+    ],
+    "referencePrompt": "Low-angle photo looking straight up at glass skyscrapers converging toward a blue sky with clouds.",
+    "source": {
+      "commons": "File:35 Skyscrapers looking up - city view in Raffles Place square in Singapore.jpg",
+      "license": "CC BY 3.0"
+    },
+    "order": 30
+  },
+  {
+    "slug": "two-dogs-running-beach",
+    "title": "Two Subjects",
+    "skill": "multi_subject",
+    "difficulty": "easy",
+    "tests": "Describing two subjects and what they are doing together.",
+    "hints": [
+      "Count them and describe each one; two dogs can look very different.",
+      "What are they doing, and where? Action plus place."
+    ],
+    "referencePrompt": "Two dogs running side by side through shallow water on a beach, one black-and-white, one brown-and-white.",
+    "source": {
+      "commons": "File:Dogs Playing on the Beach in Santa Cruz (8322992478).jpg",
+      "license": "CC BY 2.0"
+    },
+    "order": 31
+  },
+  {
+    "slug": "fruit-bowl-still-life",
+    "title": "Still Life Inventory",
+    "skill": "multi_subject",
+    "difficulty": "medium",
+    "tests": "Listing several distinct objects and their arrangement.",
+    "hints": [
+      "List every fruit you can see; the evaluator checks each one.",
+      "What holds them, and what is beside them? Cloth, jug and table finish the scene."
+    ],
+    "referencePrompt": "A post-impressionist still life painting of oranges and apples on a white cloth beside a milk jug on a wooden table.",
+    "source": {
+      "commons": "File:Paul Cézanne, Still Life with Milk Jug and Fruit, c. 1900, NGA 53123.jpg",
+      "license": "CC0"
+    },
+    "order": 32
+  },
+  {
+    "slug": "market-stall-vendor",
+    "title": "People and Things",
+    "skill": "multi_subject",
+    "difficulty": "medium",
+    "tests": "Combining a person with the objects around them.",
+    "hints": [
+      "Describe the person and what they sell as separate subjects.",
+      "The relation matters: standing behind, holding, arranging."
+    ],
+    "referencePrompt": "A woman vendor sitting behind an outdoor market stall piled with bananas, cabbages and colourful vegetables, India.",
+    "source": {
+      "commons": "File:India - Fruit stall - 7170.jpg",
+      "license": "CC BY-SA 3.0"
+    },
+    "order": 33
+  },
+  {
+    "slug": "chess-game-two-players",
+    "title": "Interaction",
+    "skill": "multi_subject",
+    "difficulty": "hard",
+    "tests": "Describing two people and the object between them.",
+    "hints": [
+      "Two people plus a board makes three subjects. Describe all three.",
+      "Say what each person is doing: reaching, thinking, watching."
+    ],
+    "referencePrompt": "Two elderly men in coats playing chess on a small table on green chairs in a Paris park, one reaching for a piece.",
+    "source": {
+      "commons": "File:Men in Paris park playing chess.jpg",
+      "license": "CC BY 2.0"
+    },
+    "order": 34
+  },
+  {
+    "slug": "busy-crosswalk",
+    "title": "Crowd Scene",
+    "skill": "multi_subject",
+    "difficulty": "hard",
+    "tests": "Summarising many subjects without listing every one.",
+    "hints": [
+      "You cannot name everyone; describe the crowd as a whole and one or two standouts.",
+      "Say where the crowd is and what it is doing: crossing, waiting, walking."
+    ],
+    "referencePrompt": "A crowd of pedestrians with umbrellas crossing Shibuya crossing in Tokyo on a rainy day, tall buildings behind.",
+    "source": {
+      "commons": "File:Shibuya Crossing (53084067820).jpg",
+      "license": "CC BY 2.0"
+    },
+    "order": 35
+  },
+  {
+    "slug": "yellow-rubber-duck",
+    "title": "Ten Words or Fewer",
+    "skill": "concision",
+    "difficulty": "easy",
+    "tests": "Hitting every criterion with a very short prompt.",
+    "hints": [
+      "Every criterion fits in a handful of words: subject, colour, size, where.",
+      "Drop 'a picture of', 'I want', 'please'. They cost tokens and add nothing."
+    ],
+    "referencePrompt": "Giant yellow rubber duck floating in a city harbour.",
+    "source": {
+      "commons": "File:Florentijn Hofman Rubber Duck exhibited by WORM (Rotterdam), June 29, 2008 (2).jpg",
+      "license": "CC BY 2.0"
+    },
+    "order": 36
+  },
+  {
+    "slug": "red-bicycle-white-wall",
+    "title": "Cut the Filler",
+    "skill": "concision",
+    "difficulty": "easy",
+    "tests": "Removing filler words while keeping every fact.",
+    "hints": [
+      "Colour + object + where it is. Nothing else is needed.",
+      "Adjectives beat sentences: 'red bicycle, white wall' says it all."
+    ],
+    "referencePrompt": "Red road bicycle leaning against a white wall.",
+    "source": {
+      "commons": "File:Triban 500 red on wall.jpg",
+      "license": "CC0"
+    },
+    "order": 37
+  },
+  {
+    "slug": "hot-air-balloons-dawn",
+    "title": "Dense Prompt",
+    "skill": "concision",
+    "difficulty": "medium",
+    "tests": "Covering setting, lighting and several subjects in one tight sentence.",
+    "hints": [
+      "Pack each criterion into a single noun phrase: 'colourful hot air balloons, dawn sky, open field'.",
+      "Skip the story. The model does not need to know why the balloons are there."
+    ],
+    "referencePrompt": "Dozens of hot air balloons rising over the rocky valleys of Cappadocia at dawn.",
+    "source": {
+      "commons": "File:Hot air balloon start in Cappadocia 2014.jpg",
+      "license": "CC BY-SA 3.0"
+    },
+    "order": 38
+  },
+  {
+    "slug": "tokyo-alley-lanterns",
+    "title": "Everything, Briefly",
+    "skill": "concision",
+    "difficulty": "hard",
+    "tests": "Complete coverage of a complex scene under a tight word budget.",
+    "hints": [
+      "Aim under 25 words: place, time, light, main objects.",
+      "Every word should add a detail the evaluator can check."
+    ],
+    "referencePrompt": "Narrow Shinjuku alley at night, red paper lantern, glowing izakaya signs, hanging plants.",
+    "source": {
+      "commons": "File:Tokyo Life - Shinjuku alley (Explored) - Flickr - Franck Michel.jpg",
+      "license": "CC BY 2.0"
+    },
+    "order": 39
+  },
+  {
+    "slug": "mountain-lake-reflection",
+    "title": "Final: Postcard",
+    "skill": "concision",
+    "difficulty": "hard",
+    "tests": "A capstone: every skill at once, in as few words as possible.",
+    "hints": [
+      "Subject, setting, lighting, composition each get a phrase, no more.",
+      "Mirror-still water is the composition trick here; say 'reflection'."
+    ],
+    "referencePrompt": "Snow-capped mountains reflected in a still turquoise alpine lake, pine trees on the shore, daylight.",
+    "source": {
+      "commons": "File:Lake Kinney mit Mount Whitehorn.jpg",
+      "license": "CC BY 3.0"
+    },
+    "order": 40
+  }
+]
