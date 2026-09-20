@@ -9,7 +9,7 @@
   --accent: #0a0a0a;
   --pass: #1f9d55;
   --fail: #d92d20;
-  --blue: #1f4fd8;
+  --violet: #6d28d9;
   --red: #d92d20;
   --yellow: #b07800;
   --green: #1f9d55;
@@ -305,7 +305,7 @@ h2 {
 }
 
 .logo-accent {
-  color: var(--blue);
+  color: var(--violet);
 }
 
 .app-header p {
@@ -329,9 +329,9 @@ textarea {
 }
 
 button {
-  background: var(--blue);
+  background: var(--violet);
   color: #fff;
-  border: 1px solid var(--blue);
+  border: 1px solid var(--violet);
   border-radius: 2px;
   padding: 0.6rem 1.2rem;
   font: inherit;
@@ -614,7 +614,7 @@ button.link {
 }
 
 .stat.level {
-  color: var(--blue);
+  color: var(--violet);
 }
 
 .difficulty-bar {
@@ -1022,8 +1022,8 @@ button.big {
   gap: 0.25rem;
   padding: 1.1rem 1rem;
   border-radius: 2px;
-  border: 1px solid var(--blue);
-  background: var(--blue);
+  border: 1px solid var(--violet);
+  background: var(--violet);
   color: #fff;
   font-family: var(--display);
   font-size: 1.15rem;
@@ -1127,7 +1127,7 @@ figcaption {
 }
 
 .composer:focus-within {
-  border-color: var(--blue);
+  border-color: var(--violet);
 }
 
 .composer.disabled {
@@ -1182,8 +1182,8 @@ button.send {
   height: 2.6rem;
   padding: 0;
   border-radius: 50%;
-  background: var(--blue);
-  border-color: var(--blue);
+  background: var(--violet);
+  border-color: var(--violet);
 }
 
 button.send.pass {

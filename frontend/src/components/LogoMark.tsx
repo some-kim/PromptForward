@@ -6,19 +6,31 @@ export function LogoMark() {
       role="img"
       aria-label="PromptForward logo"
     >
-      <g stroke="#1f2024" strokeWidth="3" strokeLinejoin="round">
-        <path
-          d="M8 14a6 6 0 0 1 6-6h36a6 6 0 0 1 6 6v24a6 6 0 0 1-6 6H28l-12 10v-10h-2a6 6 0 0 1-6-6z"
-          fill="#1a73e8"
-        />
-        <path
-          className="logo-arrow"
-          d="M17 22h17v-7l13 11-13 11v-7H17z"
-          fill="#f9ab00"
-        />
-      </g>
-      <circle cx="50" cy="38" r="3" fill="#34a853" />
-      <circle cx="21" cy="14" r="3" fill="#ea4335" />
+      <rect x="4" y="10" width="46" height="40" fill="var(--violet)" />
+      <rect
+        x="4"
+        y="10"
+        width="46"
+        height="40"
+        fill="none"
+        stroke="var(--text)"
+        strokeWidth="3"
+      />
+      <path
+        className="logo-arrow"
+        d="M15 30h14V20l14 10-14 10V30z"
+        fill="#fff"
+      />
+      <rect x="50" y="24" width="10" height="10" fill="var(--spark)" />
+      <rect
+        x="50"
+        y="24"
+        width="10"
+        height="10"
+        fill="none"
+        stroke="var(--text)"
+        strokeWidth="3"
+      />
     </svg>
   );
 }
