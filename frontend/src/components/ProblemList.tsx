@@ -11,11 +11,13 @@ import { nextProblem, toChallenge } from "../problems";
 import type { ProgressSummary } from "../progress";
 import { SkillProgress } from "./SkillProgress";
 import { StatStrip } from "./StatStrip";
+import { LearnHeader, type LearnTab } from "./LearnHeader";
 
 type Props = {
   problemSet: ProblemSet | null;
   busy: boolean;
   onStart: (challenge: Challenge) => void;
+  onTab: (tab: LearnTab) => void;
   onExit: () => void;
   progress: ProgressSummary;
 };
@@ -30,6 +32,7 @@ export function ProblemList({
   problemSet,
   busy,
   onStart,
+  onTab,
   onExit,
   progress,
 }: Props) {
@@ -46,12 +49,7 @@ export function ProblemList({
 
   return (
     <section className="home problems">
-      <header className="mode-header">
-        <h2>Problem Set</h2>
-        <button className="link" onClick={onExit}>
-          ← Home
-        </button>
-      </header>
+      <LearnHeader tab="problems" onTab={onTab} onExit={onExit} />
 
       <StatStrip progress={progress} />
 

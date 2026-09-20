@@ -23,6 +23,7 @@ import { TrainingLobby } from "./components/TrainingLobby";
 import { Splash } from "./components/Splash";
 import { pickRandom } from "./pick";
 import { nextProblem, toChallenge } from "./problems";
+import type { LearnTab } from "./components/LearnHeader";
 import { summarize } from "./progress";
 import { getDifficulty, setDifficulty } from "./player";
 import { getToken, setToken } from "./session";
@@ -40,7 +41,7 @@ const AGENT_LINES: Record<View["name"] | "signedOut", string[]> = {
     "One account keeps your streak, your saved CO\u2082, and your level.",
   ],
   home: [
-    "Hello. Work through the Problem Set skill by skill, or pick Training for a random target.",
+    "Hello. Learn works through the Problem Set skill by skill, or hands you a random target.",
     "New here? Start with the Problem Set — each problem teaches one prompt-writing habit.",
   ],
   problems: [
@@ -147,6 +148,11 @@ export default function App() {
   }, [invitedGameId, name, playerId, user, view.name]);
 
   const showError = useCallback((message: string) => setError(message), []);
+  const openLearnTab = useCallback(
+    (tab: LearnTab) =>
+      setView(tab === "problems" ? { name: "problems" } : { name: "train" }),
+    [],
+  );
   const endSplash = useCallback(() => setSplashDone(true), []);
 
   const scored = useCallback(
@@ -304,8 +310,7 @@ export default function App() {
         {user && view.name === "home" && (
           <Home
             busy={busy}
-            onTrain={() => setView({ name: "train" })}
-            onProblems={() => setView({ name: "problems" })}
+            onLearn={() => setView({ name: "problems" })}
             onBattle={startBattle}
             skills={problemSet?.skills ?? null}
           />
@@ -316,6 +321,7 @@ export default function App() {
             problemSet={problemSet}
             busy={busy}
             onStart={startLearning}
+            onTab={openLearnTab}
             onExit={exit}
             progress={progress}
           />
@@ -328,6 +334,7 @@ export default function App() {
             onDifficultyChange={changeDifficulty}
             busy={busy}
             onStart={startLearning}
+            onTab={openLearnTab}
             onExit={exit}
             onError={showError}
             progress={progress}

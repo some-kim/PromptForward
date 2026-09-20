@@ -3,6 +3,7 @@ import { DIFFICULTIES, api, type Challenge, type Difficulty } from "../api";
 import { pickRandom } from "../pick";
 import { StatStrip } from "./StatStrip";
 import type { ProgressSummary } from "../progress";
+import { LearnHeader, type LearnTab } from "./LearnHeader";
 
 const BLURB: Record<Difficulty, string> = {
   easy: "One clear subject.",
@@ -15,6 +16,7 @@ type TrainingLobbyProps = {
   onDifficultyChange: (difficulty: Difficulty) => void;
   busy: boolean;
   onStart: (challenge: Challenge) => void;
+  onTab: (tab: LearnTab) => void;
   onExit: () => void;
   onError: (message: string) => void;
   progress: ProgressSummary;
@@ -25,6 +27,7 @@ export function TrainingLobby({
   onDifficultyChange,
   busy,
   onStart,
+  onTab,
   onExit,
   onError,
   progress,
@@ -50,12 +53,7 @@ export function TrainingLobby({
 
   return (
     <section className="home">
-      <header className="mode-header">
-        <h2>Prompt Training</h2>
-        <button className="link" onClick={onExit}>
-          ← Home
-        </button>
-      </header>
+      <LearnHeader tab="random" onTab={onTab} onExit={onExit} />
 
       <StatStrip progress={progress} />
 

@@ -1797,50 +1797,34 @@ button.big:hover:not(:disabled) {
 
 /* ---- Problem set ------------------------------------------------------- */
 
-.marquee,
-.marquee-notes {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.learn-header {
+  flex-wrap: wrap;
 }
 
-.mode-word.solve,
-.marquee-notes .note.solve {
-  --mode: var(--violet);
+.learn-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-right: auto;
 }
 
-.ladder .rungs path {
-  stroke: var(--violet);
-  opacity: 0;
+.learn-tabs .tab {
+  padding: 0.35rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--muted);
+  font-family:
+    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
 }
 
-.ladder .checks circle {
-  fill: var(--violet);
-  opacity: 0;
-}
-
-.mode-word.solve:hover:not(:disabled) .rungs path,
-.mode-word.solve:focus-visible .rungs path,
-.mode-word.solve:hover:not(:disabled) .checks circle,
-.mode-word.solve:focus-visible .checks circle {
-  animation: rung-rise 0.6s ease-out forwards;
-}
-
-.ladder .checks circle:nth-child(2) {
-  animation-delay: 0.15s;
-}
-
-.ladder .checks circle:nth-child(3) {
-  animation-delay: 0.3s;
-}
-
-@keyframes rung-rise {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 0.85;
-    transform: none;
-  }
+.learn-tabs .tab.selected {
+  border-color: var(--leaf);
+  color: var(--text);
+  background: color-mix(in srgb, var(--leaf) 14%, transparent);
 }
 
 .skill-progress {
