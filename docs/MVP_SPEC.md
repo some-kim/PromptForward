@@ -1120,7 +1120,7 @@ Do not overbuild the API.
 
 ## Splash and Sign-In UI
 
-Every load opens on a full-screen splash: the logo mark, the wordmark, and the tagline on the eggshell background, fading in and clearing itself after ~1.6s (or on click). It also covers the session restore, so a returning player never sees a flash of the login form. Afterwards a signed-out player gets a centered sign-in card — username, password, one button, and a link that toggles between logging in and creating an account — and a signed-in player goes straight to the lobby, with their name, avatar, and a log-out link in the top-right of the header.
+Every load opens on a full-screen splash: the logo mark, the wordmark, and the tagline on the dark background, fading in and clearing itself after ~1.6s (or on click). It also covers the session restore, so a returning player never sees a flash of the login form. Afterwards a signed-out player gets a centered sign-in card — username, password, one button, and a link that toggles between logging in and creating an account — and a signed-in player goes straight to the lobby, with their name, avatar, and a log-out link in the top-right of the header.
 
 ---
 
@@ -1133,7 +1133,7 @@ A game-style lobby, not a grid of every challenge. The player sets a difficulty 
 │ [avatar] Kris                                 │
 │ ┌──────────────────┐ ┌──────────────────────┐ │
 │ │ Prompt Training  │ │ Prompt Royale        │ │
-│ │ (calm, eggshell) │ │ (loud, dark, gamey)  │ │
+│ │ (calm, navy)     │ │ (loud, electric blue)│ │
 │ │ target + arrow + │ │ PIN pad + players +  │ │
 │ │ heatmap chips    │ │ round counter        │ │
 │ │ [ Start training]│ │ [ Enter the royale ] │ │
@@ -1141,7 +1141,7 @@ A game-style lobby, not a grid of every challenge. The player sets a difficulty 
 └───────────────────────────────────────────────┘
 ```
 
-- The lobby offers two products side by side, each panel previewing its own look so the choice is visual: **Prompt Training** (the solo teaching mode, rendered in the calm eggshell style) and **Prompt Royale** (the multiplayer mode, rendered in a loud Jackbox/Quiplash-style dark card). The preview inside each panel is a static mock built from the mode's own UI pieces, not a live attempt.
+- The lobby offers two products side by side, each panel previewing its own look so the choice is visual: **Prompt Training** (the solo teaching mode, rendered in the calmer navy style) and **Prompt Royale** (the multiplayer mode, rendered in a louder electric-blue card with a PIN pad and player tags). The preview inside each panel is a static mock built from the mode's own UI pieces, not a live attempt.
 - The home screen carries nothing but the two panels: difficulty, the progress pills, and the example image all belong to Prompt Training and appear only there.
 - Difficulty is a player setting stored in the browser; it defaults to `easy`. Prompt Royale plays at whatever difficulty training last set.
 - The target is never shown before a mode starts: the training screen shows a static illustrative example of that difficulty (bundled in `frontend/public/examples/`), never a real target, so nobody can pre-read the image and pre-write a prompt. Inside a mode the target is visible as the reference to describe.
@@ -1162,7 +1162,9 @@ X-ray comparison: once a Learning attempt has a generated image, the target and 
 
 Battle result screen: while a game is active no scores are shown — after a player generates, the panel only confirms the image is in and says scores are revealed once the opponent finishes. When the game completes, both players' generated images are shown side by side in outlined cards with their score breakdown and prompt, and the winner's card is highlighted in green with a "winner" label (a draw is labelled below the cards).
 
-Visual style: minimal and flat on an eggshell-white background (`#f4f1ea`), dark text, thin borders, no gradients or shadows. The page content sits on an eggshell card outlined in dark, and the area around it tiles a light cartoon doodle pattern (`frontend/public/doodles.svg`: sparkles, stars, squiggles, picture frames) in Google's palette to signal creativity without competing with the text. Accents use Google's palette (blue `#1a73e8`, red `#ea4335`, yellow `#f9ab00`, green `#34a853`): a cartoon speech-bubble-and-spark logo mark, a two-tone "Prompt/Forward" wordmark in Fredoka, colored difficulty tabs, and solid mode buttons (blue Learning, yellow Battle) with the same dark outline as the logo. The player name and avatar sit in the top-right of the header. Body type is Plus Jakarta Sans from Google Fonts at a large base size, and corners are rounded, so the app reads at a glance for all ages.
+Visual style: a dark technology look — near-black background (`#04060e`) with a faint blue wire grid (`frontend/public/grid.svg`) and a blue glow rising from the bottom, light text (`#eaf4ff`), thin blue-grey hairline borders, and strictly rectangular corners (2px) on every panel, button, tab, and input. Accents are blue: electric cyan `#4cc3ff` for highlights and the Royale card, `#2f9fff` for primary buttons, with green `#35d39a`, amber `#ffc441`, and red `#ff5a6e` reserved for pass/partial/fail signals. The player name and avatar sit in the top-right of the header, the wordmark is Fredoka, and body type is Plus Jakarta Sans at a large base size.
+
+AI agent: a blue robot mascot named **Forward** (`frontend/public/agent.png`) sits in a bar directly under the header on every screen, hovering gently, with a short line of guidance beside it. The line is chosen by the current screen — a greeting and the choice of products on home, difficulty advice on training, how the arrow and heatmap work inside an attempt, the quality-per-token rule in Royale — and rotates through that screen's two or three lines every few seconds. The agent is purely a guide: it never scores, never calls a model, and its hovering stops under `prefers-reduced-motion`.
 
 ---
 

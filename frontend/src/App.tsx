@@ -10,6 +10,7 @@ import {
   type Session,
   type User,
 } from "./api";
+import { Agent } from "./components/Agent";
 import { GameMode } from "./components/GameMode";
 import { Home } from "./components/Home";
 import { LearningMode } from "./components/LearningMode";
@@ -27,6 +28,30 @@ type View =
   | { name: "train" }
   | { name: "learning"; challenge: Challenge; attempt: Attempt }
   | { name: "game"; game: Game };
+
+const AGENT_LINES: Record<View["name"] | "signedOut", string[]> = {
+  signedOut: [
+    "Hello. I am Forward, your prompt coach — sign in and I will walk you through it.",
+    "One account keeps your streak, your saved CO\u2082, and your level.",
+  ],
+  home: [
+    "Hello. Pick Prompt Training to practice solo, or Prompt Royale to play head to head.",
+    "New here? Start with Training — I grade your prompt before a single image is generated.",
+  ],
+  train: [
+    "Choose a difficulty and I will pull a random target for you.",
+    "Easy is one clear subject. Hard is many subjects, odd styles, precise composition.",
+  ],
+  learning: [
+    "Describe the target as precisely as you can, then press the arrow and I will score it.",
+    "Green boxes are details you covered, red pulses are details you missed.",
+    "Fewer words for the same coverage means a better efficiency score.",
+  ],
+  game: [
+    "Same target for everyone, one image each. Best quality per token wins.",
+    "Scores stay hidden until both players have finished.",
+  ],
+};
 
 function gameIdFromHash(): string | null {
   const match = location.hash.match(/^#\/game\/(\w+)$/);
@@ -225,6 +250,12 @@ export default function App() {
         </h1>
         <p>Write better prompts with fewer wasted generations.</p>
       </header>
+
+      <Agent
+        key={user ? view.name : "signedOut"}
+        name="Forward"
+        lines={user ? AGENT_LINES[view.name] : AGENT_LINES.signedOut}
+      />
 
       {!user && <SignIn onSignedIn={signedIn} />}
 
