@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ApiError, BATTLE_LIMITS, api, type Battle } from "../api";
+import { BattleStandings } from "./BattleStandings";
 
 type Props = {
   playerId: string;
@@ -135,6 +136,8 @@ export function BattleLobby({
       </div>
 
       {error && <p className="error">{error}</p>}
+
+      <BattleStandings playerId={playerId} />
     </section>
   );
 }

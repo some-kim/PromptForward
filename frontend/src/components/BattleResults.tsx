@@ -2,9 +2,11 @@ import { useState } from "react";
 import type { Battle, BattlePlayer, BattleRound } from "../api";
 import { prefersReducedMotion } from "../motion";
 import { BattleReveal } from "./BattleReveal";
+import { BattleSeries } from "./BattleStandings";
 
 type Props = {
   battle: Battle;
+  playerId: string;
   onRematch: () => void;
   onExit: () => void;
 };
@@ -54,7 +56,7 @@ function Side({
   );
 }
 
-export function BattleResults({ battle, onRematch, onExit }: Props) {
+export function BattleResults({ battle, playerId, onRematch, onExit }: Props) {
   const me = battle.players.find((player) => player.isYou);
   const opponent = battle.players.find((player) => !player.isYou);
   const outcome = battle.winner ?? "draw";
@@ -81,6 +83,9 @@ export function BattleResults({ battle, onRematch, onExit }: Props) {
             </div>
           ))}
         </div>
+        {opponent && (
+          <BattleSeries playerId={playerId} opponent={opponent.displayName} />
+        )}
       </div>
 
       <div className="round-results">

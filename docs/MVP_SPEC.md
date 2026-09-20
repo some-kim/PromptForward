@@ -602,6 +602,15 @@ Result Score
 
 Highest average final score wins. Tie-breaks in order: higher Result Quality, then fewer prompt tokens. If still tied, `winnerUserId = null` (draw).
 
+### Standings
+
+`GET /api/standings?userId=&limit=` returns the leaderboard, the viewer's own line, and the viewer's head-to-head record against every player they have battled.
+
+- Derived from the completed games themselves, walked oldest first, rather than a running tally kept elsewhere — a battle that is replayed or removed can never leave the records disagreeing with the games behind them.
+- Per player: battles, W–L–D, win rate, average final score, current win streak, and best win streak. A loss **or** a draw ends a streak.
+- Leaderboard order: wins, then win rate, then average score, then display name.
+- Head-to-head is only ever the viewer's own, and like every other battle response it names players by display name: `userId`s stay on the server.
+
 ---
 
 ## Image Generation

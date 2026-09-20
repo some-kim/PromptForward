@@ -1060,6 +1060,133 @@ class TestBattleImages:
         assert oversized.status_code == 422
 
 
+async def completed_battle(
+    *,
+    players: list[tuple[str, str]],
+    totals: dict[str, float],
+    winner: str | None,
+    finished_at,
+) -> None:
+    """A battle already in the books, written the way finish_if_ready leaves one."""
+    from app import db
+    from app.services.battles import new_code
+
+    await db.games().insert_one(
+        {
+            "code": new_code(),
+            "hostUserId": players[0][0],
+            "settings": {"durationSeconds": 120, "imagesPerPlayer": 2},
+            "players": [
+                {
+                    "userId": user_id,
+                    "displayName": name,
+                    "challengeIds": [],
+                    "usedDefaults": True,
+                    "attemptIds": [],
+                }
+                for user_id, name in players
+            ],
+            "challengeIds": [],
+            "status": "completed",
+            "winnerUserId": winner,
+            "scoreboard": [
+                {"userId": user_id, "total": totals[user_id], "resultQuality": 0, "promptTokens": 0}
+                for user_id, _ in players
+            ],
+            "createdAt": finished_at,
+            "startedAt": finished_at,
+            "endsAt": finished_at,
+            "completedAt": finished_at,
+        }
+    )
+
+
+class TestStandings:
+    async def test_leaderboard_ranks_by_wins_and_tracks_streaks(self, client):
+        from app.services.battles import now
+
+        kris, sam = str(uuid.uuid4()), str(uuid.uuid4())
+        start = now() - timedelta(hours=3)
+        for index, winner in enumerate([kris, kris, sam]):
+            await completed_battle(
+                players=[(kris, "Kris"), (sam, "Sam")],
+                totals={kris: 80, sam: 40},
+                winner=winner,
+                finished_at=start + timedelta(minutes=index),
+            )
+
+        standings = (await client.get("/api/standings", params={"userId": kris})).json()
+        first, second = standings["leaderboard"]
+
+        assert (first["displayName"], first["wins"], first["losses"]) == ("Kris", 2, 1)
+        assert first["isYou"] is True
+        assert first["winRate"] == pytest.approx(66.7)
+        assert first["averageScore"] == pytest.approx(80)
+        # The last battle was a loss, so the streak is spent but the best run stands.
+        assert (first["currentStreak"], first["bestStreak"]) == (0, 2)
+
+        assert (second["displayName"], second["wins"]) == ("Sam", 1)
+        assert (second["currentStreak"], second["bestStreak"]) == (1, 1)
+
+    async def test_head_to_head_is_read_from_the_viewers_side(self, client):
+        from app.services.battles import now
+
+        kris, sam, ada = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
+        finished = now() - timedelta(hours=1)
+        await completed_battle(
+            players=[(kris, "Kris"), (sam, "Sam")],
+            totals={kris: 70, sam: 50},
+            winner=kris,
+            finished_at=finished,
+        )
+        await completed_battle(
+            players=[(kris, "Kris"), (ada, "Ada")],
+            totals={kris: 30, ada: 90},
+            winner=ada,
+            finished_at=finished + timedelta(minutes=1),
+        )
+
+        mine = (await client.get("/api/standings", params={"userId": kris})).json()
+        assert {one["opponent"]: (one["wins"], one["losses"]) for one in mine["headToHead"]} == {
+            "Sam": (1, 0),
+            "Ada": (0, 1),
+        }
+
+        theirs = (await client.get("/api/standings", params={"userId": sam})).json()
+        assert theirs["headToHead"] == [
+            {
+                "opponent": "Kris",
+                "wins": 0,
+                "losses": 1,
+                "draws": 0,
+                "lastResult": "loss",
+                "lastPlayedAt": theirs["headToHead"][0]["lastPlayedAt"],
+            }
+        ]
+
+    async def test_a_battle_counts_once_it_has_finished(self, client):
+        from app.services.battles import now
+
+        await seed_defaults(client, 4)
+        battle_id, host, _ = await quick_battle(client, images_per_player=2)
+
+        before = (await client.get("/api/standings", params={"userId": host})).json()
+        assert before["leaderboard"] == [] and before["you"] is None
+
+        from app import db
+
+        await db.games().update_one(
+            {"_id": ObjectId(battle_id)}, {"$set": {"endsAt": now() - timedelta(seconds=30)}}
+        )
+        assert (await client.get(f"/api/games/{battle_id}", params={"userId": host})).json()[
+            "status"
+        ] == "completed"
+
+        after = (await client.get("/api/standings", params={"userId": host})).json()
+        assert after["you"]["battles"] == 1
+        assert len(after["leaderboard"]) == 2
+
+
 class TestAccounts:
     async def test_signup_login_and_progress(self, client):
         signup = await client.post(

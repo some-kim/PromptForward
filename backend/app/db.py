@@ -58,6 +58,8 @@ async def ensure_indexes() -> None:
     await _replace_index(
         games(), "code", unique=True, partialFilterExpression={"code": {"$type": "string"}}
     )
+    # The standings walk reads completed battles in the order they finished.
+    await games().create_index([("status", 1), ("completedAt", 1)])
     await user_images().create_index("userId")
 
 

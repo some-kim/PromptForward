@@ -134,7 +134,12 @@ export function BattleMode({
       )}
 
       {battle.status === "completed" && (
-        <BattleResults battle={battle} onRematch={onRematch} onExit={onExit} />
+        <BattleResults
+          battle={battle}
+          playerId={playerId}
+          onRematch={onRematch}
+          onExit={onExit}
+        />
       )}
     </section>
   );

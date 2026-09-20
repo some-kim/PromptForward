@@ -1784,6 +1784,87 @@ button.big:hover:not(:disabled) {
   margin: 0;
 }
 
+.standings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.standings-card {
+  display: grid;
+  gap: 0.7rem;
+  align-content: start;
+  padding: 1.1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+}
+
+.standings-card h3 {
+  margin: 0;
+}
+
+.standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.standings-table th {
+  text-align: left;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  padding-bottom: 0.35rem;
+}
+
+.standings-table td {
+  padding: 0.35rem 0.5rem 0.35rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.standings-table .is-you td {
+  font-weight: 700;
+}
+
+.head-to-head {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.head-to-head li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--line);
+}
+
+.h2h-record {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.h2h-record.leading {
+  color: var(--green);
+}
+
+.h2h-record.trailing {
+  color: var(--red);
+}
+
+.h2h-record.level {
+  color: var(--muted);
+}
+
 .setting {
   display: grid;
   gap: 0.35rem;
@@ -2022,6 +2103,18 @@ button.big:hover:not(:disabled) {
   flex-wrap: wrap;
   justify-content: center;
   gap: 1.5rem;
+}
+
+.series {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  margin: 0;
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .total {

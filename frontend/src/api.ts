@@ -126,6 +126,36 @@ export type Battle = {
   players: BattlePlayer[];
 };
 
+export type StandingsEntry = {
+  rank?: number;
+  displayName: string;
+  isYou: boolean;
+  battles: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  winRate: number;
+  averageScore: number;
+  currentStreak: number;
+  bestStreak: number;
+  lastPlayedAt: string | null;
+};
+
+export type HeadToHead = {
+  opponent: string;
+  wins: number;
+  losses: number;
+  draws: number;
+  lastResult: "win" | "loss" | "draw" | null;
+  lastPlayedAt: string | null;
+};
+
+export type Standings = {
+  leaderboard: StandingsEntry[];
+  you: StandingsEntry | null;
+  headToHead: HeadToHead[];
+};
+
 export type LibraryImage = {
   id: string;
   type: string;
@@ -282,6 +312,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ userId, prompt }),
     }),
+
+  getStandings: (userId: string) =>
+    request<Standings>(`/api/standings?userId=${encodeURIComponent(userId)}`),
 
   listLibraryImages: (userId: string) =>
     request<LibraryImage[]>(
