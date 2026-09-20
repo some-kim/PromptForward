@@ -891,6 +891,81 @@ class TestBattleImages:
         battle = (await client.get(f"/api/games/{battle_id}", params={"userId": player})).json()
         assert battle["players"][0]["imagesChosen"] == 4
 
+    async def test_an_image_removed_while_starting_is_not_put_back(self, client):
+        from app import db
+        from app.services import battles
+
+        await seed_defaults(client, 4)
+        host, guest = str(uuid.uuid4()), str(uuid.uuid4())
+        created = await client.post(
+            "/api/games",
+            json={
+                "userId": host,
+                "displayName": "Kris",
+                "settings": {"durationSeconds": 60, "imagesPerPlayer": 2},
+                "useDefaultImages": True,
+            },
+        )
+        battle_id = created.json()["id"]
+        await client.post(
+            "/api/games/join",
+            json={"code": created.json()["code"], "userId": guest, "displayName": "Sam"},
+        )
+        mine = await upload_image(client, guest, "purple")
+        theirs = await upload_image(client, guest, "green")
+        for challenge_id in (mine, theirs):
+            await client.post(
+                f"/api/games/{battle_id}/images",
+                json={"userId": guest, "challengeId": challenge_id},
+            )
+        # The battle started on the second image, so it is wound back to the instant before.
+        await db.games().update_one(
+            {"_id": ObjectId(battle_id)},
+            {"$set": {"status": "waiting", "startedAt": None, "endsAt": None, "challengeIds": []}},
+        )
+        stale = await battles.load_battle(battle_id)
+
+        dropped = await client.delete(
+            f"/api/games/{battle_id}/images/{theirs}", params={"userId": guest}
+        )
+        assert dropped.status_code == 200
+
+        started = await battles.start_if_ready(stale)
+        assert started["status"] == "waiting"
+        assert [player["challengeIds"] for player in started["players"]][1] == [ObjectId(mine)]
+
+    async def test_a_round_whose_scoring_fails_is_retried(self, client, monkeypatch):
+        from app import db
+        from app.services import attempts as attempts_service
+        from app.services import battles
+
+        monkeypatch.setattr(battles, "FINALIZE_BACKOFF_SECONDS", 0)
+        calls = 0
+
+        async def flaky_submit(attempt_id):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise RuntimeError("mongo went away")
+            return await attempts_service.submit_attempt(attempt_id)
+
+        monkeypatch.setattr(battles, "submit_attempt", flaky_submit)
+
+        await seed_defaults(client, 4)
+        battle_id, host, _ = await quick_battle(client, images_per_player=2)
+        await client.post(
+            f"/api/games/{battle_id}/rounds/0/prompt",
+            json={"userId": host, "prompt": STRONG_PROMPT},
+        )
+        await drain(battle_id)
+
+        game = await db.games().find_one({"_id": ObjectId(battle_id)})
+        player = next(one for one in game["players"] if one["userId"] == host)
+        attempt = await db.attempts().find_one({"_id": player["attemptIds"][0]})
+        assert calls == 2
+        assert attempt["status"] == "submitted"
+        assert attempt["scores"]["final"] > 0
+
     async def test_oversized_prompts_are_rejected(self, client):
         await seed_defaults(client, 4)
         battle_id, host, _ = await quick_battle(client, images_per_player=2)

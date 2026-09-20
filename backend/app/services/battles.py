@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import random
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -39,6 +40,11 @@ CODE_ATTEMPTS = 10
 # A prompt sent as the clock runs out still counts: the buzzer is enforced on the server, and
 # the grace covers the round trip rather than the player's thinking time.
 SUBMIT_GRACE_SECONDS = 3
+
+# Once an image exists the generation slot is spent, so the writes that turn it into a score are
+# retried rather than dropped.
+FINALIZE_ATTEMPTS = 3
+FINALIZE_BACKOFF_SECONDS = 0.5
 
 
 class BattleError(RuntimeError):
@@ -230,6 +236,14 @@ async def start_if_ready(game: dict[str, Any]) -> dict[str, Any]:
     pool = [challenge_id for player in game["players"] for challenge_id in player["challengeIds"]]
     random.shuffle(pool)
 
+    # The pool is built from this snapshot, so the start only lands while it still holds: an image
+    # removed in the meantime must not be written back by a stale player list.
+    ready: dict[str, Any] = {
+        f"players.{position}.challengeIds": player["challengeIds"]
+        for position, player in enumerate(game["players"])
+    }
+    ready[f"players.{len(game['players'])}"] = {"$exists": False}
+
     # Attempts first: a client polling the moment the battle flips to active must never find an
     # active battle whose rounds do not exist yet.
     attempts_by_player = {
@@ -255,7 +269,7 @@ async def start_if_ready(game: dict[str, Any]) -> dict[str, Any]:
         for player in game["players"]
     ]
     updated = await db.games().find_one_and_update(
-        {"_id": game["_id"], "status": "waiting"},
+        {"_id": game["_id"], "status": "waiting", **ready},
         {
             "$set": {
                 "status": "active",
@@ -268,7 +282,7 @@ async def start_if_ready(game: dict[str, Any]) -> dict[str, Any]:
         return_document=True,
     )
     if updated is None:
-        # Another request started the battle first; these attempts belong to no round.
+        # The battle started elsewhere or its images changed; these attempts belong to no round.
         ids = [attempt["_id"] for group in attempts_by_player.values() for attempt in group]
         await db.attempts().delete_many({"_id": {"$in": ids}})
         return await db.games().find_one({"_id": game["_id"]})
@@ -401,10 +415,37 @@ async def _run_round(
             {"_id": attempt_id}, {"$set": {"lastError": str(evaluation)}}
         )
     else:
-        await _store_evaluation(attempt_id, generation_number, prompt, evaluation)
+        await _finalize(
+            attempt_id,
+            "The prompt evaluation could not be stored",
+            lambda: _store_evaluation(attempt_id, generation_number, prompt, evaluation),
+        )
 
-    await submit_attempt(attempt_id)
+    # Scored even when the evaluation was lost: the generation is spent either way, and an
+    # attempt left in progress would count as a skipped image.
+    await _finalize(
+        attempt_id, "This round could not be scored", lambda: submit_attempt(attempt_id)
+    )
     await finish_if_ready(game_id)
+
+
+async def _finalize(
+    attempt_id: ObjectId, message: str, write: Callable[[], Awaitable[Any]]
+) -> bool:
+    """Run one post-generation write, retrying transient failures. Both writes are idempotent."""
+    for remaining in reversed(range(FINALIZE_ATTEMPTS)):
+        try:
+            await write()
+        except Exception as error:  # noqa: BLE001 - any failure here is retried, then surfaced
+            if not remaining:
+                await db.attempts().update_one(
+                    {"_id": attempt_id}, {"$set": {"lastError": f"{message}: {error}"}}
+                )
+                return False
+            await asyncio.sleep(FINALIZE_BACKOFF_SECONDS * (FINALIZE_ATTEMPTS - remaining))
+        else:
+            return True
+    return False
 
 
 async def _store_evaluation(
