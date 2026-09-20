@@ -91,15 +91,16 @@ async def generate_learning_image(attempt_id: str, body: PromptRequest) -> dict:
     attempt = await _load(attempt_id)
     challenge = await db.challenges().find_one({"_id": attempt["challengeId"]})
 
+    # A weak prompt still generates: the lesson is seeing what it produces, and the score keeps
+    # prompt quality and image quality side by side.
     try:
         generation_number = await reserve_generation(
-            attempt["_id"], limit=LEARNING_GENERATION_LIMIT, gate_prompt=body.prompt
+            attempt["_id"], limit=LEARNING_GENERATION_LIMIT, gate_prompt=None
         )
     except GenerationLimitReached as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
 
-    evaluations = attempt.get("promptEvaluations", [])
-    prompt_evaluation = _evaluation_model(evaluations[-1]) if evaluations else None
+    prompt_evaluation = await _evaluation_for(attempt, challenge, body.prompt)
 
     try:
         await run_generation(
@@ -119,6 +120,20 @@ async def generate_learning_image(attempt_id: str, body: PromptRequest) -> dict:
         raise
 
     return attempt_view(await submit_attempt(attempt["_id"]))
+
+
+async def _evaluation_for(attempt: dict, challenge: dict, prompt: str) -> PromptEvaluation | None:
+    """The evaluation for exactly this prompt, scoring it now if the client skipped the check."""
+    for entry in reversed(attempt.get("promptEvaluations", [])):
+        if entry["prompt"] == prompt:
+            return _evaluation_model(entry)
+
+    try:
+        evaluation = await evaluate_prompt(rubric_of(challenge), prompt)
+    except LLMResponseError:
+        return None
+    await record_prompt_evaluation(attempt["_id"], prompt, evaluation)
+    return evaluation
 
 
 def _evaluation_model(entry: dict) -> PromptEvaluation:

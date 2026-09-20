@@ -1,9 +1,15 @@
-import type { Attempt } from '../api'
-import { round } from '../format'
+import type { Attempt } from "../api";
+import { round } from "../format";
 
-export function Scoreboard({ attempt, showFinal }: { attempt: Attempt; showFinal?: boolean }) {
-  const scores = attempt.scores
-  const usage = attempt.usage
+export function Scoreboard({
+  attempt,
+  showFinal,
+}: {
+  attempt: Attempt;
+  showFinal?: boolean;
+}) {
+  const scores = attempt.scores;
+  const usage = attempt.usage;
 
   return (
     <dl className="scoreboard">
@@ -12,7 +18,7 @@ export function Scoreboard({ attempt, showFinal }: { attempt: Attempt; showFinal
         <dd>{round(scores?.promptQuality)}</dd>
       </div>
       <div>
-        <dt>Result Quality</dt>
+        <dt>Image Quality</dt>
         <dd>{round(scores?.resultQuality)}</dd>
       </div>
       <div>
@@ -21,26 +27,26 @@ export function Scoreboard({ attempt, showFinal }: { attempt: Attempt; showFinal
       </div>
       <div className="spacer">
         <dt>Prompt Tokens</dt>
-        <dd>{usage?.promptTokens ?? '—'}</dd>
+        <dd>{usage?.promptTokens ?? "—"}</dd>
       </div>
-      {attempt.mode === 'learning' && (
+      {attempt.mode === "learning" && (
         <>
           <div>
             <dt>Prompt Evaluations</dt>
-            <dd>{usage?.promptEvaluations ?? '—'}</dd>
+            <dd>{usage?.promptEvaluations ?? "—"}</dd>
           </div>
           <div>
             <dt>Generations</dt>
-            <dd>{usage?.generations ?? '—'}</dd>
+            <dd>{usage?.generations ?? "—"}</dd>
           </div>
         </>
       )}
       {showFinal && (
         <div className="final">
-          <dt>Final</dt>
+          <dt>{attempt.mode === "learning" ? "Combined" : "Final"}</dt>
           <dd>{round(scores?.final)}</dd>
         </div>
       )}
     </dl>
-  )
+  );
 }

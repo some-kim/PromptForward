@@ -18,6 +18,7 @@ import httpx
 
 from app.config import get_config
 from app.models import GeneratedImage
+from app.services.dropbox.image_storage import EXTENSION_BY_MIME
 
 # Muse Image takes the ratio as a "WxH" size string; the generator picks the real resolution.
 SUPPORTED_ASPECT_RATIOS: dict[str, float] = {
@@ -27,6 +28,10 @@ SUPPORTED_ASPECT_RATIOS: dict[str, float] = {
     "1792x1024": 16 / 9,
     "1024x1792": 9 / 16,
 }
+
+
+SUPPORTED_IMAGE_MIME_TYPES = frozenset(EXTENSION_BY_MIME)
+MAX_REDIRECTS = 3
 
 
 class ImageGenerationError(RuntimeError):
@@ -103,14 +108,33 @@ async def _extract_image(client: httpx.AsyncClient, body: dict[str, Any]) -> tup
         return base64.b64decode(item["b64_json"]), mime_type
 
     if item.get("url"):
-        url = item["url"]
+        return await _download_image(client, item["url"], mime_type)
+
+    raise ImageGenerationError(f"Meta image generation returned an unreadable image: {item}")
+
+
+async def _download_image(client: httpx.AsyncClient, url: str, mime_type: str) -> tuple[bytes, str]:
+    """Fetch an image URL, revalidating the host on every redirect hop."""
+    for _ in range(MAX_REDIRECTS + 1):
         if not _is_provider_url(url):
             raise ImageGenerationError(f"Meta returned an image URL outside the provider: {url}")
         downloaded = await client.get(url)
+        if downloaded.is_redirect:
+            location = downloaded.headers.get("location")
+            if not location:
+                raise ImageGenerationError(f"Meta redirected the image URL without a target: {url}")
+            url = str(downloaded.url.join(location))
+            continue
         downloaded.raise_for_status()
-        return downloaded.content, downloaded.headers.get("content-type", mime_type)
+        return downloaded.content, _image_mime(downloaded.headers.get("content-type"), mime_type)
 
-    raise ImageGenerationError(f"Meta image generation returned an unreadable image: {item}")
+    raise ImageGenerationError(f"Meta redirected the image URL too many times: {url}")
+
+
+def _image_mime(header: str | None, fallback: str) -> str:
+    """Content-Type carries parameters and sometimes octet-stream, which storage rejects."""
+    declared = (header or "").split(";", 1)[0].strip().lower()
+    return declared if declared in SUPPORTED_IMAGE_MIME_TYPES else fallback
 
 
 def _is_provider_url(url: str) -> bool:

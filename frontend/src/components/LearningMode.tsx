@@ -38,7 +38,8 @@ export function LearningMode({
   const [error, setError] = useState<string | null>(null);
 
   const evaluated = evaluatedPrompt === prompt ? evaluation : null;
-  const readyToGenerate = evaluated?.passed === true;
+  // Any checked prompt may generate; a weak one is a lesson, not a block.
+  const readyToGenerate = evaluated !== null;
   // Stale boxes would lie about the prompt in the box, so the overlay follows the live evaluation.
   const attention = evaluated?.attention ?? [];
 
@@ -65,7 +66,7 @@ export function LearningMode({
       if (scored.status === "submitted") {
         onScored(
           scored.id,
-          scored.scores?.resultQuality ?? 0,
+          scored.scores?.final ?? 0,
           scored.usage?.generations ?? 1,
         );
       }
@@ -115,7 +116,7 @@ export function LearningMode({
 
       {attempt.status === "submitted" ? (
         <div className="results">
-          <Scoreboard attempt={attempt} />
+          <Scoreboard attempt={attempt} showFinal />
           {selected?.resultFeedback && (
             <p className="feedback">
               <strong>Feedback</strong>
@@ -159,7 +160,9 @@ export function LearningMode({
                     evaluated ? (evaluated.passed ? "pass" : "fail") : "neutral"
                   }
                   title={
-                    readyToGenerate ? "Generate image" : "Check this prompt"
+                    readyToGenerate
+                      ? "Generate image with this prompt"
+                      : "Check this prompt"
                   }
                   disabled={!prompt.trim() || busy !== null}
                   onClick={readyToGenerate ? generateImage : evaluatePrompt}
@@ -187,21 +190,22 @@ export function LearningMode({
               <p className="score">
                 Prompt Quality: {round(evaluation.promptQuality)}
               </p>
-              {evaluation.passed && evaluated ? (
-                <p>✓ Ready — press the arrow again to generate</p>
+              {evaluated ? (
+                <p>
+                  {evaluation.passed ? "✓ Strong prompt" : "Weak prompt"} —
+                  press the arrow again to generate
+                </p>
               ) : (
+                <p>Prompt changed — check it again.</p>
+              )}
+              {evaluation.needsImprovement.length > 0 && (
                 <>
-                  {!evaluated && <p>Prompt changed — check it again.</p>}
-                  {evaluation.needsImprovement.length > 0 && (
-                    <>
-                      <p>Needs improvement:</p>
-                      <ul>
-                        {evaluation.needsImprovement.map((hint) => (
-                          <li key={hint}>{hint}</li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
+                  <p>Needs improvement:</p>
+                  <ul>
+                    {evaluation.needsImprovement.map((hint) => (
+                      <li key={hint}>{hint}</li>
+                    ))}
+                  </ul>
                 </>
               )}
               <p className="feedback">{evaluation.feedback}</p>

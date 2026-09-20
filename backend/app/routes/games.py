@@ -142,9 +142,12 @@ async def generate_game_image(game_id: str, body: GenerateRequest) -> dict:
         return await _score_prompt(game, attempt, challenge, unscored)
 
     # A retry after finalization failed mid-way: the image and its evaluation are already
-    # stored, so only submission and game completion still have to happen.
-    if attempt.get("generations") and attempt["status"] != "submitted":
-        await submit_attempt(attempt["_id"])
+    # stored, so only the steps that did not land still have to happen.
+    if attempt.get("generations") and (
+        attempt["status"] != "submitted" or await _completion_pending(game)
+    ):
+        if attempt["status"] != "submitted":
+            await submit_attempt(attempt["_id"])
         await _complete_if_ready(game["_id"])
         return await _view(game["_id"], body.userId)
 
@@ -245,6 +248,14 @@ async def _pick_challenge(
         )
         raise HTTPException(status_code=409, detail=detail)
     return sampled[0]
+
+
+async def _completion_pending(game: dict[str, Any]) -> bool:
+    """Both players are done but the game never completed, so a retry should finish it."""
+    if game["status"] == "completed" or len(game["players"]) < 2:
+        return False
+    attempts = await _attempts_of(game)
+    return all(attempt["status"] == "submitted" for attempt in attempts.values())
 
 
 async def _complete_if_ready(game_id: ObjectId) -> None:

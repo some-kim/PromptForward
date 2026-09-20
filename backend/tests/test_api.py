@@ -211,7 +211,7 @@ class TestChallenges:
 
 
 class TestLearningMode:
-    async def test_failing_evaluation_blocks_generation(self, client):
+    async def test_weak_prompt_still_generates_and_scores_both(self, client):
         challenge_id = await create_challenge(client)
         attempt = await client.post(
             "/api/learning/attempts", json={"challengeId": challenge_id, "userId": "player-1"}
@@ -227,12 +227,16 @@ class TestLearningMode:
         assert body["needsImprovement"]
         assert "yellow umbrella" not in evaluation.text
 
-        blocked = await client.post(
+        generated = await client.post(
             f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": WEAK_PROMPT}
         )
-        assert blocked.status_code == 409
+        assert generated.status_code == 200
+        scores = generated.json()["scores"]
+        assert scores["promptQuality"] is not None
+        assert scores["resultQuality"] is not None
+        assert scores["final"] is not None
 
-    async def test_generation_requires_the_evaluated_prompt(self, client):
+    async def test_an_unchecked_prompt_is_evaluated_while_generating(self, client):
         challenge_id = await create_challenge(client)
         attempt_id = (
             await client.post(
@@ -248,7 +252,10 @@ class TestLearningMode:
             f"/api/learning/attempts/{attempt_id}/generate",
             json={"prompt": STRONG_PROMPT + " at dusk"},
         )
-        assert edited.status_code == 409
+        assert edited.status_code == 200
+        body = edited.json()
+        assert body["scores"]["promptQuality"] is not None
+        assert body["usage"]["promptEvaluations"] == 2
 
     async def test_passing_evaluation_then_generation_scores_the_attempt(self, client):
         challenge_id = await create_challenge(client)
@@ -273,13 +280,13 @@ class TestLearningMode:
         body = generated.json()
         assert body["status"] == "submitted"
         assert body["scores"]["resultQuality"] == pytest.approx(90)
-        assert body["scores"]["final"] is None
+        assert body["scores"]["final"] is not None
         assert body["scores"]["efficiency"] > 0
         assert body["usage"]["generations"] == 1
         assert body["usage"]["promptEvaluations"] == 2
         assert len(body["generations"]) == 1
 
-    async def test_one_evaluation_unlocks_only_one_generation(self, client):
+    async def test_concurrent_generations_each_take_their_own_slot(self, client):
         challenge_id = await create_challenge(client)
         attempt_id = (
             await client.post(
@@ -298,7 +305,8 @@ class TestLearningMode:
                 f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": STRONG_PROMPT}
             ),
         )
-        assert sorted([first.status_code, second.status_code]) == [200, 409]
+        assert [first.status_code, second.status_code] == [200, 200]
+        assert len(second.json()["generations"]) == 2
 
     async def test_failed_generation_refunds_the_slot_without_reusing_its_number(
         self, client, monkeypatch

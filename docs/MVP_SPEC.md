@@ -520,17 +520,17 @@ passes = (
 )
 ```
 
-### Server-Side Gate (required)
+### Generation Rules (required)
 
-The gate must be enforced by the backend, not only the UI:
+Enforced by the backend, not only the UI:
 
 - Every evaluation is stored on the attempt (`promptEvaluations`).
-- `generate` only succeeds if the **most recent** evaluation passed **and** its prompt text is identical to the prompt being generated. Otherwise return `409`.
-- Learning Mode allows up to 3 generations per attempt. Each one needs its own passing evaluation. Enforce the limit atomically.
-- An evaluation is **consumed** by the generation it unlocks: the atomic reservation records the evaluation's id and refuses any later reservation that would reuse it, so one passing evaluation can never unlock two generations (including concurrent requests).
+- A weak prompt still generates. Seeing what a vague prompt produces, next to what it scored, is the lesson; nothing about prompt quality returns `409`.
+- `generate` scores the prompt it is about to generate: it reuses the stored evaluation for that exact text, or evaluates it inline when the client skipped the check, so every generation carries a Prompt Quality.
+- Learning Mode allows up to 3 generations per attempt. Enforce the limit atomically.
 - Generation numbers come from a monotonic sequence that is never decremented. Refunding a failed generation frees a slot but never reissues a number, so a retry cannot overwrite an earlier generation's stored image.
-- A generation that fails for **any** reason — image generation, image storage, target download, or result evaluation — refunds its slot. Its consumed evaluation stays consumed, so a retry re-evaluates the prompt first.
-- Learning Mode computes an Efficiency score (see Efficiency Score) and shows it with Prompt Quality, Result Quality, prompt tokens, evaluations used, and generations. It does not compute a Final score.
+- A generation that fails for **any** reason — image generation, image storage, target download, or result evaluation — refunds its slot, and so does a cancelled request whose image never landed.
+- Learning Mode shows Prompt Quality, Image Quality (Result Quality), Efficiency, and the **Combined** score — the same weighted score Game Mode calls Final.
 - Selected generation: the one with the highest Result Quality (ties go to the earlier one). Result Quality and Prompt Quality come from it.
 
 If the prompt fails:
@@ -897,7 +897,7 @@ One document is one user's attempt at a challenge. Generations are embedded (max
 }
 ```
 
-Check: 2 generations → −25; 1 failed evaluation → −5; 165 total tokens → −15. Efficiency = 100 − 25 − 5 − 15 = 55. No final score in Learning Mode.
+Check: 2 generations → −25; 1 failed evaluation → −5; 165 total tokens → −15. Efficiency = 100 − 25 − 5 − 15 = 55. Learning Mode reports the same weighted score as Game Mode, labelled Combined.
 
 - `mode`: `learning | game`
 - `status`: `in_progress | submitted`
@@ -1098,7 +1098,7 @@ POST /api/challenges                          dev only: upload a target image
 POST /api/learning/attempts                   { challengeId, userId } → attempt
 GET  /api/learning/attempts/:id
 POST /api/learning/attempts/:id/evaluate      { prompt } → evaluation + passed
-POST /api/learning/attempts/:id/generate      { prompt } → 409 unless gate passed
+POST /api/learning/attempts/:id/generate      { prompt } → 409 only when out of generations
 
 POST /api/games                               { userId, displayName, challengeId? }
 POST /api/games/:id/join                      { userId, displayName }
@@ -1336,7 +1336,7 @@ Only the generator and result evaluator change. For now, just keep `type` checks
 - Automatic Challenge Analyzer with rubric validation
 - Stored challenge rubric
 - Prompt Evaluator
-- Learning Mode prompt gate (server-enforced)
+- Learning Mode inline prompt scoring on generate
 - Prompt feedback
 - Image generation + generated image storage
 - Result Evaluator

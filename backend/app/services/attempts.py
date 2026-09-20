@@ -201,7 +201,12 @@ async def run_generation(
         "createdAt": now(),
     }
 
-    await db.attempts().update_one({"_id": attempt["_id"]}, {"$push": {"generations": generation}})
+    try:
+        await db.attempts().update_one(
+            {"_id": attempt["_id"]}, {"$push": {"generations": generation}}
+        )
+    except Exception as error:
+        raise GenerationFailed(str(error)) from error
     return generation
 
 
@@ -241,11 +246,7 @@ def score_attempt(
         resultQuality=result_quality,
         promptQuality=prompt_quality,
         efficiency=efficiency,
-        final=(
-            final_score(result_quality, prompt_quality or 0, efficiency)
-            if attempt["mode"] == "game"
-            else None
-        ),
+        final=final_score(result_quality, prompt_quality or 0, efficiency),
     )
     return scores, selected["number"]
 
@@ -258,19 +259,29 @@ def _latest_prompt_quality(attempt: dict[str, Any], prompt: str) -> float | None
 
 
 async def submit_attempt(attempt_id: ObjectId) -> dict[str, Any]:
-    attempt = await db.attempts().find_one({"_id": attempt_id})
-    scores, selected = score_attempt(attempt, attempt.get("generations", []))
-    await db.attempts().update_one(
-        {"_id": attempt_id},
-        {
-            "$set": {
-                "status": "submitted",
-                "scores": scores.model_dump(),
-                "selectedGeneration": selected,
-            }
-        },
-    )
-    return await db.attempts().find_one({"_id": attempt_id})
+    """Score the attempt and persist it, never letting a stale snapshot win.
+
+    Overlapping Learning generations can finalize at once, so the write only applies while the
+    attempt still holds exactly the generations the scores were computed from; otherwise the
+    newer generation set is re-scored.
+    """
+    while True:
+        attempt = await db.attempts().find_one({"_id": attempt_id})
+        generations = attempt.get("generations", [])
+        scores, selected = score_attempt(attempt, generations)
+        updated = await db.attempts().find_one_and_update(
+            {"_id": attempt_id, "generations": {"$size": len(generations)}},
+            {
+                "$set": {
+                    "status": "submitted",
+                    "scores": scores.model_dump(),
+                    "selectedGeneration": selected,
+                }
+            },
+            return_document=True,
+        )
+        if updated is not None:
+            return updated
 
 
 def resource_usage(attempt: dict[str, Any]) -> dict[str, int]:

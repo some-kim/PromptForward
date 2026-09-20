@@ -60,11 +60,14 @@ if resultQuality < 60 → efficiency = 0
 
 The quality gate exists so a short lazy prompt cannot score well on efficiency.
 
-### Final score (`final_score.py`, Battle only)
+### Combined score (`final_score.py`)
 
 ```text
 final = 0.70 × resultQuality + 0.15 × promptQuality + 0.15 × efficiency
 ```
+
+Battle calls it the final score; Training shows the same number as **Combined**, next to the
+prompt-quality and image-quality it is built from.
 
 Winner: highest `final`; ties break on `resultQuality`, then on fewer prompt tokens; a full tie is
 a draw.
@@ -78,12 +81,12 @@ a draw.
 the rules below hold in either mode.
 
 1. **Reserve a slot** — `reserve_generation` does one atomic MongoDB `find_one_and_update`:
-   `reservedGenerations < limit` (3 in Learning, 1 in Battle) and, in Learning, the gate below.
+   `reservedGenerations < limit` (3 in Learning, 1 in Battle).
    The generation number comes from `generationSequence`, which only grows, so a refunded slot
    never reuses a number an in-flight generation is writing to.
-2. **Server-side evaluation gate (Learning)** — the same update requires that the most recent
-   evaluation passed, was for exactly this prompt, and has not already been consumed by an earlier
-   generation. A client cannot skip evaluation or reuse one passing evaluation twice.
+2. **Score the prompt** — a weak prompt is never blocked: if the prompt was not evaluated before
+   the press, the route evaluates it now, so every generation carries a prompt quality to show
+   beside its image quality.
 3. **Generate** — Meta Muse Image, text-to-image only; the target image is never sent to the
    generator. The aspect ratio is the supported ratio closest to the target's.
 4. **Store** — the PNG goes to Dropbox and is served back through `/api/images/...`.
@@ -111,13 +114,12 @@ There is no Evaluate button. The circular send arrow inside the composer carries
 | Arrow | Meaning | Clicking it |
 |---|---|---|
 | Blue | Prompt not evaluated (or edited since) | Evaluates the prompt |
-| Red | Evaluated and failed (`promptQuality < 70` or a critical criterion missing) | Evaluates again |
+| Red | Evaluated and weak (`promptQuality < 70` or a critical criterion missing) | Generates anyway |
 | Green | Evaluated and passed | Generates the image |
 
-Editing the prompt returns the arrow to blue, so generation always follows a fresh evaluation of
-the exact text being generated — the same rule the server enforces. If generation fails, the
-client also clears the passing evaluation so the next press re-evaluates instead of retrying
-against a consumed gate.
+Editing the prompt returns the arrow to blue, so the first press always scores the exact text
+being generated and the second press generates it — weak or strong. The result then shows prompt
+quality, image quality, and their combined score together, which is how a weak prompt teaches.
 
 Under the composer, a failed evaluation shows `promptQuality`, the category hints, and the
 evaluator's feedback. Enter submits, Shift+Enter adds a newline, and the arrow shows a spinner
