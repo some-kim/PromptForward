@@ -5,16 +5,21 @@ type HomeProps = {
 };
 
 const LEAVES = [
-  { cx: 152, cy: 12, rx: 44, ry: 16 },
-  { cx: 92, cy: 24, rx: 32, ry: 14 },
-  { cx: 216, cy: 24, rx: 32, ry: 14 },
-  { cx: 46, cy: 40, rx: 24, ry: 12 },
-  { cx: 268, cy: 40, rx: 24, ry: 12 },
-  { cx: 124, cy: 38, rx: 26, ry: 11 },
-  { cx: 194, cy: 38, rx: 26, ry: 11 },
+  { cx: 160, cy: 14, rx: 52, ry: 18 },
+  { cx: 94, cy: 22, rx: 38, ry: 16 },
+  { cx: 226, cy: 22, rx: 38, ry: 16 },
+  { cx: 44, cy: 38, rx: 30, ry: 14 },
+  { cx: 276, cy: 38, rx: 30, ry: 14 },
+  { cx: 122, cy: 40, rx: 34, ry: 14 },
+  { cx: 198, cy: 40, rx: 34, ry: 14 },
+  { cx: 66, cy: 58, rx: 24, ry: 11 },
+  { cx: 254, cy: 58, rx: 24, ry: 11 },
+  { cx: 160, cy: 44, rx: 30, ry: 13 },
+  { cx: 16, cy: 54, rx: 16, ry: 9 },
+  { cx: 304, cy: 54, rx: 16, ry: 9 },
 ];
 
-// A tree frames the word: canopy above, trunk behind, roots spreading underneath.
+// A tree frames the word: dense canopy above, trunk behind, roots spreading below.
 function Tree() {
   return (
     <svg
@@ -24,24 +29,32 @@ function Tree() {
       aria-hidden="true"
     >
       <g className="limbs" fill="none" strokeLinecap="round">
-        <path d="M160 146V58" strokeWidth="11" />
-        <path d="M160 74c-22-4-40-14-56-30" strokeWidth="6" />
-        <path d="M160 74c22-4 40-14 56-30" strokeWidth="6" />
-        <path d="M160 60c-12-12-18-26-18-42" strokeWidth="5" />
-        <path d="M160 60c12-12 18-26 18-42" strokeWidth="5" />
-        <path d="M116 50c-16-2-30-8-42-18" strokeWidth="3.5" />
-        <path d="M204 50c16-2 30-8 42-18" strokeWidth="3.5" />
+        <path d="M160 150V52" strokeWidth="13" />
+        <path d="M160 82c-26-4-48-14-68-32" strokeWidth="8" />
+        <path d="M160 82c26-4 48-14 68-32" strokeWidth="8" />
+        <path d="M160 62c-16-12-24-26-26-44" strokeWidth="6.5" />
+        <path d="M160 62c16-12 24-26 26-44" strokeWidth="6.5" />
+        <path d="M116 60c-20 0-38-6-54-18" strokeWidth="5" />
+        <path d="M204 60c20 0 38-6 54-18" strokeWidth="5" />
+        <path d="M132 44c-8-10-12-22-12-34" strokeWidth="3.5" />
+        <path d="M188 44c8-10 12-22 12-34" strokeWidth="3.5" />
+        <path d="M78 46c-14-2-26-8-36-18" strokeWidth="3" />
+        <path d="M242 46c14-2 26-8 36-18" strokeWidth="3" />
         <path
-          d="M160 146c-22 10-38 24-62 32-22 8-48 10-74 14"
-          strokeWidth="6"
+          d="M160 150c-24 12-40 26-66 34-24 8-52 10-80 14"
+          strokeWidth="8"
         />
-        <path d="M160 146c22 10 38 24 62 32 22 8 48 10 74 14" strokeWidth="6" />
-        <path d="M160 146c-8 18-12 34-10 52" strokeWidth="4.5" />
-        <path d="M160 146c8 18 12 34 10 52" strokeWidth="4.5" />
-        <path d="M118 166c-18 12-40 16-64 18" strokeWidth="3" />
-        <path d="M202 166c18 12 40 16 64 18" strokeWidth="3" />
-        <path d="M96 182c-14 6-30 10-50 12" strokeWidth="2.2" />
-        <path d="M224 182c14 6 30 10 50 12" strokeWidth="2.2" />
+        <path d="M160 150c24 12 40 26 66 34 24 8 52 10 80 14" strokeWidth="8" />
+        <path d="M160 150c-10 18-14 34-12 50" strokeWidth="5.5" />
+        <path d="M160 150c10 18 14 34 12 50" strokeWidth="5.5" />
+        <path d="M160 152c-32 6-58 18-84 34" strokeWidth="4.5" />
+        <path d="M160 152c32 6 58 18 84 34" strokeWidth="4.5" />
+        <path d="M112 170c-18 12-42 16-68 18" strokeWidth="3.4" />
+        <path d="M208 170c18 12 42 16 68 18" strokeWidth="3.4" />
+        <path d="M92 184c-16 6-34 10-56 12" strokeWidth="2.4" />
+        <path d="M228 184c16 6 34 10 56 12" strokeWidth="2.4" />
+        <path d="M134 178c-6 8-10 16-12 24" strokeWidth="2.2" />
+        <path d="M186 178c6 8 10 16 12 24" strokeWidth="2.2" />
       </g>
       <g className="leaves">
         {LEAVES.map((leaf) => (

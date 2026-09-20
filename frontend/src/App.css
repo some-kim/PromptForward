@@ -770,19 +770,21 @@ button.link {
   position: relative;
   display: grid;
   place-items: center;
-  padding: 3.5rem 4.5rem;
+  padding: 4.25rem 5rem;
 }
 
 .mode-word .word {
+  position: relative;
   font-family: var(--display);
   font-size: clamp(2.2rem, 5.5vw, 3.6rem);
   line-height: 1;
   letter-spacing: -0.03em;
-  color: transparent;
-  -webkit-text-stroke: 2px var(--text);
-  transition:
-    color 0.25s ease,
-    -webkit-text-stroke-color 0.25s ease;
+  color: var(--text);
+
+  /* A surface-coloured outline keeps the word legible over the artwork behind it. */
+  -webkit-text-stroke: 6px var(--surface);
+  paint-order: stroke fill;
+  transition: color 0.25s ease;
 }
 
 .mode-word .sub {
@@ -798,7 +800,6 @@ button.link {
 .mode-word:hover:not(:disabled) .word,
 .mode-word:focus-visible .word {
   color: var(--mode);
-  -webkit-text-stroke-color: var(--mode);
 }
 
 .mode-word:hover:not(:disabled) .sub {
@@ -817,22 +818,22 @@ button.link {
 
 .tree .limbs path {
   stroke: var(--bark);
-  stroke-dasharray: 300;
-  stroke-dashoffset: 300;
-  opacity: 0.35;
+  opacity: 0.5;
+  transition: opacity 0.25s ease;
 }
 
 .tree .leaves ellipse {
   fill: var(--leaf);
-  opacity: 0;
-  transform: scale(0);
+  opacity: 0.35;
   transform-origin: center;
   transform-box: fill-box;
+  transition: opacity 0.25s ease;
 }
 
 .mode-word.train:hover:not(:disabled) .limbs path,
 .mode-word.train:focus-visible .limbs path {
   opacity: 1;
+  stroke-dasharray: 300;
   animation: branch-grow 0.9s ease-out forwards;
 }
 
@@ -869,18 +870,18 @@ button.link {
 
 @keyframes leaf-pop {
   from {
-    opacity: 0;
-    transform: scale(0);
+    opacity: 0.35;
+    transform: scale(0.75);
   }
   to {
-    opacity: 0.9;
+    opacity: 0.95;
     transform: scale(1);
   }
 }
 
 .lightning .bolts path {
   fill: var(--spark);
-  opacity: 0;
+  opacity: 0.35;
 }
 
 .lightning .sparks circle {
