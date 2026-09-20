@@ -1,11 +1,7 @@
-import type { SkillSummary } from "../api";
-import { SkillProgress } from "./SkillProgress";
-
 type HomeProps = {
   busy: boolean;
   onLearn: () => void;
   onBattle: () => void;
-  skills: SkillSummary[] | null;
 };
 
 const LEAVES = [
@@ -91,13 +87,7 @@ function Lightning() {
   );
 }
 
-
-export function Home({
-  busy,
-  onLearn,
-  onBattle,
-  skills,
-}: HomeProps) {
+export function Home({ busy, onLearn, onBattle }: HomeProps) {
   return (
     <section className="home">
       <p className="home-kicker">Pick a mode</p>
@@ -126,13 +116,9 @@ export function Home({
             <Lightning />
             <span className="word">BATTLE</span>
           </span>
-          <span className="sub">Prompt Royale · head to head</span>
+          <span className="sub">Prompt Royale · join with a code</span>
         </button>
       </div>
-
-      {skills && skills.some((skill) => skill.total > 0) && (
-        <SkillProgress skills={skills} />
-      )}
 
       <dl className="marquee-notes">
         <div className="note train">
@@ -146,8 +132,8 @@ export function Home({
         <div className="note battle">
           <dt>Royale</dt>
           <dd>
-            Same target for everyone, one image each, best quality per token
-            takes the round.
+            Bring your own images, prompt every image in the pool against the
+            clock, scores revealed at the buzzer.
           </dd>
         </div>
       </dl>

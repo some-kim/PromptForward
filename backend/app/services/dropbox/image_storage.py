@@ -13,7 +13,7 @@ import io
 import dropbox
 from dropbox.exceptions import ApiError
 from dropbox.files import FileMetadata, WriteMode
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 
 from app.config import get_config
 from app.models import DEFAULT_DIFFICULTY, DIFFICULTIES, Difficulty, ImageMeta, StoredFile
@@ -58,6 +58,23 @@ async def store_target_image(
     config = get_config()
     folder = f"{config.dropbox.challenges_folder}/{difficulty}"
     path = f"{folder}/{image_hash}.{extension_for(mime_type)}"
+
+    existing = await _get_metadata(path)
+    if existing is not None:
+        return StoredFile(id=existing.id, path=existing.path_lower or path)
+
+    metadata = await _upload(path, image_bytes, WriteMode.add)
+    return StoredFile(id=metadata.id, path=metadata.path_lower or path)
+
+
+async def store_user_image(image_bytes: bytes, image_hash: str, mime_type: str) -> StoredFile:
+    """Upload a player-supplied battle image.
+
+    These live outside the curated challenges folder so the seed script never pulls them into
+    the training pool. Named by hash, so re-uploading the same image reuses the stored file.
+    """
+    config = get_config()
+    path = f"{config.dropbox.generated_folder}/user-images/{image_hash}.{extension_for(mime_type)}"
 
     existing = await _get_metadata(path)
     if existing is not None:
@@ -140,7 +157,12 @@ def _difficulty_of(path: str, root: str) -> Difficulty:
 
 
 def read_image_meta(image_bytes: bytes) -> ImageMeta:
-    with Image.open(io.BytesIO(image_bytes)) as image:
+    try:
+        opened = Image.open(io.BytesIO(image_bytes))
+    except (UnidentifiedImageError, OSError, ValueError) as error:
+        raise ImageStorageError("That file is not a readable image") from error
+
+    with opened as image:
         mime_type = Image.MIME.get(image.format or "", "")
         if not mime_type:
             raise ImageStorageError(f"Unrecognized image format: {image.format}")

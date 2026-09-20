@@ -22,14 +22,17 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 async def list_challenges(
     difficulty: Difficulty | None = Query(None), skill: Skill | None = Query(None)
 ) -> list[dict]:
-    query: dict = {}
+    # Player-uploaded battle images stay out of the training pool.
+    query: dict = {"source": {"$ne": "player"}}
     if difficulty:
         query["difficulty"] = difficulty
     if skill:
         query["problem.skill"] = skill
     else:
         query["problem"] = None
-    cursor = db.challenges().find(query, {"target": 1, "type": 1, "difficulty": 1, "problem": 1})
+    cursor = db.challenges().find(
+        query, {"target": 1, "type": 1, "difficulty": 1, "source": 1, "problem": 1}
+    )
     return [challenge_summary(challenge) async for challenge in cursor]
 
 
@@ -66,7 +69,7 @@ async def upload_challenge(
         raise HTTPException(status_code=413, detail="Target images are limited to 10 MB")
 
     try:
-        challenge = await create_challenge(image_bytes, difficulty, metadata)
+        challenge = await create_challenge(image_bytes, difficulty, problem=metadata)
     except ChallengeConflict as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     return challenge_view(challenge)

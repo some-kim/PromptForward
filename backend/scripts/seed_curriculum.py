@@ -100,7 +100,9 @@ async def seed(manifest: Path, check_references: bool) -> None:
         for entry in entries:
             try:
                 image_bytes = await fetch_commons_image(client, entry.source.commons)
-                challenge = await create_challenge(image_bytes, entry.difficulty, entry.problem())
+                challenge = await create_challenge(
+                    image_bytes, entry.difficulty, problem=entry.problem()
+                )
                 criteria = len(challenge["rubric"]["criteria"])
                 print(
                     f"  #{entry.order:02d} {entry.slug} [{entry.skill}/{entry.difficulty}]"

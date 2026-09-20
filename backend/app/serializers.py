@@ -117,42 +117,117 @@ def attempt_view(attempt: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def opponent_view(attempt: dict[str, Any], *, reveal: bool) -> dict[str, Any]:
-    if reveal:
-        return attempt_view(attempt)
+def round_status(attempt: dict[str, Any]) -> str:
+    """Where one image stands for one player, with nothing said about how it scored."""
+    if attempt.get("generations"):
+        return "ready"
+    if attempt.get("lastError"):
+        return "failed"
+    if attempt.get("reservedGenerations", 0) > 0:
+        return "working"
+    return "empty"
+
+
+def _round_view(
+    index: int, challenge_id: Any, attempt: dict[str, Any] | None, *, reveal: bool
+) -> dict[str, Any]:
+    attempt = attempt or {}
+    generation = (attempt.get("generations") or [None])[0]
+    status = round_status(attempt) if attempt else "empty"
+    view: dict[str, Any] = {
+        "index": index,
+        "challengeId": str(challenge_id),
+        "targetImageUrl": f"/api/challenges/{challenge_id}/image",
+        "status": status,
+        "prompt": (generation or {}).get("prompt") or attempt.get("pendingPrompt"),
+        "error": attempt.get("lastError") if status == "failed" else None,
+    }
+    if not reveal or not attempt:
+        # Scores are the whole point of the reveal: nothing about them travels before the end,
+        # not even to the player who wrote the prompt.
+        return view
+
+    scores = attempt.get("scores") or {}
     return {
-        "id": str(attempt["_id"]),
-        "displayName": attempt.get("displayName"),
-        "status": attempt["status"],
+        **view,
+        "attemptId": str(attempt["_id"]),
+        "imageUrl": (
+            f"/api/attempts/{attempt['_id']}/generations/{generation['number']}/image"
+            f"?token={quote(attempt.get('imageToken', ''))}"
+            if generation
+            else None
+        ),
+        "scores": {
+            "final": scores.get("final") or 0,
+            "resultQuality": scores.get("resultQuality") or 0,
+            "promptQuality": scores.get("promptQuality") or 0,
+            "efficiency": scores.get("efficiency") or 0,
+        },
+        "feedback": (generation or {}).get("resultEvaluation", {}).get("feedback"),
+        "promptTokens": (generation or {}).get("usage", {}).get("promptTokens", 0),
     }
 
 
-def game_view(
-    game: dict[str, Any], attempts_by_id: dict[str, dict[str, Any]], viewer_id: str
+def battle_view(
+    game: dict[str, Any],
+    attempts_by_id: dict[str, dict[str, Any]],
+    viewer_id: str,
+    seconds_remaining: int | None,
 ) -> dict[str, Any]:
     completed = game["status"] == "completed"
+    totals = {entry["userId"]: entry for entry in game.get("scoreboard", [])}
+    per_player = game["settings"]["imagesPerPlayer"]
+
     players = []
     for player in game["players"]:
-        attempt = attempts_by_id.get(str(player["attemptId"]))
-        if attempt is None:
-            continue
+        # A player's id is never published: it is the only thing standing between an onlooker
+        # and that player's prompts and image capability while the battle runs.
         is_you = player["userId"] == viewer_id
+        rounds = [
+            _round_view(
+                index,
+                challenge_id,
+                attempts_by_id.get(str(attempt_id)),
+                reveal=completed,
+            )
+            for index, (challenge_id, attempt_id) in enumerate(
+                zip(game["challengeIds"], player["attemptIds"], strict=False)
+            )
+        ]
+        outcome = totals.get(player["userId"], {})
         players.append(
             {
-                # A player's id is never published: it is the only thing standing between an
-                # onlooker and that player's prompt and image capability while the game runs.
                 "isYou": is_you,
                 "displayName": player["displayName"],
-                "attempt": opponent_view(attempt, reveal=completed or is_you),
+                "imagesChosen": len(player["challengeIds"]),
+                "usedDefaults": player["usedDefaults"],
+                "ready": len(player["challengeIds"]) >= per_player,
+                "submittedRounds": sum(1 for one in rounds if one["status"] == "ready"),
+                "total": round(outcome["total"], 1) if completed and outcome else None,
+                "promptTokens": outcome.get("promptTokens") if completed else None,
+                "images": (
+                    [
+                        {
+                            "challengeId": str(challenge_id),
+                            "imageUrl": f"/api/challenges/{challenge_id}/image",
+                        }
+                        for challenge_id in player["challengeIds"]
+                    ]
+                    if is_you or completed
+                    else []
+                ),
+                "rounds": rounds if is_you or completed else [],
             }
         )
 
-    winner_id = game.get("winnerUserId")
     return {
         "id": str(game["_id"]),
-        "challengeId": str(game["challengeId"]),
+        "code": game["code"],
         "status": game["status"],
-        "winner": _winner_label(game, winner_id, viewer_id),
+        "settings": game["settings"],
+        "totalRounds": len(game["challengeIds"]),
+        "secondsRemaining": seconds_remaining,
+        "winner": _winner_label(game, game.get("winnerUserId"), viewer_id),
         "players": players,
     }
 

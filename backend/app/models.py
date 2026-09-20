@@ -26,6 +26,10 @@ Difficulty = Literal["easy", "medium", "hard"]
 DIFFICULTIES: tuple[Difficulty, ...] = ("easy", "medium", "hard")
 DEFAULT_DIFFICULTY: Difficulty = "medium"
 
+# Curated images are the seeded training pool; player images are uploaded for a battle and
+# only ever appear in the battles their owner brings them to.
+ChallengeSource = Literal["curated", "player"]
+
 # A skill names the prompt-writing habit a problem isolates. Problems are the curriculum;
 # an unlabeled challenge is still a valid random target.
 Skill = Literal[
@@ -231,6 +235,13 @@ class Scores(BaseModel):
     promptQuality: float | None = None
     efficiency: float | None = None
     final: float | None = None
+
+
+class BattleSettings(BaseModel):
+    """What a battle's host chooses. Both players prompt every image in the combined pool."""
+
+    durationSeconds: int = Field(default=180, ge=60, le=600)
+    imagesPerPlayer: int = Field(default=3, ge=2, le=7)
 
 
 class ResourceUsage(BaseModel):

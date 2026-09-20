@@ -17,7 +17,7 @@ PromptForward evaluates:
 There are two modes:
 
 - **Learning Mode**: evaluates the prompt before image generation and teaches the user what to improve.
-- **Game Mode**: two users compete to reproduce the same target image in a single generation each, balancing result quality and efficiency.
+- **Battle Mode** (Prompt Royale): two users join a battle with a short code and race a shared clock to reproduce every image in a combined pool, one generation each per image, balancing result quality and efficiency.
 
 The architecture should remain generic enough to add **text-generation challenges** later.
 
@@ -530,7 +530,7 @@ Enforced by the backend, not only the UI:
 - Learning Mode allows up to 3 generations per attempt. Enforce the limit atomically.
 - Generation numbers come from a monotonic sequence that is never decremented. Refunding a failed generation frees a slot but never reissues a number, so a retry cannot overwrite an earlier generation's stored image.
 - A generation that fails for **any** reason — image generation, image storage, target download, or result evaluation — refunds its slot, and so does a cancelled request whose image never landed.
-- Learning Mode shows Prompt Quality, Image Quality (Result Quality), Efficiency, and the **Combined** score — the same weighted score Game Mode calls Final.
+- Learning Mode shows Prompt Quality, Image Quality (Result Quality), Efficiency, and the **Combined** score — the same weighted score Battle Mode calls Final.
 - Selected generation: the one with the highest Result Quality (ties go to the earlier one). Result Quality and Prompt Quality come from it.
 
 If the prompt fails:
@@ -560,11 +560,11 @@ Prompt Score: 84
 
 ---
 
-## Game Mode
+## Battle Mode
 
-Two players receive the same challenge. Each player gets exactly **1 image generation**.
+Both players prompt **every image in the combined pool**. Each player gets exactly **1 image generation per image**.
 
-Prompts are **never blocked** in Game Mode. The Prompt Evaluator runs **in parallel** with image generation (do not wait for it before generating).
+Prompts are **never blocked** in Battle Mode. The Prompt Evaluator runs **in parallel** with image generation (do not wait for it before generating).
 
 ```text
 User Prompt
@@ -584,20 +584,32 @@ Result Evaluator
 Result Score
 ```
 
-### Game Lifecycle
+### Battle Lifecycle
 
-- **Identity**: every player signs in to an account (see Accounts), and the account id is the `userId` sent with every game request along with the account's display name.
-- **Create**: `POST /api/games` with optional `challengeId` (random challenge if omitted). Creator joins as player 1. `status = waiting`.
-- **Join**: `POST /api/games/:id/join`. Second player joins. `status = active`. A third join returns `409`.
-- **Generate**: allowed only while `status = active` and the player has not generated yet. Enforce this **atomically** in MongoDB (conditional update that reserves the slot) so double clicks cannot generate twice. The attempt is submitted automatically once its generation and evaluations finish. If image generation fails, release the slot so the player can try again. If the image succeeded but the parallel prompt evaluation failed, the slot stays used: calling generate again only re-scores the stored image's prompt, so a provider hiccup can never buy a second image. The UI surfaces this as a "Score my prompt again" action rather than a dead end.
-- **Complete**: when both players have submitted, the backend computes scores, sets `winnerUserId`, and sets `status = completed`.
-- **Polling**: clients poll `GET /api/games/:id` every 2 seconds. Opponent prompts and images are hidden until `completed`; before that only whether the opponent has finished is shown.
+- **Identity**: every player signs in to an account (see Accounts), and the account id is the `userId` sent with every battle request along with the account's display name.
+- **Settings**: the host picks `durationSeconds` (60–600, default 180) and `imagesPerPlayer` (2–7, default 3). The pool is `2 × imagesPerPlayer` images and both players prompt all of them.
+- **Create**: `POST /api/games` returns a battle with a unique 6-character `code` (ambiguous letters and digits excluded). Creator joins as player 1. `status = waiting`.
+- **Join**: `POST /api/games/join` with the code. Second player joins. A third join returns `409`.
+- **Images**: during `waiting` each player picks their own images — uploads from their account library (`POST /api/games/:id/images`) or `POST /api/games/:id/default-images` to fill the remaining slots from the challenges seeded out of the Dropbox challenges folder (never anyone's upload). Player uploads live in their library and never enter the curated Training pool.
+- **Start**: once both players hold `imagesPerPlayer` images the pool is shuffled together, `startedAt`/`endsAt` are stamped and `status = active`.
+- **Generate**: `POST /api/games/:id/rounds/:index/prompt`, allowed only while `status = active`, before `endsAt` (plus a few seconds of round-trip grace), and only if the player has not generated for that image yet. Enforce this **atomically** in MongoDB (conditional update that reserves the slot) so double clicks cannot generate twice. The attempt is submitted automatically once its generation and evaluations finish. If image generation fails, release the slot so the player can try again. If the image succeeded but the parallel prompt evaluation failed, the slot stays used: calling generate again only re-scores the stored image's prompt, so a provider hiccup can never buy a second image. The UI surfaces this as a "Score my prompt again" action rather than a dead end.
+- **Complete**: when both players have answered every image, or the clock runs out, the backend averages each player's per-image final scores (unanswered images count as 0), sets `winnerUserId`, and sets `status = completed`.
+- **Polling**: clients poll `GET /api/games/:id` every 2 seconds. **No evaluation is revealed until `completed`** — not even the player's own. Scores, feedback, token counts and generated images are withheld from the view while the battle runs; only each side's progress count and the seconds remaining are shown.
 - **Player ids stay private.** Since a `userId` is the only thing identifying a player, it is never serialized: a game view marks each player `isYou` and reports the winner as `you` / `opponent` / `draw`. Otherwise anyone who saw an opponent's id in a response could ask for their view and receive their prompt and image capability.
-- **Invite**: the creator shares the URL `#/game/:id`. Opening it calls join automatically, so the MVP needs no matchmaking or lobby.
+- **Invite**: the creator reads out the code, or shares the URL `#/battle/:code`, which joins automatically.
 
 ### Winner
 
-Highest final score wins. Tie-breaks in order: higher Result Quality, then fewer prompt tokens. If still tied, `winnerUserId = null` (draw).
+Highest average final score wins. Tie-breaks in order: higher Result Quality, then fewer prompt tokens. If still tied, `winnerUserId = null` (draw).
+
+### Standings
+
+`GET /api/standings?userId=&limit=` returns the leaderboard, the viewer's own line, and the viewer's match history: their completed battles, newest first.
+
+- Derived from the completed games themselves, walked oldest first, rather than a running tally kept elsewhere — a battle that is replayed or removed can never leave the records disagreeing with the games behind them.
+- Per player: battles, W–L–D, win rate, average final score, the run they are currently on (`streak: {result, length}` — `W3`, `L2`, `D1`), and the best win streak.
+- Leaderboard order: wins, then win rate, then average score, then display name.
+- Match history is only ever the viewer's own — opponent, result, both totals, and when it finished — and like every other battle response it names players by display name: `userId`s stay on the server.
 
 ---
 
@@ -701,13 +713,13 @@ if selected_result_quality < 60:
 ```
 
 - `total_prompt_tokens`: sum across all generations in the attempt.
-- `failed_evaluations`: Learning Mode evaluations that did not pass. Always 0 in Game Mode.
-- `generation_count`: up to 3 in Learning Mode, always 1 in Game Mode.
+- `failed_evaluations`: Learning Mode evaluations that did not pass. Always 0 in Battle Mode.
+- `generation_count`: up to 3 in Learning Mode, always 1 per battle image.
 
 Resulting behavior:
 
 ```text
-Game Mode      → 85 to 100, driven only by prompt tokens
+Battle Mode    → 85 to 100, driven only by prompt tokens
 Learning Mode  → generations cost most (25 each after the first),
                  failed evaluations cost a little (5 each, max 20),
                  prompt length costs least (max 15)
@@ -735,7 +747,7 @@ Optionally display **Estimated / Relative Resource Usage**. Do not claim an exac
 
 ---
 
-## Final Game Score (Game Mode only)
+## Final Game Score (Battle Mode only)
 
 ```python
 final_score = (
@@ -821,7 +833,7 @@ Every challenge carries a `difficulty` of `easy`, `medium`, or `hard`, chosen by
 
 ## `attempts` Collection
 
-One document is one user's attempt at a challenge. Generations are embedded (max 3 in Learning Mode, 1 in Game Mode). The example below is a Learning Mode attempt.
+One document is one user's attempt at a challenge. Generations are embedded (max 3 in Learning Mode, 1 per battle image). The example below is a Learning Mode attempt.
 
 ```json
 {
@@ -897,27 +909,47 @@ One document is one user's attempt at a challenge. Generations are embedded (max
 }
 ```
 
-Check: 2 generations → −25; 1 failed evaluation → −5; 165 total tokens → −15. Efficiency = 100 − 25 − 5 − 15 = 55. Learning Mode reports the same weighted score as Game Mode, labelled Combined.
+Check: 2 generations → −25; 1 failed evaluation → −5; 165 total tokens → −15. Efficiency = 100 − 25 − 5 − 15 = 55. Learning Mode reports the same weighted score as Battle Mode, labelled Combined.
 
 - `mode`: `learning | game`
 - `status`: `in_progress | submitted`
 - `promptEvaluations` (Learning Mode): every evaluation run, `{ prompt, promptTokens, ...promptEvaluation, passed, createdAt }`. The gate checks the last entry.
-- `scores` is set once the attempt is submitted. `final` is only computed in Game Mode.
+- `scores` is set once the attempt is submitted. `final` is only computed in Battle Mode.
 
 ---
 
 ## `games` Collection
 
+One document is one battle. `challengeIds` is the shuffled combined pool; a round index is a position in it, and both players have a round per index.
+
 ```json
 {
   "_id": "game_123",
-  "challengeId": "challenge_001",
+  "code": "K7P2QH",
+  "settings": { "durationSeconds": 180, "imagesPerPlayer": 3 },
+  "challengeIds": ["challenge_001", "challenge_002", "challenge_003"],
   "players": [
-    { "userId": "player_uuid_1", "displayName": "Kris", "attemptId": "attempt_123" },
-    { "userId": "player_uuid_2", "displayName": "Sam", "attemptId": "attempt_124" }
+    {
+      "userId": "player_uuid_1",
+      "displayName": "Kris",
+      "challengeIds": ["challenge_001"],
+      "usedDefaults": false,
+      "attempts": { "0": "attempt_123" },
+      "score": 78.4
+    },
+    {
+      "userId": "player_uuid_2",
+      "displayName": "Sam",
+      "challengeIds": ["challenge_002"],
+      "usedDefaults": true,
+      "attempts": { "0": "attempt_124" },
+      "score": 71.2
+    }
   ],
   "winnerUserId": "player_uuid_1",
   "status": "completed",
+  "startedAt": "TIMESTAMP",
+  "endsAt": "TIMESTAMP",
   "createdAt": "TIMESTAMP",
   "completedAt": "TIMESTAMP"
 }
@@ -1100,10 +1132,17 @@ GET  /api/learning/attempts/:id
 POST /api/learning/attempts/:id/evaluate      { prompt } → evaluation + passed
 POST /api/learning/attempts/:id/generate      { prompt } → 409 only when out of generations
 
-POST /api/games                               { userId, displayName, challengeId? }
-POST /api/games/:id/join                      { userId, displayName }
-GET  /api/games/:id                           opponent details hidden until completed
-POST /api/games/:id/generate                  { userId, prompt } → one per player
+POST /api/games                               { userId, displayName, settings?, useDefaults? }
+POST /api/games/join                          { code, userId, displayName }
+GET  /api/games/:id                           all scoring hidden until completed
+POST /api/games/:id/images                    { userId, challengeId } → add one of your library images
+DELETE /api/games/:id/images/:challengeId     { userId } → drop it again while waiting
+POST /api/games/:id/default-images            { userId } → fill remaining slots from curated targets
+POST /api/games/:id/rounds/:index/prompt      { userId, prompt } → one generation per image per player
+
+GET  /api/library/images                      { userId } → images saved on the account
+POST /api/library/images                      multipart upload (≤10 MB) → stored on the account
+DELETE /api/library/images/:challengeId       { userId } → remove from the account
 
 GET  /api/attempts/:id/generations/:n/image?token=   generated image bytes
 ```
@@ -1146,7 +1185,7 @@ A game-style lobby, not a grid of every challenge. The player sets a difficulty 
 - Difficulty is a player setting stored in the browser; it defaults to `easy`. Prompt Royale plays at whatever difficulty training last set.
 - The target is never shown before a mode starts: the training screen shows a static illustrative example of that difficulty (bundled in `frontend/public/examples/`), never a real target, so nobody can pre-read the image and pre-write a prompt. Inside a mode the target is visible as the reference to describe.
 - **Prompt Training** opens its own screen — progress pills, difficulty tabs, example image, Start — and starts a solo attempt on a random target of that difficulty. After an attempt is scored a "Next target" button starts a fresh attempt on another random target at the same difficulty, so practice is endless; leaving an attempt returns to the training screen, not home. Training holds no head-to-head play.
-- **Prompt Royale** owns all multiplayer play (what earlier versions of this spec called Battle): it creates a game, lets the server pick the random target for that difficulty, and shows the invite link.
+- **Prompt Royale** owns all multiplayer play: it opens the battle lobby, where a player hosts (choosing the clock and the number of images each, optionally skipping uploads for curated defaults) or joins with a code.
 - If a difficulty has no targets yet, the training Start button is disabled with a "no targets at this difficulty" note.
 - Each panel carries its own short explanation, and a "How it works" line below covers the three score parts (result quality, prompt quality, efficiency) so a first-time player needs no instructions.
 
@@ -1160,7 +1199,7 @@ Token attention heatmap: the Challenge Analyzer now also locates every rubric cr
 
 X-ray comparison: once a Learning attempt has a generated image, the target and the result are shown in one frame with a drag handle instead of side by side — dragging wipes between the target (left of the handle) and your generation (right of it), so differences line up pixel for pixel.
 
-Battle result screen: while a game is active no scores are shown — after a player generates, the panel only confirms the image is in and says scores are revealed once the opponent finishes. When the game completes, both players' generated images are shown side by side in outlined cards with their score breakdown and prompt, and the winner's card is highlighted in green with a "winner" label (a draw is labelled below the cards).
+Battle result screen: while a battle is active no scores are shown — the arena only reports how many images each side has locked in and that scores are sealed until the clock stops. When the battle completes, a dramatic VICTORY / DEFEAT / DEAD HEAT banner leads, both players' totals and token counts sit at the top, and every image in the pool gets a row: the target on the left, both generated images side by side, and each generation's final, result-quality, prompt-quality and efficiency scores next to it with the prompt that produced it. An image nobody answered shows as a missed slot worth 0.
 
 Visual style: a dark technology look — near-black background (`#04060e`) with a live circuit backdrop (`frontend/src/components/Backdrop.tsx`, fixed behind everything): a faint wire grid (`frontend/public/grid.svg`) drifting across the viewport, etched circuit traces with cyan current pulses running along them, glowing particles floating upward, a slow scan sweep, and three blue glows that breathe behind the content, light text (`#eaf4ff`), thin blue-grey hairline borders, and strictly rectangular corners (2px) on every panel, button, tab, and input. Accents are blue: electric cyan `#4cc3ff` for highlights and the Royale card, `#2f9fff` for primary buttons, with green `#35d39a`, amber `#ffc441`, and red `#ff5a6e` reserved for pass/partial/fail signals. The whole scene is finished like a CRT — fine rolling scanlines and a soft tube vignette over the backdrop. The player name and avatar sit in the top-right of the header, the wordmark is Fredoka, body type is Plus Jakarta Sans at a large base size, and machine-ish labels (mode kickers, chips, the PIN pad, the composer preview) are IBM Plex Mono.
 
@@ -1241,47 +1280,46 @@ The largest difference was composition.
 
 ---
 
-## Game Mode UI
+## Battle Mode UI
+
+The lobby hosts a battle (time 1–10 min, 2–7 images each, optionally "use default images") or joins one with a 6-character code. The setup room shows the code, both players' readiness, the image slots, uploads into the account library, and a "fill with defaults" action. The arena is the clock plus the pool:
 
 ```text
-TARGET IMAGE
+                     2:41
+          You 2/6        Sam 1/6
+     Scores stay sealed until the battle ends.
+
+[img][img][img][img][img][img]   ← one chip per image, Locked in / Open
+
+Image 3 of 6
 
 [ image ]
-
-
-One generation. Make it count.      Opponent: writing...
 
 Prompt:
 
 [                                   ]
-[                                   ]
 
-              [ Generate ]
+              [ Send ]
 ```
 
 ---
 
-## Game Results UI
+## Battle Results UI
+
+The reveal is deliberately theatrical: a full-width VICTORY / DEFEAT / DEAD HEAT banner, both totals at the top, then one row per image with the target beside both players' generations and the per-image scores next to each.
 
 ```text
-PLAYER 1                         PLAYER 2
+                    VICTORY
 
-[ image ]                        [ image ]
+        YOU  91          SAM  84
+       74 tokens        112 tokens
 
+Image 1     [ your image ]        [ their image ]
+[target]    FINAL 91               FINAL 89
+            result 91 prompt 86    result 89 prompt 80
+            efficiency 96          efficiency 100
 
-Result Quality       91          Result Quality       89
-
-Prompt Quality       86          Prompt Quality       80
-
-Efficiency           96          Efficiency          100
-
-Prompt Tokens        74          Prompt Tokens        43
-
-
-FINAL                91          FINAL                89
-
-
-              PLAYER 1 WINS
+Image 2     ...
 ```
 
 Check:
@@ -1340,12 +1378,12 @@ Only the generator and result evaluator change. For now, just keep `type` checks
 - Prompt feedback
 - Image generation + generated image storage
 - Result Evaluator
-- Game Mode (create, join, generate, poll)
-- Generation limits enforced atomically (1 in Game Mode, 3 in Learning Mode)
+- Battle Mode (create, join by code, pick images, prompt every image, poll)
+- Generation limits enforced atomically (1 per battle image, 3 in Learning Mode)
 - Token tracking
 - Generation tracking
 - Efficiency score (both modes)
-- Final score (Game Mode)
+- Final score (Battle Mode)
 - Results screen
 - Unit tests for scoring
 
@@ -1396,10 +1434,10 @@ Compare target vs result
 
 > **PromptForward catches what is missing before the user wastes an image generation.**
 
-### Game Mode
+### Battle Mode
 
 ```text
-Same target image
+Shared pool of target images
     ↓
 Two different prompts
     ↓

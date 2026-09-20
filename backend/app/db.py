@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, AsyncIOMotorDatabase
+from pymongo.errors import OperationFailure
 
 from app.config import get_config
 
@@ -44,6 +45,10 @@ def progress_events() -> AsyncIOMotorCollection:
     return get_database()["progress_events"]
 
 
+def user_images() -> AsyncIOMotorCollection:
+    return get_database()["user_images"]
+
+
 def problem_progress() -> AsyncIOMotorCollection:
     return get_database()["problem_progress"]
 
@@ -62,6 +67,28 @@ async def ensure_indexes() -> None:
     await attempts().create_index("gameId")
     await prompt_evaluations().create_index("challengeId")
     await users().create_index("username", unique=True)
+    # Partial: games from before Battle Mode have no code, and they would all collide on null.
+    await _replace_index(
+        games(), "code", unique=True, partialFilterExpression={"code": {"$type": "string"}}
+    )
+    # The standings walk reads completed battles in the order they finished.
+    await games().create_index([("status", 1), ("completedAt", 1)])
+    await user_images().create_index("userId")
+
+
+async def _replace_index(collection: AsyncIOMotorCollection, key: str, **options: object) -> None:
+    """Create the index, rebuilding one of the same name that was defined differently."""
+    try:
+        await collection.create_index(key, **options)
+    except OperationFailure as failure:
+        if failure.code not in (85, 86):  # IndexOptionsConflict, IndexKeySpecsConflict
+            raise
+        try:
+            await collection.drop_index(f"{key}_1")
+        except OperationFailure as dropped:
+            if dropped.code != 27:  # IndexNotFound: another instance migrated it first
+                raise
+        await collection.create_index(key, **options)
 
 
 async def close_client() -> None:
