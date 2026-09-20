@@ -770,7 +770,7 @@ button.link {
   position: relative;
   display: grid;
   place-items: center;
-  padding: 2.75rem 4.5rem;
+  padding: 3.5rem 4.5rem;
 }
 
 .mode-word .word {
@@ -822,7 +822,7 @@ button.link {
   opacity: 0.35;
 }
 
-.tree .leaves circle {
+.tree .leaves ellipse {
   fill: var(--leaf);
   opacity: 0;
   transform: scale(0);
@@ -841,20 +841,20 @@ button.link {
   animation-delay: 0.35s;
 }
 
-.mode-word.train:hover:not(:disabled) .leaves circle,
-.mode-word.train:focus-visible .leaves circle {
+.mode-word.train:hover:not(:disabled) .leaves ellipse,
+.mode-word.train:focus-visible .leaves ellipse {
   animation: leaf-pop 0.5s ease-out forwards;
 }
 
-.tree .leaves circle:nth-child(3n + 2) {
+.tree .leaves ellipse:nth-child(3n + 2) {
   animation-delay: 0.9s;
 }
 
-.tree .leaves circle:nth-child(3n) {
+.tree .leaves ellipse:nth-child(3n) {
   animation-delay: 1.05s;
 }
 
-.tree .leaves circle:nth-child(3n + 1) {
+.tree .leaves ellipse:nth-child(3n + 1) {
   animation-delay: 0.75s;
 }
 
@@ -995,7 +995,7 @@ button.link {
 
 @media (prefers-reduced-motion: reduce) {
   .tree .limbs path,
-  .tree .leaves circle,
+  .tree .leaves ellipse,
   .lightning .bolts path,
   .lightning .sparks circle {
     animation: none !important;

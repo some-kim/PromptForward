@@ -5,40 +5,47 @@ type HomeProps = {
 };
 
 const LEAVES = [
-  { cx: 44, cy: 54, r: 13 },
-  { cx: 22, cy: 86, r: 10 },
-  { cx: 72, cy: 30, r: 11 },
-  { cx: 276, cy: 54, r: 13 },
-  { cx: 298, cy: 86, r: 10 },
-  { cx: 248, cy: 30, r: 11 },
-  { cx: 160, cy: 18, r: 12 },
-  { cx: 112, cy: 20, r: 9 },
-  { cx: 208, cy: 20, r: 9 },
+  { cx: 152, cy: 12, rx: 44, ry: 16 },
+  { cx: 92, cy: 24, rx: 32, ry: 14 },
+  { cx: 216, cy: 24, rx: 32, ry: 14 },
+  { cx: 46, cy: 40, rx: 24, ry: 12 },
+  { cx: 268, cy: 40, rx: 24, ry: 12 },
+  { cx: 124, cy: 38, rx: 26, ry: 11 },
+  { cx: 194, cy: 38, rx: 26, ry: 11 },
 ];
 
-// A tree grows out of the word: brown trunk and limbs arcing around it, leaves last.
+// A tree frames the word: canopy above, trunk behind, roots spreading underneath.
 function Tree() {
   return (
     <svg
       className="mode-art tree"
-      viewBox="0 0 320 160"
+      viewBox="0 0 320 200"
       preserveAspectRatio="none"
       aria-hidden="true"
     >
       <g className="limbs" fill="none" strokeLinecap="round">
-        <path d="M160 158v-18" strokeWidth="9" />
-        <path d="M160 142c-34 0-62-8-80-26-18-18-24-42-28-70" strokeWidth="7" />
-        <path d="M160 142c34 0 62-8 80-26 18-18 24-42 28-70" strokeWidth="7" />
-        <path d="M66 96c-12 2-22 10-30 22" strokeWidth="4.5" />
-        <path d="M254 96c12 2 22 10 30 22" strokeWidth="4.5" />
-        <path d="M52 46c8-12 20-20 34-24" strokeWidth="4.5" />
-        <path d="M268 46c-8-12-20-20-34-24" strokeWidth="4.5" />
-        <path d="M120 128c-6-10-6-22-2-32" strokeWidth="4" />
-        <path d="M200 128c6-10 6-22 2-32" strokeWidth="4" />
+        <path d="M160 146V58" strokeWidth="11" />
+        <path d="M160 74c-22-4-40-14-56-30" strokeWidth="6" />
+        <path d="M160 74c22-4 40-14 56-30" strokeWidth="6" />
+        <path d="M160 60c-12-12-18-26-18-42" strokeWidth="5" />
+        <path d="M160 60c12-12 18-26 18-42" strokeWidth="5" />
+        <path d="M116 50c-16-2-30-8-42-18" strokeWidth="3.5" />
+        <path d="M204 50c16-2 30-8 42-18" strokeWidth="3.5" />
+        <path
+          d="M160 146c-22 10-38 24-62 32-22 8-48 10-74 14"
+          strokeWidth="6"
+        />
+        <path d="M160 146c22 10 38 24 62 32 22 8 48 10 74 14" strokeWidth="6" />
+        <path d="M160 146c-8 18-12 34-10 52" strokeWidth="4.5" />
+        <path d="M160 146c8 18 12 34 10 52" strokeWidth="4.5" />
+        <path d="M118 166c-18 12-40 16-64 18" strokeWidth="3" />
+        <path d="M202 166c18 12 40 16 64 18" strokeWidth="3" />
+        <path d="M96 182c-14 6-30 10-50 12" strokeWidth="2.2" />
+        <path d="M224 182c14 6 30 10 50 12" strokeWidth="2.2" />
       </g>
       <g className="leaves">
         {LEAVES.map((leaf) => (
-          <circle key={`${leaf.cx}-${leaf.cy}`} {...leaf} />
+          <ellipse key={`${leaf.cx}-${leaf.cy}`} {...leaf} />
         ))}
       </g>
     </svg>
