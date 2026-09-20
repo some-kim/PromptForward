@@ -10,6 +10,8 @@ const BLURB: Record<Difficulty, string> = {
   hard: "Many subjects, unusual style, precise composition.",
 };
 
+const PIN = ["4", "7", "2", "9"];
+
 type HomeProps = {
   difficulty: Difficulty;
   onDifficultyChange: (difficulty: Difficulty) => void;
@@ -68,71 +70,93 @@ export function Home({
         <p className="hint">{BLURB[difficulty]}</p>
       </div>
 
-      <div className="arena">
-        {ready ? (
-          <figure className="example">
-            <img
-              src={`/examples/${difficulty}.jpg`}
-              alt={`Example of a ${difficulty} image`}
-            />
-            <figcaption>Example {difficulty} image</figcaption>
-          </figure>
-        ) : (
-          <p className="arena-empty">
-            {challenges === null
-              ? "Loading images…"
-              : `No ${difficulty} images yet — seed some at this difficulty.`}
-          </p>
-        )}
+      <div className="panels">
+        <article className="panel training">
+          <header>
+            <h2>Prompt Training</h2>
+            <p>
+              Practice alone. Your prompt is reviewed before it is used, the
+              target shows what you covered and what you missed, and you get up
+              to three images.
+            </p>
+          </header>
+
+          <div className="preview training-preview" aria-hidden="true">
+            {ready ? (
+              <img
+                src={`/examples/${difficulty}.jpg`}
+                alt=""
+                className="preview-target"
+              />
+            ) : (
+              <div className="preview-target placeholder">?</div>
+            )}
+            <div className="preview-chips">
+              <span className="covered">covered</span>
+              <span className="partial">partial</span>
+              <span className="missing">missing</span>
+            </div>
+            <div className="preview-composer">
+              <span>a single red apple on a white table…</span>
+              <i className="preview-send">→</i>
+            </div>
+          </div>
+
+          <button
+            className="big learning"
+            disabled={busy || !ready}
+            onClick={() => {
+              const target = pickRandom(challenges ?? []);
+              if (target) onLearn(target);
+            }}
+          >
+            Start training
+          </button>
+        </article>
+
+        <article className="panel royale">
+          <header>
+            <h2>Prompt Royale</h2>
+            <p>
+              Head to head. Everyone describes the same target, one image each,
+              and the best quality per token takes the round.
+            </p>
+          </header>
+
+          <div className="preview royale-preview" aria-hidden="true">
+            <span className="royale-round">Round 1 of 3</span>
+            <div className="pin">
+              {PIN.map((digit, index) => (
+                <span key={`${digit}-${index}`}>{digit}</span>
+              ))}
+            </div>
+            <div className="royale-players">
+              <span className="p1">Kris</span>
+              <span className="p2">Ryan</span>
+              <span className="p3">Ang</span>
+            </div>
+          </div>
+
+          <button
+            className="big battle"
+            disabled={busy || !ready}
+            onClick={onBattle}
+          >
+            Enter the royale
+          </button>
+        </article>
       </div>
 
-      <div className="big-buttons">
-        <button
-          className="big learning"
-          disabled={busy || !ready}
-          onClick={() => {
-            const target = pickRandom(challenges ?? []);
-            if (target) onLearn(target);
-          }}
-        >
-          Learning
-        </button>
-        <button
-          className="big battle"
-          disabled={busy || !ready}
-          onClick={onBattle}
-        >
-          Battle
-        </button>
-      </div>
+      {!ready && challenges !== null && (
+        <p className="arena-empty">
+          No {difficulty} images yet — seed some at this difficulty.
+        </p>
+      )}
 
-      <section className="info">
-        <h2>How it works</h2>
-        <p>
-          You are shown a target image. Write the prompt that would make an
-          image model recreate it, then see how close you got.
-        </p>
-        <dl>
-          <div>
-            <dt>Learning</dt>
-            <dd>
-              Practice alone. Your prompt is reviewed before it is used, and you
-              get up to three generations.
-            </dd>
-          </div>
-          <div>
-            <dt>Battle</dt>
-            <dd>
-              Share the link with a friend. You both describe the same target,
-              one generation each, higher score wins.
-            </dd>
-          </div>
-        </dl>
-        <p className="hint">
-          Score = how close your image is to the target, how well your prompt
-          describes it, and how few words and tries you needed.
-        </p>
-      </section>
+      <p className="hint how">
+        Score = how close your image is to the target, how well your prompt
+        describes it, and how few words and tries you needed.
+      </p>
     </section>
   );
 }

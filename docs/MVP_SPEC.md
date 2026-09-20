@@ -1129,27 +1129,26 @@ Every load opens on a full-screen splash: the logo mark, the wordmark, and the t
 A game-style lobby, not a grid of every challenge. The player sets a difficulty once and each mode then draws a random target at that difficulty.
 
 ```text
-┌─────────────────────────────────────┐
-│ [avatar] Kris            12 targets │
-│                                     │
-│     Difficulty  [Easy][Med][Hard]   │
-│                                     │
-│        ┌───────────────────┐        │
-│        │         ?         │        │
-│        │  hidden until you │        │
-│        │       start       │        │
-│        └───────────────────┘        │
-│                                     │
-│   [  Learning  ]     [  Battle  ]   │
-└─────────────────────────────────────┘
+┌───────────────────────────────────────────────┐
+│ [avatar] Kris                                 │
+│      Difficulty  [Easy][Med][Hard]            │
+│ ┌──────────────────┐ ┌──────────────────────┐ │
+│ │ Prompt Training  │ │ Prompt Royale        │ │
+│ │ (calm, eggshell) │ │ (loud, dark, gamey)  │ │
+│ │ target + arrow + │ │ PIN pad + players +  │ │
+│ │ heatmap chips    │ │ round counter        │ │
+│ │ [ Start training]│ │ [ Enter the royale ] │ │
+│ └──────────────────┘ └──────────────────────┘ │
+└───────────────────────────────────────────────┘
 ```
 
+- The lobby offers two products side by side, each panel previewing its own look so the choice is visual: **Prompt Training** (the solo teaching mode, rendered in the calm eggshell style) and **Prompt Royale** (the multiplayer mode, rendered in a loud Jackbox/Quiplash-style dark card). The preview inside each panel is a static mock built from the mode's own UI pieces, not a live attempt.
 - Difficulty is a player setting stored in the browser; it defaults to `easy`.
-- The target is never shown on the lobby: the card shows a static illustrative example of that difficulty (bundled in `frontend/public/examples/`), never a real target, so nobody can pre-read the image and pre-write a prompt. Inside Learning and Battle the target is visible as the reference to describe.
-- **Learning** starts a solo attempt on a random target of that difficulty, and after an attempt is scored a "Next target" button starts a fresh attempt on another random target at the same difficulty, so practice is endless without returning to the lobby.
-- **Battle** creates a game and lets the server pick the random target for that difficulty, then shows the invite link.
-- If a difficulty has no targets yet, both buttons are disabled with a "no targets at this difficulty" note.
-- Below the buttons, a "How it works" section explains the two modes and the three score parts (result quality, prompt quality, efficiency) so a first-time player needs no instructions.
+- The target is never shown on the lobby: the training panel shows a static illustrative example of that difficulty (bundled in `frontend/public/examples/`), never a real target, so nobody can pre-read the image and pre-write a prompt. Inside a mode the target is visible as the reference to describe.
+- **Prompt Training** starts a solo attempt on a random target of that difficulty, and after an attempt is scored a "Next target" button starts a fresh attempt on another random target at the same difficulty, so practice is endless without returning to the lobby. Training holds no head-to-head play.
+- **Prompt Royale** owns all multiplayer play (what earlier versions of this spec called Battle): it creates a game, lets the server pick the random target for that difficulty, and shows the invite link.
+- If a difficulty has no targets yet, both panels are disabled with a "no targets at this difficulty" note.
+- Each panel carries its own short explanation, and a "How it works" line below covers the three score parts (result quality, prompt quality, efficiency) so a first-time player needs no instructions.
 
 Player progress strip: the lobby shows three outlined pills above the difficulty picker — a day streak, grams of CO2e saved, and an XP level with a title (Novice → Prompt Master). Progress belongs to the signed-in account and lives on the user document in MongoDB: each finished attempt adds its score as XP, extends the streak when it is the next calendar day, and counts the generations used; the saving is the generations not spent against a three-per-target baseline at a rough 4.2 g CO2e per generation. The client posts finished attempts to `POST /api/auth/progress` and renders the returned totals, so stats follow the player to any browser. It is a motivational display only and never feeds scoring. The pills lift on hover and their icons animate continuously (flame flickers, leaf sways, trophy shines), as does the logo arrow; all of it stops under `prefers-reduced-motion`.
 

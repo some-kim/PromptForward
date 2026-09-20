@@ -76,7 +76,7 @@ export function GameMode({
   return (
     <section className="mode">
       <header className="mode-header">
-        <h2>Battle</h2>
+        <h2>Prompt Royale</h2>
         <button className="link" onClick={onExit}>
           Leave game
         </button>

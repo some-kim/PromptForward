@@ -87,7 +87,7 @@ export function LearningMode({
     <section className="mode">
       <header className="mode-header">
         <h2>
-          Learning Mode{" "}
+          Prompt Training{" "}
           <span className={`difficulty ${challenge.difficulty}`}>
             {challenge.difficulty}
           </span>
