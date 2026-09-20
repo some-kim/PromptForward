@@ -94,17 +94,19 @@ class ChallengeConflict(ValueError):
 
 
 async def _find_owner(image_hash: str, problem: Problem | None) -> dict[str, Any] | None:
-    """The one challenge this upload may update: the slug's owner, else the image's owner."""
+    """The one challenge this upload may update.
+
+    Without a problem that is the image's owner. With one it is the slug's owner, and the image
+    may not already belong to anything else: a slug never takes over another challenge.
+    """
     by_image = await db.challenges().find_one({"target.imageHash": image_hash})
     if problem is None:
         return by_image
     by_slug = await db.challenges().find_one({"problem.slug": problem.slug})
-    if by_slug is None:
-        return by_image
-    if by_image is not None and by_image["_id"] != by_slug["_id"]:
+    if by_image is not None and (by_slug is None or by_image["_id"] != by_slug["_id"]):
         raise ChallengeConflict(
-            f"Image is already used by challenge {by_image['_id']}; "
-            f"problem '{problem.slug}' is challenge {by_slug['_id']}"
+            f"Image is already used by challenge {by_image['_id']}, "
+            f"which is not problem '{problem.slug}'"
         )
     return by_slug
 

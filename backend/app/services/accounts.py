@@ -150,7 +150,8 @@ async def record_attempt(user: dict, attempt_id: str, score: float, generations:
 
     if ObjectId.is_valid(attempt_id):
         attempt = await db.attempts().find_one(
-            {"_id": ObjectId(attempt_id)}, {"challengeId": 1, "status": 1, "scores.final": 1}
+            {"_id": ObjectId(attempt_id)},
+            {"challengeId": 1, "userId": 1, "mode": 1, "status": 1, "scores.final": 1},
         )
         if attempt is not None:
             await record_problem_result(user["_id"], attempt)

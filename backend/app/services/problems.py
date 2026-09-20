@@ -27,22 +27,29 @@ async def progress_for(user_id: ObjectId | None) -> dict[str, dict[str, Any]]:
 async def record_problem_result(user_id: ObjectId, attempt: dict[str, Any]) -> None:
     """Folds one submitted attempt into the account's record for that problem.
 
-    The score is the one the server computed for the attempt, never the client's. Each attempt
-    is counted once no matter how often it is reported: `attemptIds` remembers which attempts
-    already count, so a report that failed halfway can simply be repeated.
+    The score is the one the server computed for the attempt, never the client's. Only the
+    account's own Learning attempts on a curriculum problem count: random practice and Battle
+    results are not curriculum progress. Each attempt is counted once no matter how often it is
+    reported: `attemptIds` remembers which attempts already count, so a report that failed
+    halfway can simply be repeated.
     """
-    if attempt.get("status") != "submitted":
+    if attempt.get("status") != "submitted" or attempt.get("mode") != "learning":
+        return
+    if attempt.get("userId") != str(user_id):
         return
     final = (attempt.get("scores") or {}).get("final")
     if final is None:
         return
-
     challenge_id = attempt["challengeId"]
+    challenge = await db.challenges().find_one({"_id": challenge_id}, {"problem": 1})
+    if challenge is None or problem_of(challenge) is None:
+        return
+
     key = {"_id": f"{user_id}:{challenge_id}"}
     await db.problem_progress().update_one(
         key,
         {
-            "$max": {"bestScore": round(final)},
+            "$max": {"bestScore": float(final)},
             "$setOnInsert": {"userId": user_id, "challengeId": challenge_id},
         },
         upsert=True,
@@ -56,7 +63,7 @@ async def record_problem_result(user_id: ObjectId, attempt: dict[str, Any]) -> N
 def status_of(entry: dict[str, Any] | None) -> str:
     if entry is None or int(entry.get("attempts", 0)) == 0:
         return "unsolved"
-    return "solved" if int(entry.get("bestScore", 0)) >= SOLVED_SCORE else "attempted"
+    return "solved" if float(entry.get("bestScore", 0)) >= SOLVED_SCORE else "attempted"
 
 
 def problem_view(challenge: dict[str, Any], entry: dict[str, Any] | None) -> dict[str, Any]:
@@ -76,7 +83,7 @@ def problem_view(challenge: dict[str, Any], entry: dict[str, Any] | None) -> dic
         "imageUrl": f"/api/challenges/{challenge_id}/image",
         "hintCount": len(problem.hints),
         "status": status_of(entry),
-        "bestScore": int(entry["bestScore"]) if entry else None,
+        "bestScore": round(entry["bestScore"]) if entry else None,
         "attempts": int(entry.get("attempts", 0)) if entry else 0,
     }
 

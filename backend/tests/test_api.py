@@ -838,15 +838,16 @@ class TestProblems:
 
     async def test_progress_marks_problems_solved_per_account(self, client):
         problem_id = await create_problem(client)
-        attempt_id = (
-            await client.post(
-                "/api/learning/attempts", json={"challengeId": problem_id, "userId": "player-1"}
-            )
-        ).json()["id"]
         signup = await client.post(
             "/api/auth/signup", json={"username": "kris", "password": "hunter2hunter2"}
         )
         headers = {"Authorization": f"Bearer {signup.json()['token']}"}
+        attempt_id = (
+            await client.post(
+                "/api/learning/attempts",
+                json={"challengeId": problem_id, "userId": signup.json()["user"]["id"]},
+            )
+        ).json()["id"]
 
         # An attempt that has not been scored yet earns nothing, whatever the client claims.
         await client.post(
@@ -892,3 +893,59 @@ class TestProblems:
 
         anonymous = (await client.get("/api/problems")).json()
         assert anonymous["problems"][0]["status"] == "unsolved"
+
+    async def test_only_own_learning_attempts_on_problems_count_as_progress(self, client):
+        problem_id = await create_problem(client)
+        plain_id = await create_challenge(client, color="blue")
+        signup = await client.post(
+            "/api/auth/signup", json={"username": "kris", "password": "hunter2hunter2"}
+        )
+        headers = {"Authorization": f"Bearer {signup.json()['token']}"}
+        me = signup.json()["user"]["id"]
+
+        async def solved_attempt(challenge_id: str, user_id: str) -> str:
+            attempt_id = (
+                await client.post(
+                    "/api/learning/attempts",
+                    json={"challengeId": challenge_id, "userId": user_id},
+                )
+            ).json()["id"]
+            response = await client.post(
+                f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": STRONG_PROMPT}
+            )
+            assert response.json()["scores"]["final"] >= 70
+            return attempt_id
+
+        # Someone else's attempt on the problem, and my own attempt on a random target.
+        theirs = await solved_attempt(problem_id, "someone-else")
+        random_practice = await solved_attempt(plain_id, me)
+        for attempt_id in (theirs, random_practice):
+            await client.post(
+                "/api/auth/progress",
+                json={"attemptId": attempt_id, "score": 90, "generations": 1},
+                headers=headers,
+            )
+        listed = (await client.get("/api/problems", headers=headers)).json()
+        assert listed["problems"][0]["status"] == "unsolved"
+        assert listed["problems"][0]["attempts"] == 0
+
+        mine = await solved_attempt(problem_id, me)
+        await client.post(
+            "/api/auth/progress",
+            json={"attemptId": mine, "score": 90, "generations": 1},
+            headers=headers,
+        )
+        listed = (await client.get("/api/problems", headers=headers)).json()
+        assert listed["problems"][0]["status"] == "solved"
+        assert listed["problems"][0]["attempts"] == 1
+
+    async def test_a_new_slug_cannot_relabel_an_existing_challenge(self, client):
+        plain_id = await create_challenge(client, color="blue")
+        response = await client.post(
+            "/api/challenges",
+            files={"image": ("target.png", png_bytes(color="blue"), "image/png")},
+            data={"difficulty": "easy", "problem": json.dumps(PROBLEM)},
+        )
+        assert response.status_code == 409
+        assert (await client.get("/api/problems")).json()["problems"] == []
+        assert (await client.get(f"/api/challenges/{plain_id}")).json()["problem"] is None

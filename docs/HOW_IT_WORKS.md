@@ -140,7 +140,12 @@ multiplier.
 
 Difficulty says how much a target demands; the **Problem Set** says *what it teaches*. A problem
 is a challenge with extra metadata attached at seed time; everything else (rubric, scoring,
-generation limits) is exactly the same as a plain Training target.
+generation limits) is exactly the same as a plain Training target. In the UI both live under
+**Learn**: the *Problem Set* tab is the curriculum, the *Random practice* tab is a random target
+at a chosen difficulty. Curriculum targets never appear in Random practice or Battle.
+
+Why the reference prompts currently score below the solve threshold, and the options for fixing
+that, are in `docs/REFERENCE_PROMPTS.md`.
 
 ### Problem metadata
 
