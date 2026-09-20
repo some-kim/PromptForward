@@ -1518,19 +1518,20 @@ button.big:hover:not(:disabled) {
   height: 5.5rem;
   object-fit: contain;
   filter: drop-shadow(0 0 14px rgb(76 195 255 / 45%));
-  animation: hover-bob 3.4s ease-in-out infinite;
+  will-change: transform;
+  backface-visibility: hidden;
+  animation: hover-bob 5s ease-in-out infinite;
 }
 
+/* One keyframe set, since two animations on the same property would cancel the bob out. */
 .agent-bot.talking {
-  animation:
-    hover-bob 3.4s ease-in-out infinite,
-    chatter 0.42s ease-in-out infinite;
+  animation: talk-sway 2.6s ease-in-out infinite;
 }
 
 /* The ring belongs under a parked robot, so it waits for the fly-in to land. */
 .agent-bot-wrap:has(.agent-bot.flying)::after {
   opacity: 0;
-  animation-delay: 3.6s;
+  animation-delay: 5.2s;
 }
 
 /* First load only: the robot swoops across the page before parking in its bar. */
@@ -1538,29 +1539,47 @@ button.big:hover:not(:disabled) {
 .agent-bot.talking.flying {
   z-index: 5;
   animation:
-    fly-in 3.6s cubic-bezier(0.4, 0, 0.2, 1) both,
-    hover-bob 3.4s ease-in-out 3.6s infinite;
+    fly-in 5.2s linear both,
+    hover-bob 5s ease-in-out 5.2s infinite;
 }
 
+/* Sampled along a smooth arc: many small steps with linear timing keep the flight from
+   accelerating and stalling between waypoints. */
 @keyframes fly-in {
   0% {
-    transform: translate(-45vw, 34vh) scale(0.45) rotate(-18deg);
+    transform: translate(-42vw, 26vh) scale(0.55) rotate(-10deg);
     opacity: 0;
   }
-  12% {
+  10% {
+    transform: translate(-26vw, 24vh) scale(0.66) rotate(-7deg);
     opacity: 1;
   }
+  20% {
+    transform: translate(-9vw, 21vh) scale(0.76) rotate(-3deg);
+  }
   30% {
-    transform: translate(22vw, 26vh) scale(0.85) rotate(12deg);
+    transform: translate(8vw, 17vh) scale(0.85) rotate(2deg);
   }
-  52% {
-    transform: translate(34vw, -6vh) scale(1.1) rotate(-8deg);
+  40% {
+    transform: translate(22vw, 10vh) scale(0.93) rotate(5deg);
   }
-  74% {
-    transform: translate(-16vw, -10vh) scale(1.05) rotate(9deg);
+  50% {
+    transform: translate(28vw, 1vh) scale(1) rotate(4deg);
   }
-  90% {
-    transform: translate(2vw, 2vh) scale(1) rotate(-3deg);
+  60% {
+    transform: translate(24vw, -7vh) scale(1.04) rotate(0deg);
+  }
+  70% {
+    transform: translate(12vw, -12vh) scale(1.05) rotate(-4deg);
+  }
+  80% {
+    transform: translate(-1vw, -11vh) scale(1.04) rotate(-5deg);
+  }
+  88% {
+    transform: translate(-6vw, -7vh) scale(1.02) rotate(-3deg);
+  }
+  95% {
+    transform: translate(-4vw, -2vh) scale(1.01) rotate(-1deg);
   }
   100% {
     transform: none;
@@ -1595,13 +1614,13 @@ button.big:hover:not(:disabled) {
   }
 }
 
-@keyframes chatter {
+@keyframes talk-sway {
   0%,
   100% {
-    transform: rotate(-1.5deg) scale(1);
+    transform: translate3d(0, 0, 0) rotate(-1.2deg);
   }
   50% {
-    transform: rotate(1.5deg) scale(1.03);
+    transform: translate3d(0, -7px, 0) rotate(1.2deg);
   }
 }
 
@@ -1633,10 +1652,10 @@ button.big:hover:not(:disabled) {
 @keyframes hover-bob {
   0%,
   100% {
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
   }
   50% {
-    transform: translateY(-6px);
+    transform: translate3d(0, -7px, 0);
   }
 }
 
