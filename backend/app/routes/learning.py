@@ -30,12 +30,13 @@ from app.services.scoring.token_counter import count_prompt_tokens
 router = APIRouter(prefix="/api/learning", tags=["learning"])
 
 MAX_PROMPT_CHARS = 2000
+MAX_IDENTITY_CHARS = 120
 
 
 class CreateAttemptRequest(BaseModel):
     challengeId: str
-    userId: str
-    displayName: str | None = None
+    userId: str = Field(max_length=MAX_IDENTITY_CHARS)
+    displayName: str | None = Field(default=None, max_length=MAX_IDENTITY_CHARS)
 
 
 class PromptRequest(BaseModel):

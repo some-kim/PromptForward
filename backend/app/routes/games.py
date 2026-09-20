@@ -32,22 +32,23 @@ from app.services.scoring.final_score import PlayerOutcome, pick_winner
 router = APIRouter(prefix="/api/games", tags=["games"])
 
 MAX_PROMPT_CHARS = 2000
+MAX_IDENTITY_CHARS = 120
 
 
 class CreateGameRequest(BaseModel):
-    userId: str
-    displayName: str
+    userId: str = Field(max_length=MAX_IDENTITY_CHARS)
+    displayName: str = Field(max_length=MAX_IDENTITY_CHARS)
     challengeId: str | None = None
     difficulty: Difficulty | None = None
 
 
 class JoinGameRequest(BaseModel):
-    userId: str
-    displayName: str
+    userId: str = Field(max_length=MAX_IDENTITY_CHARS)
+    displayName: str = Field(max_length=MAX_IDENTITY_CHARS)
 
 
 class GenerateRequest(BaseModel):
-    userId: str
+    userId: str = Field(max_length=MAX_IDENTITY_CHARS)
     prompt: str = Field(max_length=MAX_PROMPT_CHARS)
 
 
