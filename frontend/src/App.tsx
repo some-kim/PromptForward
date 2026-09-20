@@ -15,6 +15,7 @@ import { Home } from "./components/Home";
 import { LearningMode } from "./components/LearningMode";
 import { LogoMark } from "./components/LogoMark";
 import { SignIn } from "./components/SignIn";
+import { TrainingLobby } from "./components/TrainingLobby";
 import { Splash } from "./components/Splash";
 import { pickRandom } from "./pick";
 import { summarize } from "./progress";
@@ -23,6 +24,7 @@ import { getToken, setToken } from "./session";
 
 type View =
   | { name: "home" }
+  | { name: "train" }
   | { name: "learning"; challenge: Challenge; attempt: Attempt }
   | { name: "game"; game: Game };
 
@@ -228,12 +230,20 @@ export default function App() {
 
       {user && view.name === "home" && (
         <Home
+          busy={busy}
+          onTrain={() => setView({ name: "train" })}
+          onBattle={startBattle}
+        />
+      )}
+
+      {user && view.name === "train" && (
+        <TrainingLobby
           key={difficulty}
           difficulty={difficulty}
           onDifficultyChange={changeDifficulty}
           busy={busy}
-          onLearn={startLearning}
-          onBattle={startBattle}
+          onStart={startLearning}
+          onExit={exit}
           onError={showError}
           progress={progress}
         />
@@ -247,7 +257,7 @@ export default function App() {
           busy={busy}
           onScored={scored}
           onNext={() => nextLearning(view.challenge)}
-          onExit={exit}
+          onExit={() => setView({ name: "train" })}
         />
       )}
 
