@@ -229,6 +229,19 @@ export type LibraryImage = {
   imageUrl: string;
 };
 
+export type Savings = {
+  promptChecks: number;
+  blockedGenerations: number;
+  generations: number;
+  cachedEvaluations: number;
+  cacheHits: number;
+  analyzedTargets: number;
+  assumedCosts: { generation: number; evaluation: number };
+  estimatedSavedUsd: number;
+  estimatedSpentUsd: number;
+  savedShare: number;
+};
+
 export type Progress = {
   xp: number;
   attempts: number;
@@ -383,6 +396,8 @@ export const api = {
 
   getStandings: (userId: string) =>
     request<Standings>(`/api/standings?userId=${encodeURIComponent(userId)}`),
+
+  getSavings: () => request<Savings>("/api/stats/savings"),
 
   listLibraryImages: (userId: string) =>
     request<LibraryImage[]>(

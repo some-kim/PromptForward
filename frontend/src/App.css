@@ -1018,9 +1018,41 @@ button.link {
   }
 }
 
+.savings-ledger {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem;
+  margin: 0;
+  padding: 1.25rem 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.savings-ledger dt {
+  font-family:
+    "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  color: var(--muted);
+}
+
+.savings-ledger dd {
+  margin: 0.3rem 0 0;
+  font-size: 1.4rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.savings-ledger dd small {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
 @media (width <= 720px) {
   .marquee,
-  .marquee-notes {
+  .marquee-notes,
+  .savings-ledger {
     grid-template-columns: 1fr;
   }
 }
