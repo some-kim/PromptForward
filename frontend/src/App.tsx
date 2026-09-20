@@ -88,6 +88,9 @@ export default function App() {
   // Set while the sign-in form is shown; remembers what the visitor was about to do.
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const joining = useRef<string | null>(null);
+  // Bumped whenever the account changes so responses started under the old identity are
+  // dropped instead of overwriting the new one.
+  const epoch = useRef(0);
 
   const playerId = user?.id ?? "";
   const name = user?.displayName ?? "";
@@ -114,15 +117,19 @@ export default function App() {
   // Progress on the problem set belongs to the account, so it reloads with the user and
   // after every scored attempt.
   const refreshProblems = useCallback(() => {
+    const started = epoch.current;
     api
       .listProblems()
-      .then(setProblemSet)
+      .then((set) => {
+        if (epoch.current === started) setProblemSet(set);
+      })
       .catch(() => undefined);
   }, []);
 
   // Anonymous visitors see the problem list too, just without their own progress.
   const userId = user?.id ?? null;
   useEffect(() => {
+    epoch.current += 1;
     refreshProblems();
   }, [userId, refreshProblems]);
 
@@ -148,9 +155,11 @@ export default function App() {
       return;
     joining.current = invitedGameId;
 
+    const started = epoch.current;
     api
       .joinGame(invitedGameId, playerId, name || "Player")
       .then((game) => {
+        if (epoch.current !== started) return;
         setError(null);
         setView({ name: "game", game });
       })
@@ -224,6 +233,7 @@ export default function App() {
   }
 
   async function startLearningAs(challenge: Challenge) {
+    const started = epoch.current;
     setBusy(true);
     setError(null);
     try {
@@ -232,6 +242,7 @@ export default function App() {
         playerId,
         name || "Player",
       );
+      if (epoch.current !== started) return;
       setView({ name: "learning", challenge, attempt });
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : String(caught));
@@ -241,6 +252,7 @@ export default function App() {
   }
 
   async function nextLearning(current: Challenge) {
+    const started = epoch.current;
     setBusy(true);
     setError(null);
     try {
@@ -263,6 +275,7 @@ export default function App() {
         playerId,
         name || "Player",
       );
+      if (epoch.current !== started) return;
       setView({ name: "learning", challenge: next, attempt });
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : String(caught));
@@ -276,6 +289,7 @@ export default function App() {
   }
 
   async function startBattleAs() {
+    const started = epoch.current;
     setBusy(true);
     setError(null);
     try {
@@ -285,6 +299,7 @@ export default function App() {
         undefined,
         difficulty,
       );
+      if (epoch.current !== started) return;
       location.hash = `#/game/${game.id}`;
       setView({ name: "game", game });
     } catch (caught) {
@@ -400,7 +415,7 @@ export default function App() {
           />
         )}
 
-        {!signingIn && view.name === "learning" && (
+        {user && !signingIn && view.name === "learning" && (
           <LearningMode
             key={view.attempt.id}
             challenge={view.challenge}
@@ -416,7 +431,7 @@ export default function App() {
           />
         )}
 
-        {!signingIn && view.name === "game" && (
+        {user && !signingIn && view.name === "game" && (
           <GameMode
             game={view.game}
             playerId={playerId}
