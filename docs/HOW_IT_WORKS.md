@@ -31,6 +31,13 @@ promptQuality     0.70 × targetCoverage + 0.30 × craftsmanship
 ```
 
 A prompt **passes** when `promptQuality ≥ 70` **and** no criterion marked `critical` is `missing`.
+
+Prompt evaluations are cached (`services/evaluation_cache.py`, collection `prompt_evaluations`):
+the key is the challenge, its analysis version, the evaluator model, and the prompt with
+whitespace collapsed. Resubmitting the same prompt on the same target therefore returns the
+identical score instantly and costs no model call; the evaluator runs at temperature 0 but still
+drifts by ~1 point between identical calls, and generated images vary far more than that.
+
 A failing prompt is returned with `needsImprovement`: category-level hints only
 (e.g. "describe the main subject"), never the rubric wording.
 

@@ -84,11 +84,10 @@ def prompt_evaluation(statuses: list[str], score: int = 90):
 @pytest.fixture
 async def client(monkeypatch, database):
     from app.routes import challenges as challenges_route
-    from app.routes import games as games_route
     from app.routes import images as images_route
-    from app.routes import learning as learning_route
     from app.services import attempts as attempts_service
     from app.services import challenges as challenges_service
+    from app.services import evaluation_cache
 
     async def fake_analyze(image_bytes: bytes, mime_type: str) -> Rubric:
         return RUBRIC
@@ -152,8 +151,7 @@ async def client(monkeypatch, database):
             return prompt_evaluation(["missing", "partial", "missing", "covered"], score=50)
         return prompt_evaluation(["covered", "covered", "covered", "covered"])
 
-    monkeypatch.setattr(learning_route, "evaluate_prompt", strong_prompt_evaluation)
-    monkeypatch.setattr(games_route, "evaluate_prompt", strong_prompt_evaluation)
+    monkeypatch.setattr(evaluation_cache, "evaluate_prompt", strong_prompt_evaluation)
 
     from app.main import app
 
@@ -220,6 +218,39 @@ class TestChallenges:
 
 
 class TestLearningMode:
+    async def test_same_prompt_on_same_target_is_scored_once(self, client, monkeypatch):
+        from app.services import evaluation_cache
+
+        calls: list[str] = []
+        real_evaluate = evaluation_cache.evaluate_prompt
+
+        async def counting_evaluate(rubric, prompt: str):
+            calls.append(prompt)
+            return await real_evaluate(rubric, prompt)
+
+        monkeypatch.setattr(evaluation_cache, "evaluate_prompt", counting_evaluate)
+        challenge_id = await create_challenge(client)
+        other_challenge_id = await create_challenge(client, color="green")
+
+        async def evaluate(target: str, prompt: str) -> dict:
+            attempt = await client.post(
+                "/api/learning/attempts", json={"challengeId": target, "userId": "player-1"}
+            )
+            response = await client.post(
+                f"/api/learning/attempts/{attempt.json()['id']}/evaluate", json={"prompt": prompt}
+            )
+            assert response.status_code == 200
+            return response.json()
+
+        first = await evaluate(challenge_id, WEAK_PROMPT)
+        second = await evaluate(challenge_id, f"  {WEAK_PROMPT}\n")  # whitespace is ignored
+        assert first["promptQuality"] == second["promptQuality"]
+        assert calls == [WEAK_PROMPT]
+
+        await evaluate(challenge_id, STRONG_PROMPT)
+        await evaluate(other_challenge_id, WEAK_PROMPT)  # a different target is a new score
+        assert calls == [WEAK_PROMPT, STRONG_PROMPT, WEAK_PROMPT]
+
     async def test_weak_prompt_still_generates_and_scores_both(self, client):
         challenge_id = await create_challenge(client)
         attempt = await client.post(
@@ -385,7 +416,7 @@ class TestLearningMode:
     async def test_unreachable_evaluator_refuses_the_generation_and_refunds_the_slot(
         self, client, monkeypatch
     ):
-        from app.routes import learning as learning_route
+        from app.services import evaluation_cache
         from app.services.openai.client import LLMResponseError
 
         challenge_id = await create_challenge(client)
@@ -395,18 +426,18 @@ class TestLearningMode:
             )
         ).json()["id"]
 
-        working_evaluate = learning_route.evaluate_prompt
+        working_evaluate = evaluation_cache.evaluate_prompt
 
         async def failing_evaluate(rubric, prompt):
             raise LLMResponseError("OpenAI is down")
 
-        monkeypatch.setattr(learning_route, "evaluate_prompt", failing_evaluate)
+        monkeypatch.setattr(evaluation_cache, "evaluate_prompt", failing_evaluate)
         failed = await client.post(
             f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": STRONG_PROMPT}
         )
         assert failed.status_code == 502
 
-        monkeypatch.setattr(learning_route, "evaluate_prompt", working_evaluate)
+        monkeypatch.setattr(evaluation_cache, "evaluate_prompt", working_evaluate)
         retried = await client.post(
             f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": STRONG_PROMPT}
         )
@@ -492,7 +523,7 @@ class TestGameMode:
             assert attempt["scores"]["efficiency"] > 0
 
     async def test_failed_evaluation_does_not_buy_a_second_image(self, client, monkeypatch):
-        from app.routes import games as games_route
+        from app.services import evaluation_cache
         from app.services.openai.client import LLMResponseError
 
         challenge_id = await create_challenge(client)
@@ -504,18 +535,18 @@ class TestGameMode:
         ).json()["id"]
         await client.post(f"/api/games/{game_id}/join", json={"userId": "p2", "displayName": "Sam"})
 
-        working_evaluate = games_route.evaluate_prompt
+        working_evaluate = evaluation_cache.evaluate_prompt
 
         async def failing_evaluate(rubric, prompt):
             raise LLMResponseError("OpenAI is down")
 
-        monkeypatch.setattr(games_route, "evaluate_prompt", failing_evaluate)
+        monkeypatch.setattr(evaluation_cache, "evaluate_prompt", failing_evaluate)
         failed = await client.post(
             f"/api/games/{game_id}/generate", json={"userId": "p1", "prompt": STRONG_PROMPT}
         )
         assert failed.status_code == 502
 
-        monkeypatch.setattr(games_route, "evaluate_prompt", working_evaluate)
+        monkeypatch.setattr(evaluation_cache, "evaluate_prompt", working_evaluate)
         retried = await client.post(
             f"/api/games/{game_id}/generate", json={"userId": "p1", "prompt": "a different prompt"}
         )

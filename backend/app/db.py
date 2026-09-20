@@ -48,6 +48,10 @@ def problem_progress() -> AsyncIOMotorCollection:
     return get_database()["problem_progress"]
 
 
+def prompt_evaluations() -> AsyncIOMotorCollection:
+    return get_database()["prompt_evaluations"]
+
+
 async def ensure_indexes() -> None:
     await problem_progress().create_index("userId")
     await challenges().create_index(
@@ -56,6 +60,7 @@ async def ensure_indexes() -> None:
     await challenges().create_index("target.imageHash", unique=True)
     await attempts().create_index("challengeId")
     await attempts().create_index("gameId")
+    await prompt_evaluations().create_index("challengeId")
     await users().create_index("username", unique=True)
 
 

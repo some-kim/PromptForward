@@ -24,8 +24,8 @@ from app.services.attempts import (
     submit_attempt,
 )
 from app.services.challenges import rubric_of
+from app.services.evaluation_cache import evaluate_prompt_cached
 from app.services.openai.client import LLMResponseError
-from app.services.openai.prompt_evaluator import evaluate_prompt
 from app.services.problems import coaching_view
 from app.services.scoring.token_counter import count_prompt_tokens
 
@@ -78,7 +78,7 @@ async def evaluate_learning_prompt(attempt_id: str, body: PromptRequest) -> dict
     rubric = rubric_of(challenge)
 
     try:
-        evaluation = await evaluate_prompt(rubric, body.prompt)
+        evaluation = await evaluate_prompt_cached(challenge, body.prompt)
     except LLMResponseError as error:
         raise HTTPException(status_code=502, detail=str(error)) from error
 
@@ -167,7 +167,7 @@ async def _evaluation_for(attempt: dict, challenge: dict, prompt: str) -> Prompt
             return _evaluation_model(entry)
 
     try:
-        evaluation = await evaluate_prompt(rubric_of(challenge), prompt)
+        evaluation = await evaluate_prompt_cached(challenge, prompt)
     except LLMResponseError as error:
         raise HTTPException(status_code=502, detail=str(error)) from error
     await record_prompt_evaluation(attempt["_id"], prompt, evaluation)
