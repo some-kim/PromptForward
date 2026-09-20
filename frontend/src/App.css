@@ -1831,6 +1831,14 @@ button.big:hover:not(:disabled) {
   font-weight: 700;
 }
 
+.standings-table td.streak.win {
+  color: var(--green);
+}
+
+.standings-table td.streak.loss {
+  color: var(--red);
+}
+
 .head-to-head {
   list-style: none;
   margin: 0;

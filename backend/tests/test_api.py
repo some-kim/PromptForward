@@ -1141,11 +1141,31 @@ class TestStandings:
         assert first["isYou"] is True
         assert first["winRate"] == pytest.approx(66.7)
         assert first["averageScore"] == pytest.approx(80)
-        # The last battle was a loss, so the streak is spent but the best run stands.
+        # The last battle was a loss, so they are on a losing run; the best win run stands.
+        assert first["streak"] == {"result": "loss", "length": 1}
         assert (first["currentStreak"], first["bestStreak"]) == (0, 2)
 
         assert (second["displayName"], second["wins"]) == ("Sam", 1)
+        assert second["streak"] == {"result": "win", "length": 1}
         assert (second["currentStreak"], second["bestStreak"]) == (1, 1)
+
+    async def test_a_run_of_draws_is_its_own_streak(self, client):
+        from app.services.battles import now
+
+        kris, sam = str(uuid.uuid4()), str(uuid.uuid4())
+        start = now() - timedelta(hours=2)
+        for index in range(2):
+            await completed_battle(
+                players=[(kris, "Kris"), (sam, "Sam")],
+                totals={kris: 60, sam: 60},
+                winner=None,
+                finished_at=start + timedelta(minutes=index),
+            )
+
+        standings = (await client.get("/api/standings", params={"userId": kris})).json()
+        assert standings["you"]["draws"] == 2
+        assert standings["you"]["streak"] == {"result": "draw", "length": 2}
+        assert (standings["you"]["currentStreak"], standings["you"]["bestStreak"]) == (0, 0)
 
     async def test_head_to_head_is_read_from_the_viewers_side(self, client):
         from app.services.battles import now

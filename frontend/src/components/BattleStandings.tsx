@@ -1,11 +1,19 @@
 import { useEffect, useState } from "react";
-import { api, type HeadToHead, type Standings } from "../api";
+import {
+  api,
+  type HeadToHead,
+  type Standings,
+  type StandingsEntry,
+} from "../api";
 
 type Props = { playerId: string };
 
-function streakLabel(current: number, best: number) {
-  if (current > 0) return `W${current} streak`;
-  return best > 0 ? `best W${best}` : "—";
+const STREAK_LETTER = { win: "W", loss: "L", draw: "D" } as const;
+
+/** The run they are on now, whichever way it is going: W3, L2, D1. */
+function streakLabel({ streak }: StandingsEntry) {
+  if (!streak.result) return "—";
+  return `${STREAK_LETTER[streak.result]}${streak.length} streak`;
 }
 
 function record(one: HeadToHead) {
@@ -38,9 +46,7 @@ export function BattleSeries({
       <span>
         vs {opponent} <strong>{record(series)}</strong>
       </span>
-      <span>
-        {streakLabel(standings.you.currentStreak, standings.you.bestStreak)}
-      </span>
+      <span>{streakLabel(standings.you)}</span>
     </p>
   );
 }
@@ -94,7 +100,9 @@ export function BattleStandings({ playerId }: Props) {
                 </td>
                 <td>{entry.winRate}%</td>
                 <td>{entry.averageScore}</td>
-                <td>{streakLabel(entry.currentStreak, entry.bestStreak)}</td>
+                <td className={`streak ${entry.streak.result ?? ""}`}>
+                  {streakLabel(entry)}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -106,8 +114,7 @@ export function BattleStandings({ playerId }: Props) {
         {you && (
           <p className="hint">
             {you.wins}–{you.losses}
-            {you.draws > 0 ? `–${you.draws}` : ""} overall ·{" "}
-            {streakLabel(you.currentStreak, you.bestStreak)}
+            {you.draws > 0 ? `–${you.draws}` : ""} overall · {streakLabel(you)}
           </p>
         )}
         {headToHead.length === 0 ? (

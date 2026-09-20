@@ -25,7 +25,9 @@ class _Record:
     losses: int = 0
     draws: int = 0
     score_total: float = 0.0
-    current_streak: int = 0
+    # The run of identical results they are on now, win or otherwise, and their best win run.
+    streak_result: Result | None = None
+    streak_length: int = 0
     best_streak: int = 0
     last_played_at: datetime | None = None
     # Keyed by opponent id: the same walk builds the head-to-head records.
@@ -43,9 +45,10 @@ class _Record:
         else:
             self.draws += 1
         self.score_total += score
-        # A draw or a loss both end a streak: only wins in a row count.
-        self.current_streak = self.current_streak + 1 if result == "win" else 0
-        self.best_streak = max(self.best_streak, self.current_streak)
+        self.streak_length = self.streak_length + 1 if result == self.streak_result else 1
+        self.streak_result = result
+        if result == "win":
+            self.best_streak = max(self.best_streak, self.streak_length)
         self.last_played_at = played_at or self.last_played_at
 
 
@@ -130,7 +133,8 @@ def _entry(record: _Record, *, is_you: bool) -> dict[str, Any]:
         "draws": record.draws,
         "winRate": _win_rate(record),
         "averageScore": round(record.score_total / record.battles, 1) if record.battles else 0.0,
-        "currentStreak": record.current_streak,
+        "streak": {"result": record.streak_result, "length": record.streak_length},
+        "currentStreak": record.streak_length if record.streak_result == "win" else 0,
         "bestStreak": record.best_streak,
         "lastPlayedAt": record.last_played_at,
     }

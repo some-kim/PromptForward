@@ -136,6 +136,7 @@ export type StandingsEntry = {
   draws: number;
   winRate: number;
   averageScore: number;
+  streak: { result: "win" | "loss" | "draw" | null; length: number };
   currentStreak: number;
   bestStreak: number;
   lastPlayedAt: string | null;
