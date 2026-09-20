@@ -148,6 +148,7 @@ def _generated_view(attempt: dict, challenge: dict, prompt: str) -> dict:
         if entry["prompt"] == prompt:
             evaluation = _evaluation_model(entry)
             view["promptEvaluation"] = {
+                "prompt": prompt,
                 **prompt_evaluation_view(
                     {**evaluation.model_dump(), "promptTokens": count_prompt_tokens(prompt)}
                 ),

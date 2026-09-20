@@ -55,7 +55,8 @@ export function LearningMode({
       setAttempt(scored);
       if (scored.promptEvaluation) {
         setEvaluation(scored.promptEvaluation);
-        setEvaluatedPrompt(prompt);
+        setEvaluatedPrompt(scored.promptEvaluation.prompt);
+        setPrompt(scored.promptEvaluation.prompt);
       }
       if (scored.coaching) setCoaching(scored.coaching);
       if (scored.status === "submitted") {

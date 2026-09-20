@@ -123,7 +123,7 @@ export type Attempt = {
   status: "in_progress" | "submitted";
   latestEvaluation: PromptEvaluation | null;
   /** Evaluation of the prompt a generate call just used, with its attention regions. */
-  promptEvaluation?: PromptEvaluation;
+  promptEvaluation?: PromptEvaluation & { prompt: string };
   generations?: Generation[];
   generationsRemaining?: number;
   selectedGeneration?: number | null;
