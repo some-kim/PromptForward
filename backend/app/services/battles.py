@@ -187,11 +187,14 @@ async def remove_image(
 
 
 def _curated_pool_filter() -> dict[str, Any]:
-    """Only images seeded from the Dropbox challenges folder, never a player's upload."""
+    """Only images seeded from the Dropbox challenges folder, never a player's upload.
+
+    Dropbox paths are case-insensitive and stored lowercased, so the folder matches either way.
+    """
     folder = get_config().dropbox.challenges_folder.rstrip("/")
     return {
-        "source": "curated",
-        "target.dropboxPath": {"$regex": f"^{re.escape(folder)}/"},
+        "source": {"$ne": "player"},
+        "target.dropboxPath": {"$regex": f"^{re.escape(folder)}/", "$options": "i"},
     }
 
 
