@@ -818,16 +818,14 @@ button.link {
 
 .tree .limbs path {
   stroke: var(--bark);
-  opacity: 0.5;
-  transition: opacity 0.25s ease;
+  opacity: 0;
 }
 
 .tree .leaves ellipse {
   fill: var(--leaf);
-  opacity: 0.35;
+  opacity: 0;
   transform-origin: center;
   transform-box: fill-box;
-  transition: opacity 0.25s ease;
 }
 
 .mode-word.train:hover:not(:disabled) .limbs path,
@@ -870,8 +868,8 @@ button.link {
 
 @keyframes leaf-pop {
   from {
-    opacity: 0.35;
-    transform: scale(0.75);
+    opacity: 0;
+    transform: scale(0.6);
   }
   to {
     opacity: 0.95;
@@ -881,7 +879,7 @@ button.link {
 
 .lightning .bolts path {
   fill: var(--spark);
-  opacity: 0.35;
+  opacity: 0;
 }
 
 .lightning .sparks circle {
