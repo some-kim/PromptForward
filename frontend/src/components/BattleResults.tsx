@@ -1,4 +1,7 @@
+import { useState } from "react";
 import type { Battle, BattlePlayer, BattleRound } from "../api";
+import { prefersReducedMotion } from "../motion";
+import { BattleReveal } from "./BattleReveal";
 
 type Props = {
   battle: Battle;
@@ -56,6 +59,11 @@ export function BattleResults({ battle, onRematch, onExit }: Props) {
   const opponent = battle.players.find((player) => !player.isYou);
   const outcome = battle.winner ?? "draw";
   const indexes = Array.from({ length: battle.totalRounds }, (_, i) => i);
+  const [revealed, setRevealed] = useState(prefersReducedMotion());
+
+  if (!revealed) {
+    return <BattleReveal battle={battle} onDone={() => setRevealed(true)} />;
+  }
 
   return (
     <div className={`battle-results ${outcome}`}>

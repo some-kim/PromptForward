@@ -2142,3 +2142,331 @@ button.big:hover:not(:disabled) {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- Battle Mode: the show (intro, pressure alerts, reveal) ---- */
+.battle-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 0.8rem;
+  padding: 2rem;
+  background: rgba(12, 12, 16, 0.94);
+  color: #fff;
+  animation: rise 0.25s ease both;
+}
+
+.intro-versus {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  font-family: var(--display);
+  font-size: clamp(1.6rem, 6vw, 3.2rem);
+  text-transform: uppercase;
+}
+
+.intro-versus .fighter {
+  animation: slide-in-left 0.5s ease both;
+}
+
+.intro-versus .fighter.theirs {
+  animation-name: slide-in-right;
+}
+
+.intro-versus .fighter.mine {
+  color: var(--violet);
+}
+
+.intro-versus .versus {
+  color: var(--red);
+  animation: pop 0.6s ease 0.35s both;
+}
+
+.intro-stakes {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+}
+
+.intro-count {
+  font-family: var(--display);
+  font-size: clamp(4rem, 20vw, 10rem);
+  line-height: 1;
+  animation: count-slam 0.6s ease both;
+}
+
+.intro-count.go {
+  color: var(--green);
+}
+
+.intro-skip {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.battle-alerts {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 30;
+  display: grid;
+  gap: 0.4rem;
+  justify-items: end;
+  pointer-events: none;
+}
+
+.battle-alert {
+  margin: 0;
+  padding: 0.5rem 0.9rem;
+  background: var(--red);
+  color: #fff;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  border-radius: 2px;
+  animation: slide-in-right 0.3s ease both;
+}
+
+.battle-cinema {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+  min-height: 60vh;
+  align-content: center;
+  padding: 1.5rem;
+  overflow: hidden;
+  background: #0c0c10;
+  color: #fff;
+  border-radius: 2px;
+}
+
+.cinema-step {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+}
+
+.reveal-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  gap: 1rem;
+  align-items: center;
+  width: min(100%, 720px);
+  animation: rise 0.4s ease both;
+}
+
+.reveal-target {
+  margin: 0;
+  display: grid;
+  gap: 0.3rem;
+  justify-items: center;
+  opacity: 0.7;
+}
+
+.reveal-target figcaption {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.reveal-card {
+  display: grid;
+  justify-items: center;
+  gap: 0.2rem;
+  padding: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  transition: transform 0.4s ease;
+}
+
+.reveal-card.won {
+  border-color: var(--green);
+  transform: scale(1.06);
+  box-shadow:
+    0 0 0 2px var(--green),
+    0 0 60px rgba(31, 157, 85, 0.55);
+  animation: spotlight 1.6s ease 0.5s both;
+}
+
+.reveal-card.lost {
+  opacity: 0.4;
+  filter: grayscale(0.7);
+}
+
+.reveal-card img,
+.reveal-target img,
+.reveal-card .missed {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 2px;
+}
+
+.reveal-card .who {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.reveal-card .score {
+  font-family: var(--display);
+  font-size: 2.2rem;
+  line-height: 1;
+  animation: pop 0.5s ease 0.45s both;
+}
+
+.cinema-verdict {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(3rem, 16vw, 8rem);
+  line-height: 0.9;
+  animation: count-slam 0.7s ease both;
+}
+
+.battle-cinema.you .cinema-verdict {
+  color: var(--green);
+}
+
+.battle-cinema.opponent .cinema-verdict {
+  color: var(--red);
+}
+
+.battle-cinema.opponent {
+  background: #0a0d14;
+}
+
+.cinema-totals {
+  display: flex;
+  gap: 2rem;
+}
+
+.cinema-totals div {
+  display: grid;
+  justify-items: center;
+}
+
+.cinema-totals .who {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.cinema-totals .points {
+  font-family: var(--display);
+  font-size: clamp(2rem, 8vw, 3.4rem);
+  line-height: 1;
+}
+
+.cinema-skip {
+  color: rgba(255, 255, 255, 0.55);
+  z-index: 1;
+}
+
+.confetti,
+.rain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.confetti span {
+  position: absolute;
+  top: -12%;
+  width: 8px;
+  height: 14px;
+  border-radius: 1px;
+  animation: confetti-fall 2.6s linear infinite;
+}
+
+.rain span {
+  position: absolute;
+  top: -20%;
+  width: 1px;
+  height: 70px;
+  background: linear-gradient(
+    rgba(150, 190, 230, 0),
+    rgba(150, 190, 230, 0.55)
+  );
+  animation: rain-fall 0.9s linear infinite;
+}
+
+@keyframes confetti-fall {
+  from {
+    transform: translateY(0) rotate(0deg);
+  }
+  to {
+    transform: translateY(90vh) rotate(720deg);
+  }
+}
+
+@keyframes rain-fall {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(90vh);
+  }
+}
+
+@keyframes count-slam {
+  from {
+    opacity: 0;
+    transform: scale(2.4);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes spotlight {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px var(--green),
+      0 0 40px rgba(31, 157, 85, 0.4);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px var(--green),
+      0 0 90px rgba(31, 157, 85, 0.85);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 720px) {
+  .reveal-row {
+    grid-template-columns: 1fr;
+  }
+}
