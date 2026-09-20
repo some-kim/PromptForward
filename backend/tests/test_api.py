@@ -251,6 +251,13 @@ class TestLearningMode:
         await evaluate(other_challenge_id, WEAK_PROMPT)  # a different target is a new score
         assert calls == [WEAK_PROMPT, STRONG_PROMPT, WEAK_PROMPT]
 
+        # A problem that keeps its id but gets a new image is scored afresh.
+        problem_id = await create_problem(client, color="red")
+        await evaluate(problem_id, WEAK_PROMPT)
+        assert await create_problem(client, color="purple") == problem_id
+        await evaluate(problem_id, WEAK_PROMPT)
+        assert calls == [WEAK_PROMPT, STRONG_PROMPT, WEAK_PROMPT, WEAK_PROMPT, WEAK_PROMPT]
+
     async def test_weak_prompt_still_generates_and_scores_both(self, client):
         challenge_id = await create_challenge(client)
         attempt = await client.post(
