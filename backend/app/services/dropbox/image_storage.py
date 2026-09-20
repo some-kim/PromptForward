@@ -67,6 +67,23 @@ async def store_target_image(
     return StoredFile(id=metadata.id, path=metadata.path_lower or path)
 
 
+async def store_user_image(image_bytes: bytes, image_hash: str, mime_type: str) -> StoredFile:
+    """Upload a player-supplied battle image.
+
+    These live outside the curated challenges folder so the seed script never pulls them into
+    the training pool. Named by hash, so re-uploading the same image reuses the stored file.
+    """
+    config = get_config()
+    path = f"{config.dropbox.generated_folder}/user-images/{image_hash}.{extension_for(mime_type)}"
+
+    existing = await _get_metadata(path)
+    if existing is not None:
+        return StoredFile(id=existing.id, path=existing.path_lower or path)
+
+    metadata = await _upload(path, image_bytes, WriteMode.add)
+    return StoredFile(id=metadata.id, path=metadata.path_lower or path)
+
+
 async def store_generated_image(
     attempt_id: str, generation_number: int, image_bytes: bytes, mime_type: str
 ) -> StoredFile:

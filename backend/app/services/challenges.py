@@ -10,8 +10,12 @@ from pymongo.errors import DuplicateKeyError
 
 from app import db
 from app.config import ANALYSIS_VERSION, get_config
-from app.models import DEFAULT_DIFFICULTY, Difficulty, Rubric
-from app.services.dropbox.image_storage import read_image_meta, store_target_image
+from app.models import DEFAULT_DIFFICULTY, ChallengeSource, Difficulty, Rubric
+from app.services.dropbox.image_storage import (
+    read_image_meta,
+    store_target_image,
+    store_user_image,
+)
 from app.services.openai.challenge_analyzer import analyze_challenge
 
 
@@ -20,9 +24,15 @@ def sha256(image_bytes: bytes) -> str:
 
 
 async def create_challenge(
-    image_bytes: bytes, difficulty: Difficulty = DEFAULT_DIFFICULTY
+    image_bytes: bytes,
+    difficulty: Difficulty = DEFAULT_DIFFICULTY,
+    source: ChallengeSource = "curated",
 ) -> dict[str, Any]:
-    """Idempotent: a byte-identical image with a current analysis is returned unchanged."""
+    """Idempotent: a byte-identical image with a current analysis is returned unchanged.
+
+    A player upload (`source="player"`) is stored outside the curated folder and stays out of
+    the training pool, but an image that is already curated keeps its curated standing.
+    """
     image_hash = sha256(image_bytes)
 
     existing = await db.challenges().find_one({"target.imageHash": image_hash})
@@ -31,12 +41,17 @@ async def create_challenge(
 
     meta = read_image_meta(image_bytes)
     rubric: Rubric = await analyze_challenge(image_bytes, meta.mimeType)
-    stored = await store_target_image(image_bytes, image_hash, meta.mimeType, difficulty)
+    stored = (
+        await store_user_image(image_bytes, image_hash, meta.mimeType)
+        if source == "player"
+        else await store_target_image(image_bytes, image_hash, meta.mimeType, difficulty)
+    )
 
     now = datetime.now(timezone.utc)
     doc: dict[str, Any] = {
         "type": "image",
         "difficulty": difficulty,
+        "source": existing.get("source", "curated") if existing else source,
         "target": {
             "dropboxFileId": stored.id,
             "dropboxPath": stored.path,

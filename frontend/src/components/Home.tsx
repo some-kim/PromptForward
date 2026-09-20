@@ -116,7 +116,7 @@ export function Home({ busy, onTrain, onBattle }: HomeProps) {
             <Lightning />
             <span className="word">BATTLE</span>
           </span>
-          <span className="sub">Prompt Royale · head to head</span>
+          <span className="sub">Prompt Royale · join with a code</span>
         </button>
       </div>
 
@@ -131,8 +131,8 @@ export function Home({ busy, onTrain, onBattle }: HomeProps) {
         <div className="note battle">
           <dt>Royale</dt>
           <dd>
-            Same target for everyone, one image each, best quality per token
-            takes the round.
+            Bring your own images, prompt every image in the pool against the
+            clock, scores revealed at the buzzer.
           </dd>
         </div>
       </dl>

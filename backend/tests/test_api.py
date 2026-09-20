@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from datetime import timedelta
 
 import pytest
+from bson import ObjectId
 from httpx import ASGITransport, AsyncClient
 
 from app.models import (
@@ -82,10 +84,10 @@ def prompt_evaluation(statuses: list[str], score: int = 90):
 @pytest.fixture
 async def client(monkeypatch, database):
     from app.routes import challenges as challenges_route
-    from app.routes import games as games_route
     from app.routes import images as images_route
     from app.routes import learning as learning_route
     from app.services import attempts as attempts_service
+    from app.services import battles as battles_service
     from app.services import challenges as challenges_service
 
     async def fake_analyze(image_bytes: bytes, mime_type: str) -> Rubric:
@@ -95,6 +97,12 @@ async def client(monkeypatch, database):
         return StoredFile(
             id=f"id:{image_hash}",
             path=f"/PromptForward/Challenges/{difficulty}/{image_hash}.png",
+        )
+
+    async def fake_store_user_image(image_bytes, image_hash, mime_type) -> StoredFile:
+        return StoredFile(
+            id=f"id:user:{image_hash}",
+            path=f"/PromptForward/Generated/user-images/{image_hash}.png",
         )
 
     async def fake_store_generated(attempt_id, number, image_bytes, mime_type) -> StoredFile:
@@ -127,6 +135,7 @@ async def client(monkeypatch, database):
 
     monkeypatch.setattr(challenges_service, "analyze_challenge", fake_analyze)
     monkeypatch.setattr(challenges_service, "store_target_image", fake_store_target)
+    monkeypatch.setattr(challenges_service, "store_user_image", fake_store_user_image)
     monkeypatch.setattr(
         challenges_service,
         "read_image_meta",
@@ -145,7 +154,7 @@ async def client(monkeypatch, database):
         return prompt_evaluation(["covered", "covered", "covered", "covered"])
 
     monkeypatch.setattr(learning_route, "evaluate_prompt", strong_prompt_evaluation)
-    monkeypatch.setattr(games_route, "evaluate_prompt", strong_prompt_evaluation)
+    monkeypatch.setattr(battles_service, "evaluate_prompt", strong_prompt_evaluation)
 
     from app.main import app
 
@@ -166,11 +175,64 @@ async def create_challenge(
     return response.json()["id"]
 
 
+COLORS = ["yellow", "blue", "green", "red", "purple", "orange", "pink", "brown"]
 WEAK_PROMPT = "A yellow umbrella"
 STRONG_PROMPT = (
     "A realistic nighttime photograph of a yellow umbrella centered on a rainy city street "
     "with blue reflections on the wet pavement"
 )
+
+
+async def seed_defaults(client: AsyncClient, count: int) -> list[str]:
+    """Curated images the battle falls back on when a player brings none of their own."""
+    return [await create_challenge(client, color=color) for color in COLORS[:count]]
+
+
+async def upload_image(client: AsyncClient, user_id: str, color: str) -> str:
+    response = await client.post(
+        "/api/library/images",
+        files={"image": ("mine.png", png_bytes(color=color), "image/png")},
+        data={"userId": user_id},
+    )
+    assert response.status_code == 201, response.text
+    return response.json()["id"]
+
+
+async def quick_battle(
+    client: AsyncClient,
+    *,
+    images_per_player: int,
+    duration: int = 120,
+    host: str | None = None,
+    guest: str | None = None,
+) -> tuple[str, str, str]:
+    """An active battle where both sides took default images."""
+    host, guest = host or str(uuid.uuid4()), guest or str(uuid.uuid4())
+    created = await client.post(
+        "/api/games",
+        json={
+            "userId": host,
+            "displayName": "Kris",
+            "settings": {"durationSeconds": duration, "imagesPerPlayer": images_per_player},
+            "useDefaultImages": True,
+        },
+    )
+    assert created.status_code == 201, created.text
+    battle = created.json()
+    await client.post(
+        "/api/games/join",
+        json={"code": battle["code"], "userId": guest, "displayName": "Sam"},
+    )
+    started = await client.post(f"/api/games/{battle['id']}/default-images", json={"userId": guest})
+    assert started.json()["status"] == "active", started.text
+    return battle["id"], host, guest
+
+
+async def drain(battle_id: str) -> None:
+    """Wait for the rounds running in the background, which the API does not block on."""
+    from app.services.battles import drain_rounds
+
+    await drain_rounds(battle_id)
 
 
 class TestChallenges:
@@ -437,198 +499,333 @@ class TestLearningMode:
         assert body["generationsRemaining"] == 2
 
 
-class TestGameMode:
-    async def test_full_game_produces_a_winner(self, client):
-        challenge_id = await create_challenge(client)
-        player_one, player_two = str(uuid.uuid4()), str(uuid.uuid4())
+class TestBattleMode:
+    async def test_a_full_battle_scores_every_image_for_both_players(self, client):
+        await seed_defaults(client, 4)
+        host, guest = str(uuid.uuid4()), str(uuid.uuid4())
 
         created = await client.post(
             "/api/games",
-            json={"userId": player_one, "displayName": "Kris", "challengeId": challenge_id},
+            json={
+                "userId": host,
+                "displayName": "Kris",
+                "settings": {"durationSeconds": 120, "imagesPerPlayer": 2},
+                "useDefaultImages": True,
+            },
         )
-        assert created.status_code == 201
-        game_id = created.json()["id"]
-        assert created.json()["status"] == "waiting"
+        assert created.status_code == 201, created.text
+        battle = created.json()
+        assert battle["status"] == "waiting"
+        assert battle["settings"] == {"durationSeconds": 120, "imagesPerPlayer": 2}
+        code, battle_id = battle["code"], battle["id"]
 
         joined = await client.post(
-            f"/api/games/{game_id}/join", json={"userId": player_two, "displayName": "Sam"}
+            "/api/games/join", json={"code": code.lower(), "userId": guest, "displayName": "Sam"}
         )
-        assert joined.json()["status"] == "active"
+        assert joined.json()["status"] == "waiting"
 
-        first = await client.post(
-            f"/api/games/{game_id}/generate", json={"userId": player_one, "prompt": STRONG_PROMPT}
+        started = await client.post(
+            f"/api/games/{battle_id}/default-images", json={"userId": guest}
         )
-        assert first.status_code == 200
-        assert first.json()["status"] == "active"
+        body = started.json()
+        # Both sides brought two images, so all four are prompted by both players.
+        assert body["status"] == "active"
+        assert body["totalRounds"] == 4
+        assert 0 < body["secondsRemaining"] <= 120
 
-        # A second generation for the same player is refused.
-        repeat = await client.post(
-            f"/api/games/{game_id}/generate", json={"userId": player_one, "prompt": STRONG_PROMPT}
-        )
-        assert repeat.status_code == 409
+        for user_id, prompt in ((host, STRONG_PROMPT), (guest, STRONG_PROMPT + " and neon signs")):
+            for index in range(4):
+                answered = await client.post(
+                    f"/api/games/{battle_id}/rounds/{index}/prompt",
+                    json={"userId": user_id, "prompt": prompt},
+                )
+                assert answered.status_code == 200, answered.text
+        await drain(battle_id)
 
-        second = await client.post(
-            f"/api/games/{game_id}/generate",
-            json={"userId": player_two, "prompt": STRONG_PROMPT + " with pedestrians"},
-        )
-        assert second.status_code == 200
-
-        final = await client.get(f"/api/games/{game_id}", params={"userId": player_one})
-        body = final.json()
-        assert body["status"] == "completed"
-        assert body["winner"] in {"you", "opponent", "draw"}
-        for player in body["players"]:
-            attempt = player["attempt"]
-            assert attempt["scores"]["final"] is not None
-            assert attempt["scores"]["efficiency"] > 0
-
-    async def test_failed_evaluation_does_not_buy_a_second_image(self, client, monkeypatch):
-        from app.routes import games as games_route
-        from app.services.openai.client import LLMResponseError
-
-        challenge_id = await create_challenge(client)
-        game_id = (
-            await client.post(
-                "/api/games",
-                json={"userId": "p1", "displayName": "Kris", "challengeId": challenge_id},
-            )
-        ).json()["id"]
-        await client.post(f"/api/games/{game_id}/join", json={"userId": "p2", "displayName": "Sam"})
-
-        working_evaluate = games_route.evaluate_prompt
-
-        async def failing_evaluate(rubric, prompt):
-            raise LLMResponseError("OpenAI is down")
-
-        monkeypatch.setattr(games_route, "evaluate_prompt", failing_evaluate)
-        failed = await client.post(
-            f"/api/games/{game_id}/generate", json={"userId": "p1", "prompt": STRONG_PROMPT}
-        )
-        assert failed.status_code == 502
-
-        monkeypatch.setattr(games_route, "evaluate_prompt", working_evaluate)
-        retried = await client.post(
-            f"/api/games/{game_id}/generate", json={"userId": "p1", "prompt": "a different prompt"}
-        )
-        assert retried.status_code == 200
-        mine = next(p for p in retried.json()["players"] if p["isYou"])
-        assert len(mine["attempt"]["generations"]) == 1
-        assert mine["attempt"]["generations"][0]["prompt"] == STRONG_PROMPT
-        assert mine["attempt"]["scores"]["promptQuality"] is not None
-
-    async def test_failed_submission_can_be_retried(self, client, monkeypatch):
-        from app.routes import games as games_route
-
-        challenge_id = await create_challenge(client)
-        game_id = (
-            await client.post(
-                "/api/games",
-                json={"userId": "p1", "displayName": "Kris", "challengeId": challenge_id},
-            )
-        ).json()["id"]
-        await client.post(f"/api/games/{game_id}/join", json={"userId": "p2", "displayName": "Sam"})
-
-        working_submit = games_route.submit_attempt
-
-        async def failing_submit(attempt_id):
-            raise RuntimeError("Mongo is down")
-
-        monkeypatch.setattr(games_route, "submit_attempt", failing_submit)
-        with pytest.raises(RuntimeError):
-            await client.post(
-                f"/api/games/{game_id}/generate", json={"userId": "p1", "prompt": STRONG_PROMPT}
-            )
-
-        monkeypatch.setattr(games_route, "submit_attempt", working_submit)
-        retried = await client.post(
-            f"/api/games/{game_id}/generate", json={"userId": "p1", "prompt": STRONG_PROMPT}
-        )
-        assert retried.status_code == 200
-        mine = next(p for p in retried.json()["players"] if p["isYou"])
-        assert len(mine["attempt"]["generations"]) == 1
-        assert mine["attempt"]["status"] == "submitted"
-
-    async def test_oversized_prompts_are_rejected(self, client):
-        challenge_id = await create_challenge(client)
-        game_id = (
-            await client.post(
-                "/api/games",
-                json={"userId": "p1", "displayName": "Kris", "challengeId": challenge_id},
-            )
-        ).json()["id"]
-        await client.post(f"/api/games/{game_id}/join", json={"userId": "p2", "displayName": "Sam"})
-
-        oversized = await client.post(
-            f"/api/games/{game_id}/generate", json={"userId": "p1", "prompt": "x" * 2001}
-        )
-        assert oversized.status_code == 422
-
-    async def test_third_player_is_rejected(self, client):
-        challenge_id = await create_challenge(client)
-        game_id = (
-            await client.post(
-                "/api/games",
-                json={"userId": "p1", "displayName": "Kris", "challengeId": challenge_id},
-            )
-        ).json()["id"]
-
-        await client.post(f"/api/games/{game_id}/join", json={"userId": "p2", "displayName": "Sam"})
-        third = await client.post(
-            f"/api/games/{game_id}/join", json={"userId": "p3", "displayName": "Alex"}
-        )
-        assert third.status_code == 409
-
-    async def test_opponent_details_are_hidden_until_completion(self, client):
-        challenge_id = await create_challenge(client)
-        game_id = (
-            await client.post(
-                "/api/games",
-                json={"userId": "p1", "displayName": "Kris", "challengeId": challenge_id},
-            )
-        ).json()["id"]
-        await client.post(f"/api/games/{game_id}/join", json={"userId": "p2", "displayName": "Sam"})
-
-        await client.post(
-            f"/api/games/{game_id}/generate", json={"userId": "p1", "prompt": STRONG_PROMPT}
-        )
-
-        as_opponent = await client.get(f"/api/games/{game_id}", params={"userId": "p2"})
-        opponent = next(p for p in as_opponent.json()["players"] if not p["isYou"])
-        assert "generations" not in opponent["attempt"]
-        assert opponent["attempt"]["status"] == "submitted"
-        assert STRONG_PROMPT not in as_opponent.text
-
-        assert "imageUrl" not in as_opponent.text
-        peek = await client.get(
-            f"/api/attempts/{opponent['attempt']['id']}/generations/1/image",
-            params={"token": "guessed"},
-        )
-        assert peek.status_code == 403
-
-        as_owner = await client.get(f"/api/games/{game_id}", params={"userId": "p1"})
-        mine = next(p for p in as_owner.json()["players"] if p["isYou"])
-        image = await client.get(mine["attempt"]["generations"][0]["imageUrl"])
+        final = (await client.get(f"/api/games/{battle_id}", params={"userId": host})).json()
+        assert final["status"] == "completed"
+        assert final["winner"] in {"you", "opponent", "draw"}
+        for player in final["players"]:
+            assert player["total"] > 0
+            assert len(player["rounds"]) == 4
+            for one in player["rounds"]:
+                assert one["status"] == "ready"
+                assert one["scores"]["final"] > 0
+                assert one["imageUrl"] is not None
+        # Every generated image is fetchable for the side-by-side result screen.
+        image = await client.get(final["players"][0]["rounds"][0]["imageUrl"])
         assert image.status_code == 200
         assert image.headers["content-type"] == "image/png"
 
-    async def test_player_ids_are_never_published(self, client):
-        challenge_id = await create_challenge(client)
-        game_id = (
-            await client.post(
-                "/api/games",
-                json={"userId": "secret-alice", "displayName": "Kris", "challengeId": challenge_id},
-            )
-        ).json()["id"]
+    async def test_nothing_about_scores_is_revealed_before_the_battle_ends(self, client):
+        await seed_defaults(client, 4)
+        battle_id, host, guest = await quick_battle(client, images_per_player=2)
+
         await client.post(
-            f"/api/games/{game_id}/join", json={"userId": "secret-bob", "displayName": "Sam"}
+            f"/api/games/{battle_id}/rounds/0/prompt",
+            json={"userId": host, "prompt": STRONG_PROMPT},
         )
+        await drain(battle_id)
+
+        mid = await client.get(f"/api/games/{battle_id}", params={"userId": host})
+        body = mid.json()
+        assert body["status"] == "active"
+        assert "scores" not in mid.text
+        # No generated image is reachable either: only the targets everyone already sees.
+        assert "/api/attempts/" not in mid.text
+        mine = next(player for player in body["players"] if player["isYou"])
+        assert mine["total"] is None
+        assert mine["rounds"][0]["status"] == "ready"
+        assert mine["rounds"][0]["prompt"] == STRONG_PROMPT
+
+        opponent = next(player for player in body["players"] if not player["isYou"])
+        assert opponent["rounds"] == []
+        assert body["winner"] is None
+
+    async def test_an_image_can_only_be_prompted_once(self, client):
+        await seed_defaults(client, 4)
+        battle_id, host, _ = await quick_battle(client, images_per_player=2)
+
+        first = await client.post(
+            f"/api/games/{battle_id}/rounds/0/prompt",
+            json={"userId": host, "prompt": STRONG_PROMPT},
+        )
+        assert first.status_code == 200
+        repeat = await client.post(
+            f"/api/games/{battle_id}/rounds/0/prompt",
+            json={"userId": host, "prompt": STRONG_PROMPT + " again"},
+        )
+        assert repeat.status_code == 409
+        await drain(battle_id)
+
+    async def test_a_failed_round_can_be_prompted_again(self, client, monkeypatch):
+        from app.services import attempts as attempts_service
+
+        await seed_defaults(client, 4)
+        battle_id, host, _ = await quick_battle(client, images_per_player=2)
+
+        working_generate = attempts_service.generate_image
+
+        async def failing_generate(prompt, aspect_ratio):
+            raise RuntimeError("Meta is down")
+
+        monkeypatch.setattr(attempts_service, "generate_image", failing_generate)
         await client.post(
-            f"/api/games/{game_id}/generate",
-            json={"userId": "secret-alice", "prompt": STRONG_PROMPT},
+            f"/api/games/{battle_id}/rounds/0/prompt",
+            json={"userId": host, "prompt": STRONG_PROMPT},
+        )
+        await drain(battle_id)
+
+        failed = (await client.get(f"/api/games/{battle_id}", params={"userId": host})).json()
+        mine = next(player for player in failed["players"] if player["isYou"])
+        assert mine["rounds"][0]["status"] == "failed"
+        assert mine["rounds"][0]["error"]
+
+        monkeypatch.setattr(attempts_service, "generate_image", working_generate)
+        retried = await client.post(
+            f"/api/games/{battle_id}/rounds/0/prompt",
+            json={"userId": host, "prompt": STRONG_PROMPT},
+        )
+        assert retried.status_code == 200
+        await drain(battle_id)
+        again = (await client.get(f"/api/games/{battle_id}", params={"userId": host})).json()
+        mine = next(player for player in again["players"] if player["isYou"])
+        assert mine["rounds"][0]["status"] == "ready"
+
+    async def test_the_clock_closes_the_battle_and_unanswered_images_score_zero(self, client):
+        from app.services.battles import now
+
+        await seed_defaults(client, 4)
+        battle_id, host, _ = await quick_battle(client, images_per_player=2)
+
+        await client.post(
+            f"/api/games/{battle_id}/rounds/0/prompt",
+            json={"userId": host, "prompt": STRONG_PROMPT},
+        )
+        await drain(battle_id)
+
+        from app import db
+
+        await db.games().update_one(
+            {"_id": ObjectId(battle_id)}, {"$set": {"endsAt": now() - timedelta(seconds=30)}}
         )
 
-        as_opponent = await client.get(f"/api/games/{game_id}", params={"userId": "secret-bob"})
+        late = await client.post(
+            f"/api/games/{battle_id}/rounds/1/prompt",
+            json={"userId": host, "prompt": STRONG_PROMPT},
+        )
+        assert late.status_code == 409
+        assert "Time is up" in late.text
+
+        final = (await client.get(f"/api/games/{battle_id}", params={"userId": host})).json()
+        assert final["status"] == "completed"
+        assert final["secondsRemaining"] == 0
+        mine = next(player for player in final["players"] if player["isYou"])
+        # One of two images answered, so the battle total is half of that round's score.
+        assert mine["rounds"][1]["status"] == "empty"
+        assert mine["rounds"][1]["scores"]["final"] == 0
+        assert 0 < mine["total"] < mine["rounds"][0]["scores"]["final"]
+
+    async def test_settings_outside_the_allowed_range_are_rejected(self, client):
+        for settings in (
+            {"durationSeconds": 30, "imagesPerPlayer": 3},
+            {"durationSeconds": 900, "imagesPerPlayer": 3},
+            {"durationSeconds": 180, "imagesPerPlayer": 1},
+            {"durationSeconds": 180, "imagesPerPlayer": 8},
+        ):
+            response = await client.post(
+                "/api/games",
+                json={"userId": "p1", "displayName": "Kris", "settings": settings},
+            )
+            assert response.status_code == 422, settings
+
+    async def test_default_settings_are_three_minutes_and_three_images(self, client):
+        created = await client.post("/api/games", json={"userId": "p1", "displayName": "Kris"})
+        assert created.json()["settings"] == {"durationSeconds": 180, "imagesPerPlayer": 3}
+
+    async def test_an_unknown_code_and_a_third_player_are_refused(self, client):
+        await seed_defaults(client, 4)
+        missing = await client.post(
+            "/api/games/join", json={"code": "ZZZZZZ", "userId": "p3", "displayName": "Alex"}
+        )
+        assert missing.status_code == 404
+
+        battle_id, host, _ = await quick_battle(client, images_per_player=2)
+        code = (await client.get(f"/api/games/{battle_id}", params={"userId": host})).json()["code"]
+        third = await client.post(
+            "/api/games/join", json={"code": code, "userId": "p3", "displayName": "Alex"}
+        )
+        assert third.status_code == 409
+
+    async def test_player_ids_are_never_published(self, client):
+        await seed_defaults(client, 4)
+        battle_id, host, _ = await quick_battle(
+            client, images_per_player=2, host="secret-alice", guest="secret-bob"
+        )
+        await client.post(
+            f"/api/games/{battle_id}/rounds/0/prompt",
+            json={"userId": host, "prompt": STRONG_PROMPT},
+        )
+        await drain(battle_id)
+
+        as_opponent = await client.get(f"/api/games/{battle_id}", params={"userId": "secret-bob"})
         assert "secret-alice" not in as_opponent.text
+
+
+class TestBattleImages:
+    async def test_uploaded_images_belong_to_the_account_and_stay_out_of_training(self, client):
+        player = str(uuid.uuid4())
+        uploaded = await client.post(
+            "/api/library/images",
+            files={"image": ("mine.png", png_bytes(color="purple"), "image/png")},
+            data={"userId": player},
+        )
+        assert uploaded.status_code == 201, uploaded.text
+        challenge_id = uploaded.json()["id"]
+
+        listed = await client.get("/api/library/images", params={"userId": player})
+        assert [image["id"] for image in listed.json()] == [challenge_id]
+
+        # Another account never sees it, and the training pool never offers it.
+        other = await client.get("/api/library/images", params={"userId": "someone-else"})
+        assert other.json() == []
+        training = await client.get("/api/challenges")
+        assert challenge_id not in {one["id"] for one in training.json()}
+
+        dropped = await client.delete(
+            f"/api/library/images/{challenge_id}", params={"userId": player}
+        )
+        assert dropped.status_code == 204
+        assert (await client.get("/api/library/images", params={"userId": player})).json() == []
+
+    async def test_uploaded_images_are_battled_alongside_the_opponents(self, client):
+        await seed_defaults(client, 4)
+        host, guest = str(uuid.uuid4()), str(uuid.uuid4())
+        mine = await upload_image(client, host, "purple")
+        theirs = await upload_image(client, guest, "green")
+
+        battle_id = (
+            await client.post(
+                "/api/games",
+                json={
+                    "userId": host,
+                    "displayName": "Kris",
+                    "settings": {"durationSeconds": 60, "imagesPerPlayer": 2},
+                },
+            )
+        ).json()["id"]
+        code = (await client.get(f"/api/games/{battle_id}", params={"userId": host})).json()["code"]
+        await client.post(
+            "/api/games/join", json={"code": code, "userId": guest, "displayName": "Sam"}
+        )
+
+        added = await client.post(
+            f"/api/games/{battle_id}/images", json={"userId": host, "challengeId": mine}
+        )
+        assert added.status_code == 200
+        me = next(player for player in added.json()["players"] if player["isYou"])
+        assert [image["challengeId"] for image in me["images"]] == [mine]
+        assert me["ready"] is False
+
+        # An image somebody else owns cannot be dragged into the pool.
+        stolen = await client.post(
+            f"/api/games/{battle_id}/images", json={"userId": host, "challengeId": theirs}
+        )
+        assert stolen.status_code == 403
+
+        dropped = await client.delete(
+            f"/api/games/{battle_id}/images/{mine}", params={"userId": host}
+        )
+        assert dropped.json()["players"][0]["imagesChosen"] == 0
+
+        await client.post(
+            f"/api/games/{battle_id}/images", json={"userId": host, "challengeId": mine}
+        )
+        await client.post(f"/api/games/{battle_id}/default-images", json={"userId": host})
+        await client.post(
+            f"/api/games/{battle_id}/images", json={"userId": guest, "challengeId": theirs}
+        )
+        running = await client.post(
+            f"/api/games/{battle_id}/default-images", json={"userId": guest}
+        )
+        assert running.json()["status"] == "active"
+        assert running.json()["totalRounds"] == 4
+
+    async def test_a_player_cannot_bring_more_images_than_agreed(self, client):
+        player = str(uuid.uuid4())
+        first = await upload_image(client, player, "purple")
+        second = await upload_image(client, player, "green")
+        third = await upload_image(client, player, "red")
+
+        battle_id = (
+            await client.post(
+                "/api/games",
+                json={
+                    "userId": player,
+                    "displayName": "Kris",
+                    "settings": {"durationSeconds": 60, "imagesPerPlayer": 2},
+                },
+            )
+        ).json()["id"]
+        for challenge_id in (first, second):
+            added = await client.post(
+                f"/api/games/{battle_id}/images",
+                json={"userId": player, "challengeId": challenge_id},
+            )
+            assert added.status_code == 200
+        extra = await client.post(
+            f"/api/games/{battle_id}/images", json={"userId": player, "challengeId": third}
+        )
+        assert extra.status_code == 409
+
+    async def test_oversized_prompts_are_rejected(self, client):
+        await seed_defaults(client, 4)
+        battle_id, host, _ = await quick_battle(client, images_per_player=2)
+        oversized = await client.post(
+            f"/api/games/{battle_id}/rounds/0/prompt",
+            json={"userId": host, "prompt": "x" * 2001},
+        )
+        assert oversized.status_code == 422
 
 
 class TestAccounts:

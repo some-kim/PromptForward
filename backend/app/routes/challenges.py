@@ -19,8 +19,11 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 @router.get("")
 async def list_challenges(difficulty: Difficulty | None = Query(None)) -> list[dict]:
-    query = {"difficulty": difficulty} if difficulty else {}
-    cursor = db.challenges().find(query, {"target": 1, "type": 1, "difficulty": 1})
+    # Player-uploaded battle images stay out of the training pool.
+    query: dict = {"source": {"$ne": "player"}}
+    if difficulty:
+        query["difficulty"] = difficulty
+    cursor = db.challenges().find(query, {"target": 1, "type": 1, "difficulty": 1, "source": 1})
     return [challenge_summary(challenge) async for challenge in cursor]
 
 

@@ -44,11 +44,17 @@ def progress_events() -> AsyncIOMotorCollection:
     return get_database()["progress_events"]
 
 
+def user_images() -> AsyncIOMotorCollection:
+    return get_database()["user_images"]
+
+
 async def ensure_indexes() -> None:
     await challenges().create_index("target.imageHash", unique=True)
     await attempts().create_index("challengeId")
     await attempts().create_index("gameId")
     await users().create_index("username", unique=True)
+    await games().create_index("code", unique=True)
+    await user_images().create_index("userId")
 
 
 async def close_client() -> None:
