@@ -13,7 +13,7 @@ import io
 import dropbox
 from dropbox.exceptions import ApiError
 from dropbox.files import FileMetadata, WriteMode
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 
 from app.config import get_config
 from app.models import DEFAULT_DIFFICULTY, DIFFICULTIES, Difficulty, ImageMeta, StoredFile
@@ -144,7 +144,12 @@ def _difficulty_of(path: str, root: str) -> Difficulty:
 
 
 def read_image_meta(image_bytes: bytes) -> ImageMeta:
-    with Image.open(io.BytesIO(image_bytes)) as image:
+    try:
+        opened = Image.open(io.BytesIO(image_bytes))
+    except (UnidentifiedImageError, OSError, ValueError) as error:
+        raise ImageStorageError("That file is not a readable image") from error
+
+    with opened as image:
         mime_type = Image.MIME.get(image.format or "", "")
         if not mime_type:
             raise ImageStorageError(f"Unrecognized image format: {image.format}")

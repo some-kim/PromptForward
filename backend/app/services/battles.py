@@ -89,7 +89,14 @@ async def create_battle(
             document["code"] = new_code()
             continue
         game = {**document, "_id": result.inserted_id}
-        return await fill_with_defaults(game, user_id) if use_defaults else game
+        if not use_defaults:
+            return game
+        try:
+            return await fill_with_defaults(game, user_id)
+        except BattleError:
+            # The host never learns this battle's id, so it would sit unreachable on its code.
+            await db.games().delete_one({"_id": result.inserted_id, "status": "waiting"})
+            raise
 
     raise BattleError("Could not allocate a battle code, try again", status=503)
 

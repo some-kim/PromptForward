@@ -22,7 +22,11 @@ from app.models import (
     RubricCriterion,
     StoredFile,
 )
-from app.services.dropbox.image_storage import extension_for
+from app.services.dropbox.image_storage import (
+    ImageStorageError,
+    extension_for,
+    read_image_meta,
+)
 from app.services.scoring.prompt_score import score_prompt_evaluation
 from app.services.scoring.result_score import score_result_evaluation
 from tests.conftest import png_bytes
@@ -682,6 +686,22 @@ class TestBattleMode:
         assert mine["rounds"][1]["scores"]["final"] == 0
         assert 0 < mine["total"] < mine["rounds"][0]["scores"]["final"]
 
+    async def test_a_battle_that_cannot_be_filled_is_not_left_behind(self, client):
+        from app import db
+
+        await seed_defaults(client, 1)
+        created = await client.post(
+            "/api/games",
+            json={
+                "userId": "kris",
+                "displayName": "Kris",
+                "settings": {"durationSeconds": 120, "imagesPerPlayer": 3},
+                "useDefaultImages": True,
+            },
+        )
+        assert created.status_code == 409, created.text
+        assert await db.games().count_documents({}) == 0
+
     async def test_games_from_before_battle_mode_do_not_block_startup(self, client):
         from app import db
 
@@ -762,6 +782,10 @@ class TestBattleImages:
         )
         assert dropped.status_code == 204
         assert (await client.get("/api/library/images", params={"userId": player})).json() == []
+
+    def test_a_file_that_is_not_an_image_is_rejected(self):
+        with pytest.raises(ImageStorageError):
+            read_image_meta(b"not an image at all")
 
     async def test_uploaded_images_are_battled_alongside_the_opponents(self, client):
         await seed_defaults(client, 4)
