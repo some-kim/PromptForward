@@ -23,14 +23,24 @@ The architecture should remain generic enough to add **text-generation challenge
 
 ---
 
-## Stack Decision (fill in before handoff)
+## Stack Decision
 
 ```text
-Backend:  <FILL IN, e.g. Python + FastAPI, or Node + TypeScript + Express>
-Frontend: <FILL IN, e.g. React + Vite>
+Backend:  Python 3.10+ + FastAPI (Motor async MongoDB driver, Pydantic models, tiktoken)
+Frontend: React + Vite + TypeScript
 ```
 
+Rationale: `tiktoken` (the fixed tokenizer this document requires) is native to Python, Pydantic models pair directly with OpenAI structured outputs for the three evaluators, and Motor supports the atomic conditional updates the generation limits need.
+
 All code snippets in this document are illustrative pseudocode. Implement them in the chosen backend language. Do not mix languages in the backend.
+
+Repository layout:
+
+```text
+backend/    FastAPI application, scoring services, seed script, tests
+frontend/   React + Vite + TypeScript client
+docs/       This specification
+```
 
 ---
 
@@ -84,6 +94,8 @@ Create a `.env` file in the backend.
 # ============================================
 
 OPENAI_API_KEY=
+# Optional: any OpenAI-compatible endpoint. Empty means OpenAI itself.
+OPENAI_BASE_URL=
 
 # Model names are read only from env.
 # The app must fail fast at startup if any are empty.
@@ -117,7 +129,9 @@ MONGODB_DB_NAME=promptforward
 
 DROPBOX_APP_KEY=
 DROPBOX_APP_SECRET=
+# One of the two: a refresh token (preferred) or a short-lived access token for a demo.
 DROPBOX_REFRESH_TOKEN=
+DROPBOX_ACCESS_TOKEN=
 DROPBOX_CHALLENGES_FOLDER=/PromptForward/Challenges
 DROPBOX_GENERATED_FOLDER=/PromptForward/Generated
 
@@ -127,6 +141,7 @@ DROPBOX_GENERATED_FOLDER=/PromptForward/Generated
 
 APP_ENV=development
 PORT=8000
+CORS_ALLOW_ORIGINS=http://localhost:5173    # comma-separated; no wildcard
 ```
 
 Create a `.env.example` with the same variables and empty values (keep non-secret defaults).
@@ -170,6 +185,7 @@ Do not scatter model names throughout the code.
 - Send images to OpenAI as base64 data URLs read from Dropbox by the backend. Do not pass Dropbox paths.
 - Validate every response in backend code (see each service). On invalid output, retry **once**. If it fails again, return an error to the client. A failed evaluation never consumes a generation.
 - The LLM never computes final or weighted scores. It returns per-criterion judgments; backend code does all math.
+- The evaluators talk to an OpenAI-compatible endpoint: `OPENAI_BASE_URL` (empty = OpenAI) plus the three model names. Any vision model with JSON-schema structured output can stand in — the demo currently runs them on Meta `muse-spark-1.3` while the OpenAI account is out of credits, and reverts by clearing `OPENAI_BASE_URL` and restoring the `gpt-4o` model names.
 
 ---
 
@@ -238,7 +254,7 @@ Challenge analysis is **fully automatic**. A developer only needs to add a targe
 Two entry points, both calling the same `createChallenge(image)` function:
 
 1. **Seed script** (primary for the hackathon): reads every image in `DROPBOX_CHALLENGES_FOLDER` and calls `createChallenge` on each. Safe to re-run.
-2. `POST /api/challenges` (dev only, disabled when `APP_ENV=production`): multipart image upload.
+2. `POST /api/challenges` (dev only, disabled when `APP_ENV=production`): multipart image upload, capped at 10 MB.
 
 ### Flow
 
@@ -504,14 +520,17 @@ passes = (
 )
 ```
 
-### Server-Side Gate (required)
+### Generation Rules (required)
 
-The gate must be enforced by the backend, not only the UI:
+Enforced by the backend, not only the UI:
 
 - Every evaluation is stored on the attempt (`promptEvaluations`).
-- `generate` only succeeds if the **most recent** evaluation passed **and** its prompt text is identical to the prompt being generated. Otherwise return `409`.
-- Learning Mode allows up to 3 generations per attempt. Each one needs its own passing evaluation. Enforce the limit atomically.
-- Learning Mode computes an Efficiency score (see Efficiency Score) and shows it with Prompt Quality, Result Quality, prompt tokens, evaluations used, and generations. It does not compute a Final score.
+- A weak prompt still generates. Seeing what a vague prompt produces, next to what it scored, is the lesson; nothing about prompt quality returns `409`.
+- `generate` scores the prompt it is about to generate: it reuses the stored evaluation for that exact text, or evaluates it inline when the client skipped the check, so every generation carries a Prompt Quality.
+- Learning Mode allows up to 3 generations per attempt. Enforce the limit atomically.
+- Generation numbers come from a monotonic sequence that is never decremented. Refunding a failed generation frees a slot but never reissues a number, so a retry cannot overwrite an earlier generation's stored image.
+- A generation that fails for **any** reason — image generation, image storage, target download, or result evaluation — refunds its slot, and so does a cancelled request whose image never landed.
+- Learning Mode shows Prompt Quality, Image Quality (Result Quality), Efficiency, and the **Combined** score — the same weighted score Game Mode calls Final.
 - Selected generation: the one with the highest Result Quality (ties go to the earlier one). Result Quality and Prompt Quality come from it.
 
 If the prompt fails:
@@ -567,12 +586,14 @@ Result Score
 
 ### Game Lifecycle
 
-- **Identity**: no login in the MVP. The client generates a `playerId` (UUID) on first load, keeps it in `localStorage`, and sends it with every game request along with a display name.
+- **Identity**: every player signs in to an account (see Accounts), and the account id is the `userId` sent with every game request along with the account's display name.
 - **Create**: `POST /api/games` with optional `challengeId` (random challenge if omitted). Creator joins as player 1. `status = waiting`.
 - **Join**: `POST /api/games/:id/join`. Second player joins. `status = active`. A third join returns `409`.
-- **Generate**: allowed only while `status = active` and the player has not generated yet. Enforce this **atomically** in MongoDB (conditional update that reserves the slot) so double clicks cannot generate twice. The attempt is submitted automatically once its generation and evaluations finish. If generation fails, release the slot so the player can try again.
+- **Generate**: allowed only while `status = active` and the player has not generated yet. Enforce this **atomically** in MongoDB (conditional update that reserves the slot) so double clicks cannot generate twice. The attempt is submitted automatically once its generation and evaluations finish. If image generation fails, release the slot so the player can try again. If the image succeeded but the parallel prompt evaluation failed, the slot stays used: calling generate again only re-scores the stored image's prompt, so a provider hiccup can never buy a second image. The UI surfaces this as a "Score my prompt again" action rather than a dead end.
 - **Complete**: when both players have submitted, the backend computes scores, sets `winnerUserId`, and sets `status = completed`.
 - **Polling**: clients poll `GET /api/games/:id` every 2 seconds. Opponent prompts and images are hidden until `completed`; before that only whether the opponent has finished is shown.
+- **Player ids stay private.** Since a `userId` is the only thing identifying a player, it is never serialized: a game view marks each player `isYou` and reports the winner as `you` / `opponent` / `draw`. Otherwise anyone who saw an opponent's id in a response could ask for their view and receive their prompt and image capability.
+- **Invite**: the creator shares the URL `#/game/:id`. Opening it calls join automatically, so the MVP needs no matchmaking or lobby.
 
 ### Winner
 
@@ -587,10 +608,12 @@ Use Meta Muse Image via the Meta Model API, configured through `META_API_BASE_UR
 Rules:
 
 - **Text-to-image only.** Never pass the target image (or any image) to the generator. Do not use edit/compose endpoints.
-- Disable any optional search grounding or tool use if the API exposes it, so results depend only on the prompt.
-- Request the supported aspect ratio closest to the target's (stored `width`/`height` on the challenge). This keeps composition comparisons fair.
+- Disable Muse Image's built-in image search, web search, and shell tools (`tool_enablement`), so a result depends only on the prompt rather than references the model found on the web.
+- Request the supported aspect ratio closest to the target's (stored `width`/`height` on the challenge), passed as Muse Image's `size` `"WxH"` string. This keeps composition comparisons fair.
+- Ask for `output_format: png`, since the stored bytes are served straight to the browser and re-read by the result evaluator.
 - 1 image per call.
 - Provider failures, timeouts, and safety refusals do **not** consume a generation. Return an error and release the reserved slot.
+- Prefer inline `b64_json` responses. A response that carries a URL instead is only fetched when it is `https` on the configured `META_API_BASE_URL` host, so a redirected or compromised endpoint cannot make the backend fetch internal addresses.
 - Download the returned image immediately and store it in Dropbox at `DROPBOX_GENERATED_FOLDER/{attemptId}/{generationNumber}.png`. Provider URLs may expire.
 
 Service interface (keep provider logic behind it so another provider can be swapped in):
@@ -756,6 +779,8 @@ db.attempts.createIndex({ gameId: 1 });
 
   "type": "image",
 
+  "difficulty": "medium",
+
   "target": {
     "dropboxFileId": "abc123",
     "dropboxPath": "/PromptForward/Challenges/SHA256_HASH_HERE.png",
@@ -783,6 +808,12 @@ db.attempts.createIndex({ gameId: 1 });
   "updatedAt": "TIMESTAMP"
 }
 ```
+
+### Difficulty
+
+Every challenge carries a `difficulty` of `easy`, `medium`, or `hard`, chosen by whoever adds the target image (the seed folder it came from, or the upload request). It is descriptive only: it never changes scoring, generation limits, or the rubric. It exists so a player can pick a target that matches their level — easy targets are a single clear subject, medium adds a setting and specific lighting, hard has multiple interacting subjects, an unusual style, or a precise composition.
+
+`GET /api/challenges` returns `difficulty` on every summary and accepts an optional `?difficulty=` filter. A random game picks from the requested difficulty when one is given.
 
 `analysis.version` is a constant in code (`ANALYSIS_VERSION`). Bump it when the analyzer prompt or schema changes; `createChallenge` re-analyzes any challenge with an older version and updates it in place.
 
@@ -866,7 +897,7 @@ One document is one user's attempt at a challenge. Generations are embedded (max
 }
 ```
 
-Check: 2 generations → −25; 1 failed evaluation → −5; 165 total tokens → −15. Efficiency = 100 − 25 − 5 − 15 = 55. No final score in Learning Mode.
+Check: 2 generations → −25; 1 failed evaluation → −5; 165 total tokens → −15. Efficiency = 100 − 25 − 5 − 15 = 55. Learning Mode reports the same weighted score as Game Mode, labelled Combined.
 
 - `mode`: `learning | game`
 - `status`: `in_progress | submitted`
@@ -904,7 +935,7 @@ Dropbox stores target images and generated images. MongoDB stores references.
 
 ```text
 Dropbox
-├── /PromptForward/Challenges/{imageHash}.{ext}
+├── /PromptForward/Challenges/{easy|medium|hard}/{imageHash}.{ext}
 └── /PromptForward/Generated/{attemptId}/{n}.png
 
 MongoDB
@@ -916,6 +947,8 @@ MongoDB
 └── Scores
 ```
 
+Target images live in a difficulty subfolder, which is what the seed script reads to label each challenge. Images sitting directly in the challenges folder are treated as `medium`.
+
 Naming target files by hash makes uploads idempotent (upload with overwrite off; if the file exists, reuse it).
 
 **Serving images to the browser**: Dropbox paths are not public URLs. The backend exposes image endpoints (see routes) that stream the file from Dropbox. Alternatively return Dropbox temporary links (valid ~4 hours), but never store them in MongoDB.
@@ -925,7 +958,7 @@ Naming target files by hash makes uploads idempotent (upload with overwrite off;
 ## Adding a Target Image
 
 ```text
-createChallenge(imageBytes)
+createChallenge(imageBytes, difficulty)
 
 1. Calculate SHA-256 hash
 2. Search MongoDB for target.imageHash
@@ -1034,9 +1067,29 @@ Write unit tests for everything in `services/scoring/`, using the worked example
 
 ---
 
+## Accounts
+
+Each player has an account so stats are theirs rather than their browser's.
+
+- `users` collection: `{ _id, username (unique, lowercased), displayName, passwordHash, progress: { xp, attempts, generations, streak, lastPlayedDay }, createdAt }`.
+- Passwords are hashed with bcrypt; the plain password is never stored or logged. Usernames are 3-32 characters, passwords at least 8.
+- Sign-up and login return an opaque session token (`secrets.token_urlsafe`) stored in a `sessions` collection keyed by the token hash. The client keeps it in `localStorage` and sends `Authorization: Bearer <token>`; logout deletes the session.
+- The account id is the `userId` used by Learning attempts and Battle games, so a player's history is tied to the account rather than a generated UUID.
+- Progress lives on the user document and is updated server-side by `POST /api/auth/progress`, which applies the same rules as before (score → XP, streak on consecutive UTC days, generations counted) and returns the new totals. It stays cosmetic and never feeds scoring.
+- Progress is reported as soon as an attempt is scored (not when the screen is left), and is keyed by `attemptId`: a `progress_events` document records what each attempt contributed, so re-reporting the same attempt (a retry with a better score, a reopened battle) adjusts its contribution instead of counting a second attempt. Logging out therefore cannot lose a finished attempt.
+- This is hackathon-grade auth: no email verification, password reset, or OAuth. Sessions do not expire.
+
+---
+
 ## API Routes
 
 ```http
+POST /api/auth/signup                         { username, password, displayName? } → token + user
+POST /api/auth/login                          { username, password } → token + user
+POST /api/auth/logout                         ends the session
+GET  /api/auth/me                             signed-in user + progress
+POST /api/auth/progress                       { attemptId, score, generations } → updated progress
+
 GET  /api/challenges                          list challenges (id + image URL only)
 GET  /api/challenges/:id                      challenge WITHOUT rubric
 GET  /api/challenges/:id/image                target image bytes
@@ -1045,19 +1098,75 @@ POST /api/challenges                          dev only: upload a target image
 POST /api/learning/attempts                   { challengeId, userId } → attempt
 GET  /api/learning/attempts/:id
 POST /api/learning/attempts/:id/evaluate      { prompt } → evaluation + passed
-POST /api/learning/attempts/:id/generate      { prompt } → 409 unless gate passed
+POST /api/learning/attempts/:id/generate      { prompt } → 409 only when out of generations
 
 POST /api/games                               { userId, displayName, challengeId? }
 POST /api/games/:id/join                      { userId, displayName }
 GET  /api/games/:id                           opponent details hidden until completed
 POST /api/games/:id/generate                  { userId, prompt } → one per player
 
-GET  /api/attempts/:id/generations/:n/image   generated image bytes
+GET  /api/attempts/:id/generations/:n/image?token=   generated image bytes
 ```
 
 **Never send the rubric to the client.** It is effectively the answer key.
 
+Prompts are capped at 2000 characters (`422` beyond) so a single request cannot run up tokenizer, storage, and provider cost.
+
+Generated images are as private as the attempt they belong to. Each attempt gets an unguessable `imageToken` when it is created; the image route requires it. The token reaches a client only inside a view it is allowed to see, so an opponent receives it once the game is `completed` and never before. Image access therefore rests on the token rather than the session, and a guessed attempt id or `userId` reveals nothing.
+
 Do not overbuild the API.
+
+---
+
+## Splash and Sign-In UI
+
+Every load opens on a full-screen splash: the logo mark, the wordmark, and the tagline on the dark background, fading in and clearing itself after ~1.6s (or on click). It also covers the session restore, so a returning player never sees a flash of the login form. Afterwards a signed-out player gets a centered sign-in card — username, password, one button, and a link that toggles between logging in and creating an account — and a signed-in player goes straight to the lobby, with their name, avatar, and a log-out link in the top-right of the header.
+
+---
+
+## Home Screen UI
+
+A game-style lobby, not a grid of every challenge. The player sets a difficulty once and each mode then draws a random target at that difficulty.
+
+```text
+┌───────────────────────────────────────────────┐
+│ [avatar] Kris                                 │
+│ ┌──────────────────┐ ┌──────────────────────┐ │
+│ │ Prompt Training  │ │ Prompt Royale        │ │
+│ │ (calm, navy)     │ │ (loud, electric blue)│ │
+│ │ target + arrow + │ │ PIN pad + players +  │ │
+│ │ heatmap chips    │ │ round counter        │ │
+│ │ [ Start training]│ │ [ Enter the royale ] │ │
+│ └──────────────────┘ └──────────────────────┘ │
+└───────────────────────────────────────────────┘
+```
+
+- The lobby offers two products side by side, each panel previewing its own look so the choice is visual: **Prompt Training** (the solo teaching mode, rendered in the calmer navy style) and **Prompt Royale** (the multiplayer mode, rendered in a louder electric-blue card with a PIN pad and player tags). The preview inside each panel is a static mock built from the mode's own UI pieces, not a live attempt.
+- The home screen carries nothing but the two panels: difficulty, the progress pills, and the example image all belong to Prompt Training and appear only there.
+- Difficulty is a player setting stored in the browser; it defaults to `easy`. Prompt Royale plays at whatever difficulty training last set.
+- The target is never shown before a mode starts: the training screen shows a static illustrative example of that difficulty (bundled in `frontend/public/examples/`), never a real target, so nobody can pre-read the image and pre-write a prompt. Inside a mode the target is visible as the reference to describe.
+- **Prompt Training** opens its own screen — progress pills, difficulty tabs, example image, Start — and starts a solo attempt on a random target of that difficulty. After an attempt is scored a "Next target" button starts a fresh attempt on another random target at the same difficulty, so practice is endless; leaving an attempt returns to the training screen, not home. Training holds no head-to-head play.
+- **Prompt Royale** owns all multiplayer play (what earlier versions of this spec called Battle): it creates a game, lets the server pick the random target for that difficulty, and shows the invite link.
+- If a difficulty has no targets yet, the training Start button is disabled with a "no targets at this difficulty" note.
+- Each panel carries its own short explanation, and a "How it works" line below covers the three score parts (result quality, prompt quality, efficiency) so a first-time player needs no instructions.
+
+Player progress strip: the Prompt Training screen shows three outlined pills above the difficulty picker — a day streak, grams of CO2e saved, and an XP level with a title (Novice → Prompt Master). Progress belongs to the signed-in account and lives on the user document in MongoDB: each finished attempt adds its score as XP, extends the streak when it is the next calendar day, and counts the generations used; the saving is the generations not spent against a three-per-target baseline at a rough 4.2 g CO2e per generation. The client posts finished attempts to `POST /api/auth/progress` and renders the returned totals, so stats follow the player to any browser. It is a motivational display only and never feeds scoring. The pills lift on hover and their icons animate continuously (flame flickers, leaf sways, trophy shines), as does the logo arrow; all of it stops under `prefers-reduced-motion`.
+
+Prompt composer: both modes write prompts in a ChatGPT-style composer — one rounded white container outlined in dark that holds an auto-growing borderless textarea with its action buttons inside on the bottom right (a single circular send arrow in both modes). Enter submits, Shift+Enter adds a newline, and the send button shows a spinner while it is working. In Learning there is no separate Evaluate control: the arrow evaluates the current prompt, turns green when the prompt passes (pressing it again generates the image), red when it fails, and returns to blue whenever the prompt is edited. Screens fade and rise in on entry, and images fade in when they load. Interaction polish: hover/press feedback on buttons and difficulty tabs, and results fade up on reveal with the winner card popping once.
+
+EcoPrompt card: beside the composer in both modes sits an outlined white card that updates as you type — an estimated token count, the energy it implies in mWh, the emissions in mg CO2, and everyday equivalences (share of a phone charge, seconds of a 60W bulb, number of web searches). The estimate is client-side and deliberately rough (0.002 Wh per token at 0.7 g CO2 per Wh); the backend's `o200k_base` count remains the one that scores efficiency. The card also offers **Trim filler**, which strips hype words that cost tokens without describing the target ("hyperrealistic", "8k", "masterpiece", "stunning", …) from the prompt and reports how many tokens that saves, or says there is nothing to trim.
+
+Token attention heatmap: the Challenge Analyzer now also locates every rubric criterion in the target image, as a normalized box (`region`: `x`, `y`, `width`, `height` as fractions of the image, the full image for whole-image characteristics such as style or mood). When a Learning prompt is evaluated, the evaluate response carries an `attention` array pairing each located criterion with the coverage status the evaluator judged, its category hint and weight — never the rubric description, which stays the answer key. The Learning target image then overlays those boxes: solid green where the prompt covered that part of the image, dashed yellow where it was partial, and a pulsing red box on what the prompt missed, with a chip legend below; hovering either the box or its chip highlights the pair. The overlay is tied to the evaluation of the exact prompt in the box, so editing the prompt clears it. Challenges seeded before this feature have no regions and simply show the plain target.
+
+X-ray comparison: once a Learning attempt has a generated image, the target and the result are shown in one frame with a drag handle instead of side by side — dragging wipes between the target (left of the handle) and your generation (right of it), so differences line up pixel for pixel.
+
+Battle result screen: while a game is active no scores are shown — after a player generates, the panel only confirms the image is in and says scores are revealed once the opponent finishes. When the game completes, both players' generated images are shown side by side in outlined cards with their score breakdown and prompt, and the winner's card is highlighted in green with a "winner" label (a draw is labelled below the cards).
+
+Visual style: a dark technology look — near-black background (`#04060e`) with a live circuit backdrop (`frontend/src/components/Backdrop.tsx`, fixed behind everything): a faint wire grid (`frontend/public/grid.svg`) drifting across the viewport, etched circuit traces with cyan current pulses running along them, glowing particles floating upward, a slow scan sweep, and three blue glows that breathe behind the content, light text (`#eaf4ff`), thin blue-grey hairline borders, and strictly rectangular corners (2px) on every panel, button, tab, and input. Accents are blue: electric cyan `#4cc3ff` for highlights and the Royale card, `#2f9fff` for primary buttons, with green `#35d39a`, amber `#ffc441`, and red `#ff5a6e` reserved for pass/partial/fail signals. The whole scene is finished like a CRT — fine rolling scanlines and a soft tube vignette over the backdrop. The player name and avatar sit in the top-right of the header, the wordmark is Fredoka, body type is Plus Jakarta Sans at a large base size, and machine-ish labels (mode kickers, chips, the PIN pad, the composer preview) are IBM Plex Mono.
+
+The two home panels are one family: the same frame, background, type scale and breathing corner brackets, with a `--mode` colour as the only difference (`#2f9fff` for Prompt Training, `#4cc3ff` for Prompt Royale) driving the kicker, heading, brackets and arcade-style button. Each panel's preview is its own little CRT — phosphor tint, scanlines, and a slow flicker — so Training and Royale read as two screens in one cabinet rather than two products.
+
+AI agent: a blue robot mascot named **Forward** (`frontend/public/agent.png`) sits in a bar directly under the header on every screen, hovering gently over a pulsing sonar ring, with a short line of guidance beside it. The line is chosen by the current screen — a greeting and the choice of products on home, difficulty advice on training, how the arrow and heatmap work inside an attempt, the quality-per-token rule in Royale — and is typed out character by character behind a blinking caret while the robot rocks as if talking, then rotates to the next of that screen's two or three lines. The agent is purely a guide: it never scores, never calls a model, and all of its motion (and the background's) stops under `prefers-reduced-motion`.
 
 ---
 
@@ -1075,11 +1184,11 @@ Do not overbuild the API.
 │ [                                 ] │
 │ [                                 ] │
 │                                     │
-│          [ Evaluate Prompt ]        │
+│                             ( ↑ )   │
 └─────────────────────────────────────┘
 ```
 
-Editing the prompt after a pass disables **Generate** until it is re-evaluated.
+The arrow is the only control: blue it evaluates, green it generates, red the prompt still fails. Editing the prompt after a pass returns it to blue, so generation always follows a fresh evaluation.
 
 If it fails:
 
@@ -1227,7 +1336,7 @@ Only the generator and result evaluator change. For now, just keep `type` checks
 - Automatic Challenge Analyzer with rubric validation
 - Stored challenge rubric
 - Prompt Evaluator
-- Learning Mode prompt gate (server-enforced)
+- Learning Mode inline prompt scoring on generate
 - Prompt feedback
 - Image generation + generated image storage
 - Result Evaluator
