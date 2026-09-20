@@ -192,6 +192,7 @@ export function LearningMode({
               label="Write a prompt"
               value={prompt}
               placeholder="Describe the target image so an image model can recreate it."
+              disabled={busy}
               onChange={setPrompt}
               onSubmit={generateImage}
               submitDisabled={!prompt.trim() || busy}

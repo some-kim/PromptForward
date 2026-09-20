@@ -101,7 +101,10 @@ async def generate_learning_image(attempt_id: str, body: PromptRequest) -> dict:
     challenge = await db.challenges().find_one({"_id": attempt["challengeId"]})
 
     if _awaiting_submission(attempt):
-        return _generated_view(await submit_attempt(attempt["_id"]), challenge, body.prompt)
+        # The image being finalized was made from the stored prompt, not whatever the client
+        # sends with the retry.
+        finalized_prompt = attempt["generations"][-1]["prompt"]
+        return _generated_view(await submit_attempt(attempt["_id"]), challenge, finalized_prompt)
 
     # A weak prompt still generates: the lesson is seeing what it produces, and the score keeps
     # prompt quality and image quality side by side.
