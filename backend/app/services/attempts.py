@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import secrets
 import uuid
 from datetime import datetime, timezone
@@ -125,9 +126,27 @@ async def reserve_generation(attempt_id: ObjectId, *, limit: int, gate_prompt: s
     return int(updated["generationSequence"])
 
 
-async def release_generation(attempt_id: ObjectId) -> None:
-    """A failed generation never consumes a slot."""
-    await db.attempts().update_one({"_id": attempt_id}, {"$inc": {"reservedGenerations": -1}})
+async def release_generation(attempt_id: ObjectId, generation_number: int) -> None:
+    """A failed generation never consumes a slot.
+
+    The refund is conditional on that generation never being appended, so a request cancelled
+    just after the image was committed keeps its slot instead of handing out a free extra one.
+    """
+    await db.attempts().update_one(
+        {"_id": attempt_id, "generations.number": {"$ne": generation_number}},
+        {"$inc": {"reservedGenerations": -1}},
+    )
+
+
+# Detached refunds keep a strong reference until they finish, or the loop may collect them.
+_REFUNDS: set[asyncio.Task[None]] = set()
+
+
+def release_generation_detached(attempt_id: ObjectId, generation_number: int) -> None:
+    """Refund a slot from a task that is already cancelled, where awaiting is not an option."""
+    task = asyncio.create_task(release_generation(attempt_id, generation_number))
+    _REFUNDS.add(task)
+    task.add_done_callback(_REFUNDS.discard)
 
 
 async def run_generation(

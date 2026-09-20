@@ -445,6 +445,38 @@ class TestGameMode:
         assert mine["attempt"]["generations"][0]["prompt"] == STRONG_PROMPT
         assert mine["attempt"]["scores"]["promptQuality"] is not None
 
+    async def test_failed_submission_can_be_retried(self, client, monkeypatch):
+        from app.routes import games as games_route
+
+        challenge_id = await create_challenge(client)
+        game_id = (
+            await client.post(
+                "/api/games",
+                json={"userId": "p1", "displayName": "Kris", "challengeId": challenge_id},
+            )
+        ).json()["id"]
+        await client.post(f"/api/games/{game_id}/join", json={"userId": "p2", "displayName": "Sam"})
+
+        working_submit = games_route.submit_attempt
+
+        async def failing_submit(attempt_id):
+            raise RuntimeError("Mongo is down")
+
+        monkeypatch.setattr(games_route, "submit_attempt", failing_submit)
+        with pytest.raises(RuntimeError):
+            await client.post(
+                f"/api/games/{game_id}/generate", json={"userId": "p1", "prompt": STRONG_PROMPT}
+            )
+
+        monkeypatch.setattr(games_route, "submit_attempt", working_submit)
+        retried = await client.post(
+            f"/api/games/{game_id}/generate", json={"userId": "p1", "prompt": STRONG_PROMPT}
+        )
+        assert retried.status_code == 200
+        mine = next(p for p in retried.json()["players"] if p["isYou"])
+        assert len(mine["attempt"]["generations"]) == 1
+        assert mine["attempt"]["status"] == "submitted"
+
     async def test_oversized_prompts_are_rejected(self, client):
         challenge_id = await create_challenge(client)
         game_id = (

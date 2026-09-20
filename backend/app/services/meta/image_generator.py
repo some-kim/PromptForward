@@ -61,7 +61,9 @@ async def generate_image(prompt: str, aspect_ratio: str) -> GeneratedImage:
 
     started = time.monotonic()
     try:
-        async with httpx.AsyncClient(timeout=config.meta.timeout_ms / 1000) as client:
+        async with httpx.AsyncClient(
+            timeout=config.meta.timeout_ms / 1000, follow_redirects=False
+        ) as client:
             response = await client.post(
                 f"{config.meta.base_url}/images/generations",
                 headers={"Authorization": f"Bearer {config.meta.api_key}"},

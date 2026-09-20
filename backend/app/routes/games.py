@@ -19,6 +19,7 @@ from app.services.attempts import (
     create_attempt,
     record_prompt_evaluation,
     release_generation,
+    release_generation_detached,
     reserve_generation,
     run_generation,
     submit_attempt,
@@ -140,6 +141,13 @@ async def generate_game_image(game_id: str, body: GenerateRequest) -> dict:
     if unscored is not None:
         return await _score_prompt(game, attempt, challenge, unscored)
 
+    # A retry after finalization failed mid-way: the image and its evaluation are already
+    # stored, so only submission and game completion still have to happen.
+    if attempt.get("generations") and attempt["status"] != "submitted":
+        await submit_attempt(attempt["_id"])
+        await _complete_if_ready(game["_id"])
+        return await _view(game["_id"], body.userId)
+
     try:
         generation_number = await reserve_generation(
             attempt["_id"], limit=GAME_GENERATION_LIMIT, gate_prompt=None
@@ -160,13 +168,19 @@ async def generate_game_image(game_id: str, body: GenerateRequest) -> dict:
             prompt_evaluation=None,
         )
     )
-    evaluation, generated = await asyncio.gather(
-        evaluation_task, generation_task, return_exceptions=True
-    )
+    try:
+        evaluation, generated = await asyncio.gather(
+            evaluation_task, generation_task, return_exceptions=True
+        )
+    except asyncio.CancelledError:
+        # A disconnected player must not burn their single generation; the refund runs detached
+        # because this task is already being torn down, and it no-ops if the image did land.
+        release_generation_detached(attempt["_id"], generation_number)
+        raise
 
     if isinstance(generated, BaseException):
         # No image was stored, so the slot is refunded and the player may try again.
-        await release_generation(attempt["_id"])
+        await release_generation(attempt["_id"], generation_number)
         raise HTTPException(status_code=502, detail=str(generated)) from generated
 
     if isinstance(evaluation, BaseException):

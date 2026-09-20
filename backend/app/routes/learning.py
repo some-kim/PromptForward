@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
@@ -15,6 +17,7 @@ from app.services.attempts import (
     create_attempt,
     record_prompt_evaluation,
     release_generation,
+    release_generation_detached,
     reserve_generation,
     run_generation,
     submit_attempt,
@@ -107,8 +110,13 @@ async def generate_learning_image(attempt_id: str, body: PromptRequest) -> dict:
             prompt_evaluation=prompt_evaluation,
         )
     except GenerationFailed as error:
-        await release_generation(attempt["_id"])
+        await release_generation(attempt["_id"], generation_number)
         raise HTTPException(status_code=502, detail=str(error)) from error
+    except asyncio.CancelledError:
+        # A disconnected client must not burn a generation; the refund runs detached because
+        # this task is already being torn down.
+        release_generation_detached(attempt["_id"], generation_number)
+        raise
 
     return attempt_view(await submit_attempt(attempt["_id"]))
 
