@@ -12,6 +12,7 @@ from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
 from app import db
+from app.services.problems import record_problem_result
 
 USERNAME_MIN = 3
 USERNAME_MAX = 32
@@ -133,10 +134,12 @@ async def record_attempt(user: dict, attempt_id: str, score: float, generations:
         "generations": used,
     }
 
+    first_report = True
     try:
         await db.progress_events().insert_one(event)
         deltas = {"progress.xp": xp, "progress.attempts": 1, "progress.generations": used}
     except DuplicateKeyError:
+        first_report = False
         applied = await db.progress_events().find_one_and_update(
             {"_id": event["_id"]},
             {"$set": {"xp": xp, "generations": used}},
@@ -146,6 +149,11 @@ async def record_attempt(user: dict, attempt_id: str, score: float, generations:
             "progress.attempts": 0,
             "progress.generations": used - int(applied["generations"]),
         }
+
+    if ObjectId.is_valid(attempt_id):
+        attempt = await db.attempts().find_one({"_id": ObjectId(attempt_id)}, {"challengeId": 1})
+        if attempt is not None:
+            await record_problem_result(user["_id"], attempt, score, first_report=first_report)
 
     updated = await db.users().find_one_and_update(
         {"_id": user["_id"]},

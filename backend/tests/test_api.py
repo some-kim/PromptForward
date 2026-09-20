@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import uuid
 
 import pytest
@@ -729,3 +730,120 @@ class TestAccounts:
 
         assert (await client.post("/api/auth/logout", headers=headers)).status_code == 204
         assert (await client.get("/api/auth/me", headers=headers)).status_code == 401
+
+
+PROBLEM = {
+    "slug": "umbrella-in-the-rain",
+    "title": "Umbrella in the rain",
+    "skill": "setting",
+    "order": 3,
+    "tests": "Naming the street and the weather, not just the umbrella.",
+    "hints": ["Where is the umbrella?", "What time of day is it, and what is the weather?"],
+    "referencePrompt": STRONG_PROMPT,
+}
+
+
+async def create_problem(client: AsyncClient, color: str = "yellow", **overrides) -> str:
+    response = await client.post(
+        "/api/challenges",
+        files={"image": ("target.png", png_bytes(color=color), "image/png")},
+        data={"difficulty": "easy", "problem": json.dumps({**PROBLEM, **overrides})},
+    )
+    assert response.status_code == 201, response.text
+    return response.json()["id"]
+
+
+class TestProblems:
+    async def test_problem_metadata_is_listed_without_hints_or_reference(self, client):
+        problem_id = await create_problem(client)
+        await create_challenge(client, color="green")
+
+        listed = (await client.get("/api/problems")).json()
+        assert [problem["id"] for problem in listed["problems"]] == [problem_id]
+        problem = listed["problems"][0]
+        assert problem["title"] == "Umbrella in the rain"
+        assert problem["skill"] == "setting"
+        assert problem["status"] == "unsolved"
+        assert problem["bestScore"] is None
+        assert problem["hintCount"] == 2
+        assert "Where is the umbrella" not in listed and STRONG_PROMPT not in str(listed)
+        setting = next(skill for skill in listed["skills"] if skill["skill"] == "setting")
+        assert (setting["total"], setting["solved"]) == (1, 0)
+
+        by_skill = (await client.get("/api/challenges", params={"skill": "setting"})).json()
+        assert [challenge["id"] for challenge in by_skill] == [problem_id]
+        assert by_skill[0]["problem"]["title"] == "Umbrella in the rain"
+
+    async def test_relabeling_an_existing_image_does_not_reanalyze(self, client):
+        first = await create_problem(client)
+        second = await create_problem(client, title="Renamed")
+        assert first == second
+        detail = (await client.get(f"/api/challenges/{first}")).json()
+        assert detail["problem"]["title"] == "Renamed"
+
+    async def test_hints_unlock_per_weak_prompt_and_reference_after_solving(self, client):
+        problem_id = await create_problem(client)
+        created = await client.post(
+            "/api/learning/attempts", json={"challengeId": problem_id, "userId": "player-1"}
+        )
+        coaching = created.json()["coaching"]
+        assert coaching["hints"] == []
+        assert coaching["hintsRemaining"] == 2
+        assert coaching["referencePrompt"] is None
+        attempt_id = created.json()["id"]
+
+        weak = await client.post(
+            f"/api/learning/attempts/{attempt_id}/evaluate", json={"prompt": WEAK_PROMPT}
+        )
+        assert weak.json()["coaching"]["hints"] == ["Where is the umbrella?"]
+        assert weak.json()["coaching"]["referencePrompt"] is None
+
+        strong = await client.post(
+            f"/api/learning/attempts/{attempt_id}/evaluate", json={"prompt": STRONG_PROMPT}
+        )
+        assert len(strong.json()["coaching"]["hints"]) == 1
+
+        generated = await client.post(
+            f"/api/learning/attempts/{attempt_id}/generate", json={"prompt": STRONG_PROMPT}
+        )
+        coaching = generated.json()["coaching"]
+        assert coaching["solved"] is True
+        assert coaching["referencePrompt"] == STRONG_PROMPT
+
+    async def test_progress_marks_problems_solved_per_account(self, client):
+        problem_id = await create_problem(client)
+        attempt_id = (
+            await client.post(
+                "/api/learning/attempts", json={"challengeId": problem_id, "userId": "player-1"}
+            )
+        ).json()["id"]
+        signup = await client.post(
+            "/api/auth/signup", json={"username": "kris", "password": "hunter2hunter2"}
+        )
+        headers = {"Authorization": f"Bearer {signup.json()['token']}"}
+
+        await client.post(
+            "/api/auth/progress",
+            json={"attemptId": attempt_id, "score": 55, "generations": 1},
+            headers=headers,
+        )
+        listed = (await client.get("/api/problems", headers=headers)).json()
+        assert listed["problems"][0]["status"] == "attempted"
+        assert listed["problems"][0]["bestScore"] == 55
+        assert listed["problems"][0]["attempts"] == 1
+
+        # A retry of the same attempt raises the best score without counting twice.
+        await client.post(
+            "/api/auth/progress",
+            json={"attemptId": attempt_id, "score": 84, "generations": 2},
+            headers=headers,
+        )
+        listed = (await client.get("/api/problems", headers=headers)).json()
+        assert listed["problems"][0]["status"] == "solved"
+        assert listed["problems"][0]["bestScore"] == 84
+        assert listed["problems"][0]["attempts"] == 1
+        setting = next(skill for skill in listed["skills"] if skill["skill"] == "setting")
+        assert setting["solved"] == 1
+
+        anonymous = (await client.get("/api/problems")).json()
+        assert anonymous["problems"][0]["status"] == "unsolved"

@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import ConfigError, get_config
 from app.db import close_client, ensure_indexes
-from app.routes import auth, challenges, games, images, learning
+from app.routes import auth, challenges, games, images, learning, problems
 
 try:
     config = get_config()
@@ -38,6 +38,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(challenges.router)
 app.include_router(learning.router)
+app.include_router(problems.router)
 app.include_router(games.router)
 app.include_router(images.router)
 

@@ -25,6 +25,7 @@ from app.services.attempts import (
 from app.services.challenges import rubric_of
 from app.services.openai.client import LLMResponseError
 from app.services.openai.prompt_evaluator import evaluate_prompt
+from app.services.problems import coaching_view
 from app.services.scoring.token_counter import count_prompt_tokens
 
 router = APIRouter(prefix="/api/learning", tags=["learning"])
@@ -56,12 +57,14 @@ async def create_learning_attempt(body: CreateAttemptRequest) -> dict:
         display_name=body.displayName,
         mode="learning",
     )
-    return attempt_view(attempt)
+    return _coached_view(attempt, challenge)
 
 
 @router.get("/attempts/{attempt_id}")
 async def get_learning_attempt(attempt_id: str) -> dict:
-    return attempt_view(await _load(attempt_id))
+    attempt = await _load(attempt_id)
+    challenge = await db.challenges().find_one({"_id": attempt["challengeId"]})
+    return _coached_view(attempt, challenge)
 
 
 @router.post("/attempts/{attempt_id}/evaluate")
@@ -84,6 +87,7 @@ async def evaluate_learning_prompt(attempt_id: str, body: PromptRequest) -> dict
         "generationsRemaining": max(
             0, LEARNING_GENERATION_LIMIT - attempt.get("reservedGenerations", 0)
         ),
+        "coaching": coaching_view(challenge, await _load(attempt_id)),
     }
 
 
@@ -93,7 +97,7 @@ async def generate_learning_image(attempt_id: str, body: PromptRequest) -> dict:
     challenge = await db.challenges().find_one({"_id": attempt["challengeId"]})
 
     if _awaiting_submission(attempt):
-        return attempt_view(await submit_attempt(attempt["_id"]))
+        return _coached_view(await submit_attempt(attempt["_id"]), challenge)
 
     # A weak prompt still generates: the lesson is seeing what it produces, and the score keeps
     # prompt quality and image quality side by side.
@@ -127,7 +131,11 @@ async def generate_learning_image(attempt_id: str, body: PromptRequest) -> dict:
         await release_generation(attempt["_id"], generation_number)
         raise
 
-    return attempt_view(await submit_attempt(attempt["_id"]))
+    return _coached_view(await submit_attempt(attempt["_id"]), challenge)
+
+
+def _coached_view(attempt: dict, challenge: dict) -> dict:
+    return {**attempt_view(attempt), "coaching": coaching_view(challenge, attempt)}
 
 
 def _awaiting_submission(attempt: dict) -> bool:
