@@ -2322,10 +2322,11 @@ button.big:hover:not(:disabled) {
 .battle-intro {
   position: fixed;
   inset: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   z-index: 40;
   display: grid;
-  align-content: center;
+  align-content: safe center;
   justify-items: center;
   gap: 0.8rem;
   padding: 2rem;
