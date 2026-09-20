@@ -101,7 +101,7 @@ async def generate_learning_image(attempt_id: str, body: PromptRequest) -> dict:
     challenge = await db.challenges().find_one({"_id": attempt["challengeId"]})
 
     if _awaiting_submission(attempt):
-        return _coached_view(await submit_attempt(attempt["_id"]), challenge)
+        return _generated_view(await submit_attempt(attempt["_id"]), challenge, body.prompt)
 
     # A weak prompt still generates: the lesson is seeing what it produces, and the score keeps
     # prompt quality and image quality side by side.
@@ -135,7 +135,23 @@ async def generate_learning_image(attempt_id: str, body: PromptRequest) -> dict:
         await release_generation(attempt["_id"], generation_number)
         raise
 
-    return _coached_view(await submit_attempt(attempt["_id"]), challenge)
+    return _generated_view(await submit_attempt(attempt["_id"]), challenge, body.prompt)
+
+
+def _generated_view(attempt: dict, challenge: dict, prompt: str) -> dict:
+    """The scored attempt plus the prompt's own evaluation, so one press shows both."""
+    view = _coached_view(attempt, challenge)
+    for entry in reversed(attempt.get("promptEvaluations", [])):
+        if entry["prompt"] == prompt:
+            evaluation = _evaluation_model(entry)
+            view["promptEvaluation"] = {
+                **prompt_evaluation_view(
+                    {**evaluation.model_dump(), "promptTokens": count_prompt_tokens(prompt)}
+                ),
+                "attention": attention_view(rubric_of(challenge), evaluation.criteria),
+            }
+            break
+    return view
 
 
 def _coached_view(attempt: dict, challenge: dict) -> dict:

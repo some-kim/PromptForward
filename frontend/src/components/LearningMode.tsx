@@ -13,7 +13,6 @@ import { Composer, SendButton } from "./Composer";
 import { EcoPrompt } from "./EcoPrompt";
 import { XraySlider } from "./XraySlider";
 import { AttentionHeatmap } from "./AttentionHeatmap";
-import { round } from "../format";
 
 type Props = {
   challenge: Challenge;
@@ -36,7 +35,7 @@ export function LearningMode({
   const [prompt, setPrompt] = useState("");
   const [evaluation, setEvaluation] = useState<PromptEvaluation | null>(null);
   const [evaluatedPrompt, setEvaluatedPrompt] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"evaluating" | "generating" | null>(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // The coach's latest release: every response carries it, so the newest one wins.
   const [coaching, setCoaching] = useState<Coaching | null>(
@@ -44,32 +43,20 @@ export function LearningMode({
   );
 
   const evaluated = evaluatedPrompt === prompt ? evaluation : null;
-  // Any checked prompt may generate; a weak one is a lesson, not a block.
-  const readyToGenerate = evaluated !== null;
   // Stale boxes would lie about the prompt in the box, so the overlay follows the live evaluation.
   const attention = evaluated?.attention ?? [];
 
-  async function evaluatePrompt() {
-    setBusy("evaluating");
-    setError(null);
-    try {
-      const result = await api.evaluatePrompt(attempt.id, prompt);
-      setEvaluation(result);
-      setEvaluatedPrompt(prompt);
-      if (result.coaching) setCoaching(result.coaching);
-    } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : String(caught));
-    } finally {
-      setBusy(null);
-    }
-  }
-
+  // One press scores the prompt and the image it produces; a weak prompt is a lesson, not a block.
   async function generateImage() {
-    setBusy("generating");
+    setBusy(true);
     setError(null);
     try {
       const scored = await api.generateLearningImage(attempt.id, prompt);
       setAttempt(scored);
+      if (scored.promptEvaluation) {
+        setEvaluation(scored.promptEvaluation);
+        setEvaluatedPrompt(prompt);
+      }
       if (scored.coaching) setCoaching(scored.coaching);
       if (scored.status === "submitted") {
         onScored(
@@ -79,11 +66,9 @@ export function LearningMode({
         );
       }
     } catch (caught) {
-      // The evaluation survives: the prompt is unchanged, and re-scoring it would count a
-      // second failed evaluation against efficiency.
       setError(caught instanceof ApiError ? caught.message : String(caught));
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   }
 
@@ -150,9 +135,29 @@ export function LearningMode({
       {attempt.status === "submitted" ? (
         <div className="results">
           <Scoreboard attempt={attempt} showFinal />
+          {evaluated && (
+            <div
+              className={`evaluation ${evaluated.passed ? "passed" : "failed"}`}
+            >
+              <p className="score">
+                {evaluated.passed ? "✓ Strong prompt" : "Weak prompt"}
+              </p>
+              {!coaching && evaluated.needsImprovement.length > 0 && (
+                <>
+                  <p>Needs improvement:</p>
+                  <ul>
+                    {evaluated.needsImprovement.map((hint) => (
+                      <li key={hint}>{hint}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              <p className="feedback">{evaluated.feedback}</p>
+            </div>
+          )}
           {selected?.resultFeedback && (
             <p className="feedback">
-              <strong>Feedback</strong>
+              <strong>Image feedback</strong>
               <br />
               {selected.resultFeedback}
             </p>
@@ -188,65 +193,27 @@ export function LearningMode({
               value={prompt}
               placeholder="Describe the target image so an image model can recreate it."
               onChange={setPrompt}
-              onSubmit={readyToGenerate ? generateImage : evaluatePrompt}
-              submitDisabled={!prompt.trim() || busy !== null}
+              onSubmit={generateImage}
+              submitDisabled={!prompt.trim() || busy}
               actions={
                 <SendButton
-                  busy={busy !== null}
+                  busy={busy}
                   tone={
                     evaluated ? (evaluated.passed ? "pass" : "fail") : "neutral"
                   }
-                  title={
-                    readyToGenerate
-                      ? "Generate image with this prompt"
-                      : "Check this prompt"
-                  }
-                  disabled={!prompt.trim() || busy !== null}
-                  onClick={readyToGenerate ? generateImage : evaluatePrompt}
+                  title="Generate and score this prompt"
+                  disabled={!prompt.trim() || busy}
+                  onClick={generateImage}
                 />
               }
             />
-            <EcoPrompt
-              prompt={prompt}
-              onChange={setPrompt}
-              disabled={busy !== null}
-            />
+            <EcoPrompt prompt={prompt} onChange={setPrompt} disabled={busy} />
           </div>
           {busy && (
             <p className="hint">
-              {busy === "evaluating"
-                ? "Checking your prompt… the evaluator can take up to ~30 s."
-                : "Generating and scoring… this can take a minute."}
+              Scoring your prompt, then generating and scoring the image… this
+              can take a minute.
             </p>
-          )}
-
-          {evaluation && (
-            <div
-              className={`evaluation ${evaluation.passed ? "passed" : "failed"}`}
-            >
-              <p className="score">
-                Prompt Quality: {round(evaluation.promptQuality)}
-              </p>
-              {evaluated ? (
-                <p>
-                  {evaluation.passed ? "✓ Strong prompt" : "Weak prompt"} —
-                  press the arrow again to generate
-                </p>
-              ) : (
-                <p>Prompt changed — check it again.</p>
-              )}
-              {!coaching && evaluation.needsImprovement.length > 0 && (
-                <>
-                  <p>Needs improvement:</p>
-                  <ul>
-                    {evaluation.needsImprovement.map((hint) => (
-                      <li key={hint}>{hint}</li>
-                    ))}
-                  </ul>
-                </>
-              )}
-              <p className="feedback">{evaluation.feedback}</p>
-            </div>
           )}
         </div>
       )}
