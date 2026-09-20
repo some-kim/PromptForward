@@ -415,10 +415,18 @@ async def _run_round(
             {"_id": attempt_id}, {"$set": {"lastError": str(evaluation)}}
         )
     else:
+        # Retried apart from each other: each write is idempotent on its own, the pair is not.
         await _finalize(
             attempt_id,
             "The prompt evaluation could not be stored",
-            lambda: _store_evaluation(attempt_id, generation_number, prompt, evaluation),
+            lambda: record_prompt_evaluation(
+                attempt_id, prompt, evaluation, key=str(generation_number)
+            ),
+        )
+        await _finalize(
+            attempt_id,
+            "The prompt evaluation could not be attached to the image",
+            lambda: _attach_evaluation(attempt_id, generation_number, evaluation),
         )
 
     # Scored even when the evaluation was lost: the generation is spent either way, and an
@@ -432,7 +440,7 @@ async def _run_round(
 async def _finalize(
     attempt_id: ObjectId, message: str, write: Callable[[], Awaitable[Any]]
 ) -> bool:
-    """Run one post-generation write, retrying transient failures. Both writes are idempotent."""
+    """Run one idempotent post-generation write, retrying transient failures."""
     for remaining in reversed(range(FINALIZE_ATTEMPTS)):
         try:
             await write()
@@ -448,10 +456,9 @@ async def _finalize(
     return False
 
 
-async def _store_evaluation(
-    attempt_id: ObjectId, generation_number: int, prompt: str, evaluation: PromptEvaluation
+async def _attach_evaluation(
+    attempt_id: ObjectId, generation_number: int, evaluation: PromptEvaluation
 ) -> None:
-    await record_prompt_evaluation(attempt_id, prompt, evaluation)
     await db.attempts().update_one(
         {"_id": attempt_id, "generations.number": generation_number},
         {"$set": {"generations.$.promptEvaluation": evaluation.model_dump()}},

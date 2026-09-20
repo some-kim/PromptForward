@@ -966,6 +966,38 @@ class TestBattleImages:
         assert attempt["status"] == "submitted"
         assert attempt["scores"]["final"] > 0
 
+    async def test_a_retried_round_records_its_evaluation_once(self, client, monkeypatch):
+        from app import db
+        from app.services import battles
+
+        monkeypatch.setattr(battles, "FINALIZE_BACKOFF_SECONDS", 0)
+        calls = 0
+        original = battles._attach_evaluation
+
+        async def flaky_attach(attempt_id, generation_number, evaluation):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise RuntimeError("mongo went away")
+            return await original(attempt_id, generation_number, evaluation)
+
+        monkeypatch.setattr(battles, "_attach_evaluation", flaky_attach)
+
+        await seed_defaults(client, 4)
+        battle_id, host, _ = await quick_battle(client, images_per_player=2)
+        await client.post(
+            f"/api/games/{battle_id}/rounds/0/prompt",
+            json={"userId": host, "prompt": STRONG_PROMPT},
+        )
+        await drain(battle_id)
+
+        game = await db.games().find_one({"_id": ObjectId(battle_id)})
+        player = next(one for one in game["players"] if one["userId"] == host)
+        attempt = await db.attempts().find_one({"_id": player["attemptIds"][0]})
+        assert calls == 2
+        assert len(attempt["promptEvaluations"]) == 1
+        assert attempt["generations"][0]["promptEvaluation"] is not None
+
     async def test_oversized_prompts_are_rejected(self, client):
         await seed_defaults(client, 4)
         battle_id, host, _ = await quick_battle(client, images_per_player=2)

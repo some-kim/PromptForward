@@ -68,17 +68,24 @@ async def create_attempt(
 
 
 async def record_prompt_evaluation(
-    attempt_id: ObjectId, prompt: str, evaluation: PromptEvaluation
+    attempt_id: ObjectId, prompt: str, evaluation: PromptEvaluation, *, key: str | None = None
 ) -> None:
-    """Store the evaluation and the gate state the server checks before generating."""
+    """Store the evaluation and the gate state the server checks before generating.
+
+    `key` names this evaluation so a retried call appends it once instead of twice.
+    """
     entry = {
         "prompt": prompt,
         "promptTokens": count_prompt_tokens(prompt),
         **evaluation.model_dump(),
         "createdAt": now(),
     }
+    query: dict[str, Any] = {"_id": attempt_id}
+    if key is not None:
+        entry["key"] = key
+        query["promptEvaluations.key"] = {"$ne": key}
     await db.attempts().update_one(
-        {"_id": attempt_id},
+        query,
         {
             "$push": {"promptEvaluations": entry},
             "$set": {
