@@ -26,22 +26,11 @@ html {
 }
 
 body {
+  position: relative;
   margin: 0;
   font-size: 1.05rem;
   line-height: 1.6;
-  background:
-    radial-gradient(
-      1200px 700px at 50% 120%,
-      rgb(47 159 255 / 22%),
-      transparent 70%
-    ),
-    url("/grid.svg") repeat,
-    var(--bg);
-  background-size:
-    auto,
-    40px 40px,
-    auto;
-  background-attachment: fixed;
+  background: var(--bg);
   color: var(--text);
   font-family:
     "Plus Jakarta Sans",
@@ -49,6 +38,63 @@ body {
     -apple-system,
     "Segoe UI",
     sans-serif;
+}
+
+/* Drifting wire grid plus the two glows that breathe behind the content. */
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  inset: -50vmax;
+  pointer-events: none;
+  z-index: -1;
+}
+
+body::before {
+  background: url("/grid.svg") repeat;
+  background-size: 40px 40px;
+  animation: grid-drift 24s linear infinite;
+}
+
+body::after {
+  background:
+    radial-gradient(
+      900px 600px at 50% 110%,
+      rgb(47 159 255 / 26%),
+      transparent 70%
+    ),
+    radial-gradient(
+      600px 500px at 12% 18%,
+      rgb(76 195 255 / 14%),
+      transparent 70%
+    ),
+    radial-gradient(
+      700px 500px at 88% 8%,
+      rgb(47 159 255 / 12%),
+      transparent 70%
+    );
+  animation: glow-breathe 14s ease-in-out infinite;
+}
+
+@keyframes grid-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-40px, -40px, 0);
+  }
+}
+
+@keyframes glow-breathe {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
 }
 
 main {
@@ -1302,19 +1348,86 @@ button.big:hover:not(:disabled) {
   border-left: 2px solid var(--accent);
 }
 
+.agent-bot-wrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+/* Sonar ring that keeps pulsing out from under the robot. */
+.agent-bot-wrap::after {
+  content: "";
+  position: absolute;
+  bottom: 0.2rem;
+  width: 3.4rem;
+  height: 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  animation: sonar 2.6s ease-out infinite;
+}
+
 .agent-bot {
+  position: relative;
   width: 5.5rem;
   height: 5.5rem;
-  flex: none;
   object-fit: contain;
   filter: drop-shadow(0 0 14px rgb(76 195 255 / 45%));
   animation: hover-bob 3.4s ease-in-out infinite;
+}
+
+.agent-bot.talking {
+  animation:
+    hover-bob 3.4s ease-in-out infinite,
+    chatter 0.42s ease-in-out infinite;
 }
 
 .agent-bubble {
   display: grid;
   gap: 0.15rem;
   animation: rise 0.3s ease both;
+}
+
+.agent-caret {
+  display: inline-block;
+  width: 0.5rem;
+  height: 1.05em;
+  margin-left: 2px;
+  vertical-align: -0.18em;
+  background: var(--accent);
+  animation: caret-blink 1s steps(1) infinite;
+}
+
+@keyframes caret-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes chatter {
+  0%,
+  100% {
+    transform: rotate(-1.5deg) scale(1);
+  }
+  50% {
+    transform: rotate(1.5deg) scale(1.03);
+  }
+}
+
+@keyframes sonar {
+  0% {
+    opacity: 0.7;
+    transform: scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
 }
 
 .agent-bubble p {
@@ -1342,7 +1455,12 @@ button.big:hover:not(:disabled) {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .agent-bot {
+  .agent-bot,
+  .agent-bot.talking,
+  .agent-bot-wrap::after,
+  .agent-caret,
+  body::before,
+  body::after {
     animation: none;
   }
 }
